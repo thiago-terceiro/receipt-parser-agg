@@ -1,6 +1,8 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+
+import type { AvailableModel } from "../lib/receipt";
 
 type ReceiptItem = {
   item: string;
@@ -14,12 +16,70 @@ type ExtractionResponse = {
   rawResponse: string;
 };
 
+type ModelCatalogResponse = {
+  defaultModelId: string;
+  models: AvailableModel[];
+  provider: string;
+  source: "router" | "fallback";
+};
+
 export default function HomePage() {
   const [file, setFile] = useState<File | null>(null);
+  const [models, setModels] = useState<AvailableModel[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [catalogSource, setCatalogSource] = useState<"router" | "fallback" | null>(null);
+  const [provider, setProvider] = useState<string>("auto");
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadModels() {
+      try {
+        const response = await fetch("/api/extract", { cache: "no-store" });
+        const payload = (await response.json()) as ModelCatalogResponse | { error?: string };
+
+        if (!response.ok || !("models" in payload)) {
+          throw new Error(
+            "error" in payload && payload.error ? payload.error : "Failed to load model list.",
+          );
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setModels(payload.models);
+        setSelectedModelId(payload.defaultModelId);
+        setCatalogSource(payload.source);
+        setProvider(payload.provider);
+      } catch (requestError) {
+        if (!isMounted) {
+          return;
+        }
+
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unexpected model catalog error.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingModels(false);
+        }
+      }
+    }
+
+    void loadModels();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
@@ -48,6 +108,7 @@ export default function HomePage() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("modelId", selectedModelId);
 
     try {
       const response = await fetch("/api/extract", {
@@ -94,6 +155,29 @@ export default function HomePage() {
               accept="image/*"
               onChange={handleFileChange}
             />
+          </label>
+          <label className="model-select-group" htmlFor="model-id">
+            <span className="input-label">Vision model</span>
+            <select
+              id="model-id"
+              className="model-select"
+              value={selectedModelId}
+              onChange={(event) => setSelectedModelId(event.target.value)}
+              disabled={isLoading || isLoadingModels || models.length === 0}
+            >
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+            <span className="hint-text">
+              {isLoadingModels
+                ? "Loading live model catalog..."
+                : catalogSource === "router"
+                  ? `Live catalog via ${provider}.`
+                  : "Using fallback model list because the live catalog is unavailable."}
+            </span>
           </label>
           <button className="submit-button" type="submit" disabled={!file || isLoading}>
             {isLoading ? "Extracting..." : "Extract receipt"}

@@ -2,13 +2,18 @@ import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
 
 import {
+    type AvailableModel,
     buildDataUrl,
     defaultModelId,
+    defaultProvider,
+    fallbackAvailableModels,
     parseReceiptItems,
     receiptPrompt,
 } from "../../../lib/receipt";
 
 export const runtime = "nodejs";
+
+const hfRouterModelsUrl = "https://router.huggingface.co/v1/models";
 
 type ChatMessageContent =
     | string
@@ -25,6 +30,122 @@ type ChatMessageContent =
         }
     >;
 
+type RouterModelProvider = {
+    provider?: string;
+    status?: string;
+};
+
+type RouterModel = {
+    id?: string;
+    architecture?: {
+        input_modalities?: string[];
+        output_modalities?: string[];
+    };
+    providers?: RouterModelProvider[];
+};
+
+type RouterModelsResponse = {
+    data?: RouterModel[];
+};
+
+function getConfiguredProvider(): string {
+    return defaultProvider;
+}
+
+function hasVisionInput(model: RouterModel): boolean {
+    const inputModalities = model.architecture?.input_modalities ?? [];
+    const outputModalities = model.architecture?.output_modalities ?? [];
+
+    return inputModalities.includes("image") && outputModalities.includes("text");
+}
+
+function buildLiveModelList(models: RouterModel[], provider: string): AvailableModel[] {
+    return models
+        .filter((model) => typeof model.id === "string" && hasVisionInput(model))
+        .map((model) => {
+            const liveProviders = (model.providers ?? [])
+                .filter((entry) => entry.status === "live")
+                .map((entry) => entry.provider)
+                .filter((entry): entry is string => typeof entry === "string" && !!entry);
+
+            return {
+                id: model.id as string,
+                label: model.id as string,
+                providers: liveProviders,
+            } satisfies AvailableModel;
+        })
+        .filter((model) =>
+            provider === "auto"
+                ? model.providers.length > 0
+                : model.providers.includes(provider),
+        )
+        .sort((left, right) => {
+            if (left.id === defaultModelId) {
+                return -1;
+            }
+
+            if (right.id === defaultModelId) {
+                return 1;
+            }
+
+            if (right.providers.length !== left.providers.length) {
+                return right.providers.length - left.providers.length;
+            }
+
+            return left.id.localeCompare(right.id);
+        });
+}
+
+async function getAvailableModels(token?: string): Promise<{
+    models: AvailableModel[];
+    source: "router" | "fallback";
+}> {
+    try {
+        const response = await fetch(hfRouterModelsUrl, {
+            headers: token
+                ? {
+                    Authorization: `Bearer ${token}`,
+                }
+                : undefined,
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Model catalog request failed with status ${response.status}.`);
+        }
+
+        const payload = (await response.json()) as RouterModelsResponse;
+        const models = buildLiveModelList(payload.data ?? [], getConfiguredProvider());
+        if (models.length === 0) {
+            throw new Error("No compatible vision models were returned by the Hugging Face router.");
+        }
+
+        return {
+            models,
+            source: "router",
+        };
+    } catch {
+        return {
+            models: fallbackAvailableModels,
+            source: "fallback",
+        };
+    }
+}
+
+export async function GET() {
+    const token = process.env.HF_TOKEN;
+    const { models, source } = await getAvailableModels(token);
+
+    return NextResponse.json({
+        models,
+        defaultModelId: models.some((model) => model.id === defaultModelId)
+            ? defaultModelId
+            : models[0]?.id ?? defaultModelId,
+        provider: getConfiguredProvider(),
+        source,
+    });
+}
+
 export async function POST(request: Request) {
     const token = process.env.HF_TOKEN;
     if (!token) {
@@ -36,6 +157,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get("file");
+    const modelIdField = formData.get("modelId");
     if (!(file instanceof File)) {
         return NextResponse.json(
             { error: "Request must include an image file under the 'file' field." },
@@ -59,8 +181,11 @@ export async function POST(request: Request) {
     }
 
     const client = new InferenceClient(token);
-    const provider = (process.env.HF_PROVIDER ?? "hf-inference") as never;
-    const model = process.env.HF_MODEL_ID ?? defaultModelId;
+    const provider = getConfiguredProvider() as never;
+    const model =
+        typeof modelIdField === "string" && modelIdField.trim()
+            ? modelIdField.trim()
+            : defaultModelId;
     const imageUrl = buildDataUrl(bytes, file.type || "image/jpeg");
 
     try {
