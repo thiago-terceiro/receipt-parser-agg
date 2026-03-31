@@ -1,6 +1,26 @@
+export const groceryCategories = [
+    "produce",
+    "dairy",
+    "bakery",
+    "meat",
+    "pantry",
+    "frozen",
+    "beverages",
+    "snacks",
+    "household",
+    "personal-care",
+    "other",
+] as const;
+
+export type GroceryCategory = (typeof groceryCategories)[number];
+
 export type ReceiptItem = {
     item: string;
-    price: number;
+    normalizedItem: string;
+    category: GroceryCategory;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
 };
 
 export type AvailableModel = {
@@ -14,6 +34,8 @@ export type ModelCatalogSource = "router" | "hub-api" | "fallback";
 const fallbackModelId = "Qwen/Qwen2.5-VL-7B-Instruct";
 const additionalDropdownModelId = "Qwen/Qwen3-VL-8B-Instruct";
 const maxModelIdLength = 128;
+
+const groceryCategorySet = new Set<GroceryCategory>(groceryCategories);
 
 export const sanitizeModelId = (value: unknown): string | null => {
     if (typeof value !== "string") {
@@ -61,19 +83,41 @@ const parseReceiptItem = (entry: unknown, index: number): ReceiptItem => {
     }
 
     const item = (entry as { name?: unknown }).name;
-    const price = (entry as { price?: unknown }).price;
+    const category = (entry as { category?: unknown }).category;
+    const quantity = (entry as { quantity?: unknown }).quantity;
+    const unitPrice = (entry as { unitPrice?: unknown }).unitPrice;
+    const lineTotal = (entry as { lineTotal?: unknown; price?: unknown }).lineTotal ??
+        (entry as { price?: unknown }).price;
 
     if (typeof item !== "string" || !item.trim()) {
         throw new Error(`Receipt item at index ${index} is missing a valid item name.`);
     }
 
-    if (typeof price !== "number") {
-        throw new Error(`Receipt item at index ${index} is missing a numeric price.`);
+    const parsedCategory = sanitizeCategory(category);
+    if (!parsedCategory) {
+        throw new Error(`Receipt item at index ${index} is missing a valid category.`);
     }
+
+    const parsedQuantity = sanitizePositiveNumber(quantity) ?? 1;
+    const parsedLineTotal = sanitizePositiveNumber(lineTotal);
+    const parsedUnitPrice = sanitizePositiveNumber(unitPrice);
+
+    if (parsedLineTotal === null && parsedUnitPrice === null) {
+        throw new Error(
+            `Receipt item at index ${index} is missing a numeric line total or unit price.`,
+        );
+    }
+
+    const resolvedLineTotal = parsedLineTotal ?? Number((parsedUnitPrice! * parsedQuantity).toFixed(2));
+    const resolvedUnitPrice = parsedUnitPrice ?? Number((resolvedLineTotal / parsedQuantity).toFixed(2));
 
     return {
         item: item.trim(),
-        price,
+        normalizedItem: normalizeItemName(item),
+        category: parsedCategory,
+        quantity: parsedQuantity,
+        unitPrice: resolvedUnitPrice,
+        lineTotal: resolvedLineTotal,
     } satisfies ReceiptItem;
 };
 
@@ -90,16 +134,31 @@ export const dropdownAvailableModels: AvailableModel[] = Array.from(
     ).values(),
 );
 
-export const receiptPrompt = `Extract all purchased items from this receipt.
+export const buildReceiptPrompt = () => `Extract all grocery items from this receipt.
 
-Return a JSON list in this format:
-[{"name": "item name", "price": 1.99}, ...]
+Return a JSON object in this format:
+{
+    "items": [
+        {
+            "name": "item name",
+            "category": "produce",
+            "quantity": 2,
+            "unitPrice": 1.99,
+            "lineTotal": 3.98
+        }
+    ]
+}
 
-Make sure to:
+Allowed categories:
+${groceryCategories.map((category) => `- ${category}`).join("\n")}
 
-- Normalize item names (e.g., BNNS -> bananas)
-- Exclude totals, taxes, discounts
-- Prices must be numbers (e.g., 1.99)`;
+Rules:
+- Only include purchased grocery or household items.
+- Exclude totals, taxes, discounts, loyalty lines, and payment rows.
+- Normalize abbreviated names into readable grocery names.
+- quantity must be a positive number. Use 1 when uncertain.
+- unitPrice and lineTotal must be numbers.
+- category must be one of the allowed categories.`;
 
 export const resolveRequestedModelId = (options: {
     manualModelId?: unknown;
@@ -123,14 +182,48 @@ export const buildDataUrl = (bytes: ArrayBuffer, mimeType: string): string => {
     return `data:${mimeType};base64,${base64}`;
 };
 
+const sanitizePositiveNumber = (value: unknown): number | null => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+        return null;
+    }
 
+    return Number(value.toFixed(2));
+};
+
+export const normalizeItemName = (value: string): string => {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+};
+
+export const formatCategoryLabel = (category: GroceryCategory): string => {
+    return category
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+};
+
+export const sanitizeCategory = (value: unknown): GroceryCategory | null => {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.trim().toLowerCase().replace(/\s+/g, "-") as GroceryCategory;
+    return groceryCategorySet.has(normalized) ? normalized : null;
+};
 
 export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
     const parsed = JSON.parse(rawResponse) as unknown;
+    const items = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { items?: unknown }).items;
 
-    if (!Array.isArray(parsed)) {
-        throw new Error("Model response must be a JSON array.");
+    if (!Array.isArray(items)) {
+        throw new Error("Model response must be a JSON object with an items array.");
     }
 
-    return parsed.map(parseReceiptItem);
+    return items.map(parseReceiptItem);
 };

@@ -1,5 +1,8 @@
 "use client";
 
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     ChangeEvent,
     DragEvent,
@@ -9,12 +12,19 @@ import {
     useState,
 } from "react";
 
-import { FileImage, Upload, X } from "lucide-react";
+import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Select,
     SelectContent,
@@ -30,12 +40,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import type { AvailableModel } from "../lib/receipt";
-
-type ReceiptItem = {
-  item: string;
-  price: number;
-};
+import {
+    formatCategoryLabel,
+    groceryCategories,
+    sanitizeCategory,
+    type AvailableModel,
+    type ReceiptItem,
+} from "../lib/receipt";
 
 type ExtractionResponse = {
   backend: string;
@@ -60,7 +71,21 @@ export const ReceiptWorkspace = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draftCategory, setDraftCategory] = useState<string>("");
+  const [draftQuantity, setDraftQuantity] = useState<string>("");
+  const [draftError, setDraftError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const [dashboardHref, setDashboardHref] = useState("/groceries");
+
+  const displayedItems = result?.items.map((item, index) => editedItems[index] ?? item) ?? [];
+  const correctedCount = Object.keys(editedItems).length;
 
   useEffect(() => {
     setSelectedModelId(defaultModelId);
@@ -78,6 +103,11 @@ export const ReceiptWorkspace = ({
     setResult(null);
     setError(null);
     setIsDraggingFile(false);
+    setSaveMessage(null);
+    setEditedItems({});
+    setEditingIndex(null);
+    setDraftError(null);
+    setDashboardHref("/groceries");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -95,6 +125,11 @@ export const ReceiptWorkspace = ({
     setFile(nextFile);
     setResult(null);
     setError(null);
+    setSaveMessage(null);
+    setEditedItems({});
+    setEditingIndex(null);
+    setDraftError(null);
+    setDashboardHref("/groceries");
     setPreviewUrl(URL.createObjectURL(nextFile));
   };
 
@@ -137,6 +172,11 @@ export const ReceiptWorkspace = ({
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setSaveMessage(null);
+    setEditedItems({});
+    setEditingIndex(null);
+    setDraftError(null);
+    setDashboardHref("/groceries");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -158,6 +198,127 @@ export const ReceiptWorkspace = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveGroceries = async () => {
+    if (!result || displayedItems.length === 0) {
+      setError("Extract a receipt before saving groceries.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch("/api/expenses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: displayedItems,
+          sourceFileName: file?.name ?? null,
+          modelId: result.modelId,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        error?: string;
+        savedCount?: number;
+        month?: string;
+        receiptId?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to save groceries.");
+      }
+
+      const savedMonth = payload.month ?? "";
+      const nextDashboardHref = savedMonth
+        ? `/groceries?month=${savedMonth}&saved=${payload.receiptId ?? Date.now()}`
+        : `/groceries?saved=${payload.receiptId ?? Date.now()}`;
+
+      setDashboardHref(nextDashboardHref);
+      void router.prefetch(nextDashboardHref);
+
+      setSaveMessage(
+        `Saved ${payload.savedCount ?? displayedItems.length} grocery lines to ${payload.month ?? "this month"}. The dashboard link is now primed with the fresh month view.`,
+      );
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unexpected save error.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const closeEditor = () => {
+    setEditingIndex(null);
+    setDraftCategory("");
+    setDraftQuantity("");
+    setDraftError(null);
+  };
+
+  const openEditor = (index: number) => {
+    const item = displayedItems[index];
+    if (!item) {
+      return;
+    }
+
+    setEditingIndex(index);
+    setDraftCategory(item.category);
+    setDraftQuantity(String(item.quantity));
+    setDraftError(null);
+  };
+
+  const applyCorrection = () => {
+    if (editingIndex === null) {
+      return;
+    }
+
+    const sourceItem = displayedItems[editingIndex];
+    if (!sourceItem) {
+      closeEditor();
+      return;
+    }
+
+    const category = sanitizeCategory(draftCategory);
+    const quantity = Number(draftQuantity);
+
+    if (!category) {
+      setDraftError("Select a valid grocery category.");
+      return;
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setDraftError("Quantity must be greater than zero.");
+      return;
+    }
+
+    const roundedQuantity = Number(quantity.toFixed(2));
+    setEditedItems((current) => ({
+      ...current,
+      [editingIndex]: {
+        ...sourceItem,
+        category,
+        quantity: roundedQuantity,
+        lineTotal: Number((sourceItem.unitPrice * roundedQuantity).toFixed(2)),
+      },
+    }));
+    closeEditor();
+  };
+
+  const resetCorrection = () => {
+    if (editingIndex === null) {
+      return;
+    }
+
+    setEditedItems((current) => {
+      const next = { ...current };
+      delete next[editingIndex];
+      return next;
+    });
+    closeEditor();
   };
 
   return (
@@ -282,7 +443,7 @@ export const ReceiptWorkspace = ({
           </div>
 
           <p className="text-muted-foreground text-[0.9rem] leading-[1.5]">
-            The server default comes from HF_MODEL_ID. You can switch to Qwen3-VL-8B-Instruct here.
+            The server default comes from HF_MODEL_ID. The model now categorizes grocery items as part of extraction.
           </p>
 
           <div className="grid grid-cols-2 gap-3 max-[500px]:grid-cols-1">
@@ -303,6 +464,13 @@ export const ReceiptWorkspace = ({
           {error ? (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {saveMessage ? (
+            <Alert>
+              <Check className="size-4" />
+              <AlertDescription>{saveMessage}</AlertDescription>
             </Alert>
           ) : null}
         </form>
@@ -340,33 +508,185 @@ export const ReceiptWorkspace = ({
           <CardContent className="p-6">
             {result ? (
               <>
-                <p className="mb-3 text-sm text-muted-foreground">Served by {result.backend}</p>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="m-0 text-sm text-muted-foreground">Served by {result.backend}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-3 py-1">
+                      {displayedItems.length} lines
+                    </Badge>
+                    <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-3 py-1">
+                      ${displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0).toFixed(2)} total
+                    </Badge>
+                    {correctedCount > 0 ? (
+                      <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[rgba(255,248,241,0.92)] px-3 py-1 text-[var(--accent-dark)]">
+                        {correctedCount} corrected
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[rgba(255,250,243,0.75)] px-4 py-3 text-sm text-muted-foreground">
+                  Review the AI picks before saving. Use Adjust on any row to override category or quantity.
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Item</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Unit</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Adjust</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {result.items.map((entry) => (
-                      <TableRow key={`${entry.item}-${entry.price}`}>
+                    {displayedItems.map((entry, index) => (
+                      <TableRow key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}>
                         <TableCell>{entry.item}</TableCell>
-                        <TableCell className="text-right">${entry.price.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-2.5 py-1">
+                            {formatCategoryLabel(entry.category)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{entry.quantity}</TableCell>
+                        <TableCell className="text-right">${entry.unitPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${entry.lineTotal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {editedItems[index] ? (
+                              <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[rgba(255,248,241,0.92)] px-2.5 py-1 text-[var(--accent-dark)]">
+                                Corrected
+                              </Badge>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="border-[var(--border)] bg-white/90"
+                              onClick={() => openEditor(index)}
+                            >
+                              Adjust
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-white/70 px-4 py-4">
+                  <div className="grid gap-1">
+                    <p className="m-0 text-[0.95rem] font-semibold">Save these groceries into the month view</p>
+                    <p className="m-0 text-sm text-muted-foreground">
+                      {isAuthenticated
+                        ? "Persist this categorized receipt and open the dashboard to inspect totals and repeated items."
+                        : "Sign in with Google first to persist groceries to your personal month dashboard."}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleSaveGroceries}
+                      disabled={!isAuthenticated || isSaving}
+                    >
+                      {isSaving ? "Saving..." : "Save groceries"}
+                    </Button>
+                    <Button asChild variant="secondary" className="border-[var(--border)] bg-white/90">
+                      <Link href={dashboardHref}>
+                        <LayoutDashboard className="size-4" />
+                        <span>{saveMessage ? "Open fresh dashboard" : "Open dashboard"}</span>
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
                 <pre className="raw-response">{result.rawResponse}</pre>
               </>
             ) : (
               <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-white/55 p-6 text-center text-muted-foreground">
-                Extracted line items and the raw model response will appear here.
+                Extracted categorized groceries and the raw model response will appear here.
               </div>
             )}
           </CardContent>
         </Card>
       </section>
+
+      <Dialog open={editingIndex !== null} onOpenChange={(open) => !open && closeEditor()}>
+        <DialogContent>
+          {editingIndex !== null && displayedItems[editingIndex] ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Adjust extracted grocery</DialogTitle>
+                <DialogDescription>
+                  Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 grid gap-4">
+                <div className="rounded-[18px] border border-[var(--border)] bg-white/72 px-4 py-3">
+                  <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+                    Item
+                  </p>
+                  <p className="m-0 mt-2 text-[1.05rem] font-semibold text-foreground">
+                    {displayedItems[editingIndex].item}
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Category</span>
+                  <Select value={draftCategory} onValueChange={setDraftCategory}>
+                    <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-white/90">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groceryCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {formatCategoryLabel(category)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Quantity</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    value={draftQuantity}
+                    onChange={(event) => setDraftQuantity(event.target.value)}
+                    className="h-11 rounded-[14px] border border-[var(--border)] bg-white/90 px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
+                  />
+                </div>
+
+                <div className="rounded-[18px] border border-[var(--border)] bg-[rgba(255,250,243,0.75)] px-4 py-3 text-sm text-muted-foreground">
+                  Unit price stays fixed at ${displayedItems[editingIndex].unitPrice.toFixed(2)}. The line total will be recalculated when you apply the correction.
+                </div>
+
+                {draftError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{draftError}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="flex flex-wrap justify-end gap-2">
+                  {editedItems[editingIndex] ? (
+                    <Button type="button" variant="ghost" onClick={resetCorrection}>
+                      Reset to AI result
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="secondary" className="border-[var(--border)] bg-white/90" onClick={closeEditor}>
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={applyCorrection}>
+                    Apply correction
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

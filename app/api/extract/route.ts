@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 
 import {
     buildDataUrl,
+    buildReceiptPrompt,
     defaultModelId,
     defaultProvider,
     dropdownAvailableModels,
     parseReceiptItems,
-    receiptPrompt,
     resolveRequestedModelId,
 } from "../../../lib/receipt";
 
@@ -113,7 +113,7 @@ export const POST = async (request: Request) => {
                         },
                         {
                             type: "text",
-                            text: receiptPrompt,
+                            text: buildReceiptPrompt(),
                         },
                     ] satisfies ChatMessageContent,
                 },
@@ -123,15 +123,41 @@ export const POST = async (request: Request) => {
                     name: "ReceiptItems",
                     strict: true,
                     schema: {
-                        type: "array",
-                        items: {
-                            type: "object",
-                            properties: {
-                                name: { type: "string" },
-                                price: { type: "number" }
+                        type: "object",
+                        properties: {
+                            items: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    additionalProperties: false,
+                                    properties: {
+                                        name: { type: "string" },
+                                        category: {
+                                            type: "string",
+                                            enum: [
+                                                "produce",
+                                                "dairy",
+                                                "bakery",
+                                                "meat",
+                                                "pantry",
+                                                "frozen",
+                                                "beverages",
+                                                "snacks",
+                                                "household",
+                                                "personal-care",
+                                                "other",
+                                            ],
+                                        },
+                                        quantity: { type: "number" },
+                                        unitPrice: { type: "number" },
+                                        lineTotal: { type: "number" },
+                                    },
+                                    required: ["name", "category", "quantity", "unitPrice", "lineTotal"],
+                                },
                             },
-                            required: ["name", "price"],
                         },
+                        additionalProperties: false,
+                        required: ["items"],
                     },
                 },
             },
