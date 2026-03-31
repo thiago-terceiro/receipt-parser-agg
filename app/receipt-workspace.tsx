@@ -364,13 +364,13 @@ export const ReceiptWorkspace = ({
             className={[
               "file-dropzone-bg grid min-h-[220px] w-full content-center gap-3 rounded-[18px] border-[1.5px] border-dashed p-5 text-left transition-all duration-150",
               isDraggingFile
-                ? "border-[var(--accent)] bg-[rgba(255,250,243,0.98)] shadow-[0_0_0_4px_rgba(181,82,51,0.12)]"
+                ? "border-[var(--accent)] bg-[var(--surface-selected)] shadow-[0_0_0_4px_var(--focus-surface)]"
                 : "border-[rgba(181,82,51,0.42)]",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="grid size-12 place-items-center rounded-full bg-white/80 text-[var(--accent-dark)] shadow-sm">
+                <div className="grid size-12 place-items-center rounded-full bg-[var(--surface-plain-soft)] text-[var(--accent-dark)] shadow-sm">
                   {file ? <FileImage className="size-5" /> : <Upload className="size-5" />}
                 </div>
                 <div className="grid gap-1">
@@ -384,13 +384,13 @@ export const ReceiptWorkspace = ({
                   </span>
                 </div>
               </div>
-              <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-3 py-1">
+              <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
                 image/*
               </Badge>
             </div>
 
             {file ? (
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -414,7 +414,7 @@ export const ReceiptWorkspace = ({
               </div>
             ) : (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="rounded-full border border-[var(--border)] bg-white/70 px-3 py-1.5">
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1.5">
                   Drag and drop
                 </span>
                 <span>or click anywhere in this panel to browse</span>
@@ -429,7 +429,7 @@ export const ReceiptWorkspace = ({
               onValueChange={(v) => setSelectedModelId(v)}
               disabled={isLoading || availableModels.length === 0}
             >
-              <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-white/90">
+              <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>
               <SelectContent>
@@ -490,7 +490,7 @@ export const ReceiptWorkspace = ({
             {previewUrl ? (
               <img className="receipt-preview" src={previewUrl} alt="Receipt preview" />
             ) : (
-              <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-white/55 p-6 text-center text-muted-foreground">
+              <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
                 Your receipt preview will appear here.
               </div>
             )}
@@ -511,20 +511,20 @@ export const ReceiptWorkspace = ({
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="m-0 text-sm text-muted-foreground">Served by {result.backend}</p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-3 py-1">
+                    <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
                       {displayedItems.length} lines
                     </Badge>
-                    <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-3 py-1">
+                    <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
                       ${displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0).toFixed(2)} total
                     </Badge>
                     {correctedCount > 0 ? (
-                      <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[rgba(255,248,241,0.92)] px-3 py-1 text-[var(--accent-dark)]">
+                      <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]">
                         {correctedCount} corrected
                       </Badge>
                     ) : null}
                   </div>
                 </div>
-                <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[rgba(255,250,243,0.75)] px-4 py-3 text-sm text-muted-foreground">
+                <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
                   Review the AI picks before saving. Use Adjust on any row to override category or quantity.
                 </div>
                 <Table>
@@ -543,7 +543,7 @@ export const ReceiptWorkspace = ({
                       <TableRow key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}>
                         <TableCell>{entry.item}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-[var(--border)] bg-white/70 px-2.5 py-1">
+                          <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1">
                             {formatCategoryLabel(entry.category)}
                           </Badge>
                         </TableCell>
@@ -553,7 +553,7 @@ export const ReceiptWorkspace = ({
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             {editedItems[index] ? (
-                              <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[rgba(255,248,241,0.92)] px-2.5 py-1 text-[var(--accent-dark)]">
+                              <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]">
                                 Corrected
                               </Badge>
                             ) : null}
@@ -561,7 +561,7 @@ export const ReceiptWorkspace = ({
                               type="button"
                               variant="secondary"
                               size="sm"
-                              className="border-[var(--border)] bg-white/90"
+                              className="border-[var(--border)] bg-[var(--surface-plain)]"
                               onClick={() => openEditor(index)}
                             >
                               Adjust
@@ -573,7 +573,7 @@ export const ReceiptWorkspace = ({
                   </TableBody>
                 </Table>
 
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-white/70 px-4 py-4">
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-4">
                   <div className="grid gap-1">
                     <p className="m-0 text-[0.95rem] font-semibold">Save these groceries into the month view</p>
                     <p className="m-0 text-sm text-muted-foreground">
@@ -590,7 +590,7 @@ export const ReceiptWorkspace = ({
                     >
                       {isSaving ? "Saving..." : "Save groceries"}
                     </Button>
-                    <Button asChild variant="secondary" className="border-[var(--border)] bg-white/90">
+                    <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
                       <Link href={dashboardHref}>
                         <LayoutDashboard className="size-4" />
                         <span>{saveMessage ? "Open fresh dashboard" : "Open dashboard"}</span>
@@ -601,7 +601,7 @@ export const ReceiptWorkspace = ({
                 <pre className="raw-response">{result.rawResponse}</pre>
               </>
             ) : (
-              <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-white/55 p-6 text-center text-muted-foreground">
+              <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
                 Extracted categorized groceries and the raw model response will appear here.
               </div>
             )}
@@ -621,7 +621,7 @@ export const ReceiptWorkspace = ({
               </DialogHeader>
 
               <div className="mt-4 grid gap-4">
-                <div className="rounded-[18px] border border-[var(--border)] bg-white/72 px-4 py-3">
+                <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
                   <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-[var(--accent-dark)]">
                     Item
                   </p>
@@ -633,7 +633,7 @@ export const ReceiptWorkspace = ({
                 <div className="grid gap-2">
                   <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Category</span>
                   <Select value={draftCategory} onValueChange={setDraftCategory}>
-                    <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-white/90">
+                    <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -655,11 +655,11 @@ export const ReceiptWorkspace = ({
                     step="0.01"
                     value={draftQuantity}
                     onChange={(event) => setDraftQuantity(event.target.value)}
-                    className="h-11 rounded-[14px] border border-[var(--border)] bg-white/90 px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
+                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
                   />
                 </div>
 
-                <div className="rounded-[18px] border border-[var(--border)] bg-[rgba(255,250,243,0.75)] px-4 py-3 text-sm text-muted-foreground">
+                <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
                   Unit price stays fixed at ${displayedItems[editingIndex].unitPrice.toFixed(2)}. The line total will be recalculated when you apply the correction.
                 </div>
 
@@ -675,7 +675,7 @@ export const ReceiptWorkspace = ({
                       Reset to AI result
                     </Button>
                   ) : null}
-                  <Button type="button" variant="secondary" className="border-[var(--border)] bg-white/90" onClick={closeEditor}>
+                  <Button type="button" variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]" onClick={closeEditor}>
                     Cancel
                   </Button>
                   <Button type="button" onClick={applyCorrection}>

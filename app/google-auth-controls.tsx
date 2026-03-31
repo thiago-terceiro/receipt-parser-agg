@@ -2,6 +2,7 @@
 
 import { signIn, signOut, useSession } from "next-auth/react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 const GoogleMark = () => (
@@ -62,7 +63,7 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
 
   return (
     <section
-      className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[rgba(255,250,243,0.72)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch"
+      className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch"
       aria-label="Authentication controls"
     >
       {/* Auth description */}
@@ -73,6 +74,7 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
 
       {/* Auth actions */}
       <div className="flex items-center gap-3 max-[900px]:justify-between max-[900px]:flex-wrap">
+        <ThemeToggle />
         {isAuthenticated ? (
           <div className="flex items-center gap-2.5" aria-live="polite">
             {session.user?.image ? (
@@ -103,7 +105,7 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
           type="button"
           disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
           onClick={handleAuthClick}
-          className="min-w-[220px] border-[var(--border)] bg-white/95 max-[900px]:w-full"
+          className="min-w-[220px] border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
         >
           <GoogleMark />
           <span>{isLoading ? "Checking Google login..." : buttonLabel}</span>

@@ -30,7 +30,7 @@ const GroceriesPage = async ({ searchParams }: GroceriesPageProps) => {
   if (!userId && !email) {
     return (
       <main className="mx-auto grid w-[min(1180px,calc(100vw-32px))] gap-6 px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
-        <Card className="rounded-[30px] border-[var(--border)] bg-[rgba(255,250,243,0.86)] py-0 shadow-[var(--shadow)]">
+        <Card className="rounded-[30px] border-[var(--border)] bg-[var(--surface-soft)] py-0 shadow-[var(--shadow)]">
           <CardContent className="grid min-h-[320px] place-items-center gap-4 p-8 text-center">
             <div className="grid gap-3 place-items-center">
               <h1 className="m-0 text-[2.4rem] tracking-[-0.05em]">Sign in to unlock your groceries dashboard</h1>

@@ -69,19 +69,19 @@ const CategoryDetails = ({
           </h3>
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <Badge variant="outline" className="border-[var(--border)] bg-white/80 px-3 py-1">
+          <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
             {category.itemCount} units
           </Badge>
-          <Badge variant="outline" className="border-[var(--border)] bg-white/80 px-3 py-1">
+          <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
             {category.uniqueItemCount} unique items
           </Badge>
-          <Badge variant="outline" className="border-[var(--border)] bg-white/80 px-3 py-1">
+          <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
             {percentFormatter.format(category.share)} of month
           </Badge>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-white/72">
+      <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]">
         <div className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
           <span>Item</span>
           <span className="text-right">Unit Price</span>
@@ -93,7 +93,7 @@ const CategoryDetails = ({
           {category.groups.map((group) => (
             <div
               key={group.normalizedItem}
-              className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[rgba(90,64,42,0.1)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
+              className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
             >
               <div className="min-w-0">
                 <p className="m-0 truncate text-[1rem] font-semibold text-foreground">{group.item}</p>
@@ -165,7 +165,7 @@ export const GroceriesDashboard = ({
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[rgba(255,250,243,0.78)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
+      <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[var(--surface-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
@@ -185,13 +185,13 @@ export const GroceriesDashboard = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 max-[700px]:w-full">
-            <Button asChild variant="secondary" className="border-[var(--border)] bg-white/90">
+            <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
               <Link href={previousMonth === currentMonth ? "/groceries" : `/groceries?month=${previousMonth}`}>
                 Previous month
               </Link>
             </Button>
             <Select value={payload.month} onValueChange={handleMonthChange}>
-              <SelectTrigger className="min-w-[210px] rounded-full border-[var(--border)] bg-white/90">
+              <SelectTrigger className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)]">
                 <SelectValue placeholder="Select month" />
               </SelectTrigger>
               <SelectContent>
@@ -203,23 +203,26 @@ export const GroceriesDashboard = ({
               </SelectContent>
             </Select>
             {nextMonthDisabled ? (
-              <Button variant="secondary" className="border-[var(--border)] bg-white/70" disabled>
+              <Button variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain-soft)]" disabled>
                 Next month
               </Button>
             ) : (
-              <Button asChild variant="secondary" className="border-[var(--border)] bg-white/90">
+              <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
                 <Link href={nextMonth === currentMonth ? "/groceries" : `/groceries?month=${nextMonth}`}>
                   Next month
                 </Link>
               </Button>
             )}
-            <Button asChild variant="secondary" className="border-[var(--border)] bg-white/90 max-[700px]:ml-auto">
+            <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)] max-[700px]:ml-auto">
               <Link href="/">Back to receipt upload</Link>
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-[24px] border border-[rgba(90,64,42,0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(246,236,224,0.95))] p-5">
+        <div
+          className="grid gap-4 rounded-[24px] border border-[var(--border)] p-5"
+          style={{ background: "var(--progress-surface)" }}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <CalendarDays className="size-4 text-[var(--accent-dark)]" />
@@ -231,15 +234,16 @@ export const GroceriesDashboard = ({
           </div>
 
           <div className="grid gap-2">
-            <div className="relative h-4 overflow-hidden rounded-full bg-[rgba(181,82,51,0.08)]">
+            <div className="relative h-4 overflow-hidden rounded-full bg-[var(--progress-track)]">
               <motion.div
-                className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,var(--accent-dark),#d1844c)]"
+                className="absolute inset-y-0 left-0 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress.progress * 100}%` }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                style={{ backgroundImage: "var(--accent-gradient)" }}
               />
               <div
-                className="absolute top-1/2 z-10 size-6 -translate-y-1/2 rounded-full border-2 border-white bg-[var(--accent-dark)] shadow-[0_12px_24px_rgba(84,52,29,0.25)]"
+                className="absolute top-1/2 z-10 size-6 -translate-y-1/2 rounded-full border-2 border-[var(--surface-plain)] bg-[var(--accent-dark)] shadow-[0_12px_24px_rgba(84,52,29,0.25)]"
                 style={{ left: `calc(${progress.progress * 100}% - 12px)` }}
               />
             </div>
@@ -275,7 +279,7 @@ export const GroceriesDashboard = ({
               icon: CalendarDays,
             },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-[22px] border border-[var(--border)] bg-white/72 p-4">
+            <div key={stat.label} className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="m-0 text-sm text-muted-foreground">{stat.label}</p>
                 <stat.icon className="size-4 text-[var(--accent-dark)]" />
@@ -287,7 +291,7 @@ export const GroceriesDashboard = ({
       </section>
 
       {payload.categories.length === 0 ? (
-        <Card className="rounded-[28px] border-[var(--border)] bg-[rgba(255,250,243,0.82)] py-0 shadow-[var(--shadow)]">
+        <Card className="rounded-[28px] border-[var(--border)] bg-[var(--surface-soft)] py-0 shadow-[var(--shadow)]">
           <CardContent className="grid min-h-[280px] place-items-center gap-3 p-8 text-center">
             <div className="grid gap-3">
               <h2 className="m-0 text-[1.8rem] tracking-[-0.04em]">No groceries saved for this month yet</h2>
@@ -317,8 +321,8 @@ export const GroceriesDashboard = ({
                       className={cn(
                         "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors",
                         isActive
-                          ? "border-[rgba(181,82,51,0.38)] bg-[linear-gradient(180deg,rgba(255,251,245,0.98),rgba(243,225,207,0.92))]"
-                          : "border-[var(--border)] bg-[rgba(255,250,243,0.76)] hover:bg-[rgba(255,250,243,0.94)]",
+                          ? "border-[var(--accent)] bg-[var(--surface-accent)] shadow-[0_0_0_4px_var(--focus-surface)]"
+                          : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:bg-[var(--surface-soft)]",
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -330,7 +334,7 @@ export const GroceriesDashboard = ({
                             {currencyFormatter.format(category.total)}
                           </h2>
                         </div>
-                        <div className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-white/80 text-[var(--accent-dark)]">
+                        <div className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)]">
                           <ChevronRight className={cn("size-4 transition-transform", isActive && "rotate-90")} />
                         </div>
                       </div>
@@ -340,10 +344,10 @@ export const GroceriesDashboard = ({
                           <span>{category.uniqueItemCount} repeated item groups</span>
                           <span>{percentFormatter.format(category.share)}</span>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-[rgba(181,82,51,0.08)]">
+                        <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]">
                           <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,var(--accent-dark),#d1844c)]"
-                            style={{ width: `${Math.max(category.share * 100, 8)}%` }}
+                            className="h-full rounded-full"
+                            style={{ backgroundImage: "var(--accent-gradient)", width: `${Math.max(category.share * 100, 8)}%` }}
                           />
                         </div>
                       </div>
@@ -365,7 +369,7 @@ export const GroceriesDashboard = ({
                     transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                     className="sticky top-6"
                   >
-                    <Card className="rounded-[30px] border-[rgba(181,82,51,0.2)] bg-[rgba(255,250,243,0.92)] py-0 shadow-[var(--shadow)]">
+                    <Card className="rounded-[30px] border-[rgba(181,82,51,0.2)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)]">
                       <CardContent className="p-6">
                         <CategoryDetails category={active} />
                       </CardContent>

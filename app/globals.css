@@ -48,8 +48,92 @@
   --radius: 0.75rem;
   --surface: rgba(255, 250, 243, 0.92);
   --surface-strong: rgba(255, 247, 236, 0.98);
+  --surface-soft: rgba(255, 250, 243, 0.78);
+  --surface-soft-muted: rgba(255, 250, 243, 0.72);
+  --surface-plain: rgba(255, 255, 255, 0.92);
+  --surface-plain-soft: rgba(255, 255, 255, 0.78);
+  --surface-plain-muted: rgba(255, 255, 255, 0.58);
+  --surface-accent: rgba(255, 248, 241, 0.92);
+  --surface-selected: rgba(255, 250, 243, 0.98);
   --accent-dark: #7f311d;
+  --focus-surface: rgba(181, 82, 51, 0.12);
+  --progress-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 236, 224, 0.95));
+  --progress-track: rgba(181, 82, 51, 0.08);
+  --accent-gradient: linear-gradient(90deg, var(--accent-dark), #d1844c);
+  --page-background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 28%),
+    linear-gradient(135deg, #ead5bc 0%, #f7f0e7 36%, #e2d1bb 100%);
+  --dropzone-background:
+    linear-gradient(180deg, rgba(181, 82, 51, 0.06), rgba(255, 255, 255, 0.55)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(181, 82, 51, 0.05),
+      rgba(181, 82, 51, 0.05) 12px,
+      rgba(255, 255, 255, 0.35) 12px,
+      rgba(255, 255, 255, 0.35) 24px
+    );
+  --preview-background: rgba(255, 255, 255, 0.96);
+  --raw-response-background: #241913;
+  --raw-response-foreground: #ffefe0;
+  --modal-overlay: rgba(24, 17, 12, 0.68);
+  --skeleton-soft: rgba(90, 64, 42, 0.1);
+  --skeleton-strong: rgba(90, 64, 42, 0.14);
   --shadow: 0 24px 80px rgba(84, 52, 29, 0.16);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #19120e;
+  --foreground: #f5e8dc;
+  --card: rgba(32, 24, 19, 0.92);
+  --card-foreground: #f5e8dc;
+  --popover: #241a14;
+  --popover-foreground: #f5e8dc;
+  --primary: #d68b55;
+  --primary-foreground: #140e0b;
+  --secondary: rgba(45, 34, 27, 0.92);
+  --secondary-foreground: #f5e8dc;
+  --muted: #2a1f18;
+  --muted-foreground: #bea99a;
+  --accent: #d68b55;
+  --accent-foreground: #140e0b;
+  --destructive: #cf6f59;
+  --border: rgba(255, 234, 216, 0.12);
+  --input: rgba(255, 234, 216, 0.14);
+  --ring: #d68b55;
+  --surface: rgba(32, 24, 19, 0.92);
+  --surface-strong: rgba(39, 29, 23, 0.98);
+  --surface-soft: rgba(32, 24, 19, 0.84);
+  --surface-soft-muted: rgba(32, 24, 19, 0.74);
+  --surface-plain: rgba(57, 43, 34, 0.92);
+  --surface-plain-soft: rgba(57, 43, 34, 0.78);
+  --surface-plain-muted: rgba(57, 43, 34, 0.58);
+  --surface-accent: rgba(87, 60, 43, 0.74);
+  --surface-selected: rgba(73, 53, 40, 0.88);
+  --accent-dark: #f0bb90;
+  --focus-surface: rgba(214, 139, 85, 0.16);
+  --progress-surface: linear-gradient(180deg, rgba(67, 50, 40, 0.72), rgba(32, 24, 19, 0.94));
+  --progress-track: rgba(214, 139, 85, 0.18);
+  --accent-gradient: linear-gradient(90deg, #d68b55, #f0bb90);
+  --page-background:
+    radial-gradient(circle at top left, rgba(255, 244, 233, 0.08), transparent 28%),
+    linear-gradient(135deg, #120d0a 0%, #1b140f 36%, #271c15 100%);
+  --dropzone-background:
+    linear-gradient(180deg, rgba(214, 139, 85, 0.08), rgba(64, 48, 39, 0.58)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(214, 139, 85, 0.08),
+      rgba(214, 139, 85, 0.08) 12px,
+      rgba(255, 244, 233, 0.04) 12px,
+      rgba(255, 244, 233, 0.04) 24px
+    );
+  --preview-background: rgba(29, 22, 17, 0.94);
+  --raw-response-background: #0f0a07;
+  --raw-response-foreground: #f8e8da;
+  --modal-overlay: rgba(7, 5, 4, 0.76);
+  --skeleton-soft: rgba(255, 235, 219, 0.12);
+  --skeleton-strong: rgba(255, 235, 219, 0.18);
+  --shadow: 0 26px 90px rgba(0, 0, 0, 0.34);
 }
 
 @layer base {
@@ -61,9 +145,7 @@
   body {
     margin: 0;
     min-height: 100%;
-    background:
-      radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 28%),
-      linear-gradient(135deg, #ead5bc 0%, #f7f0e7 36%, #e2d1bb 100%);
+    background: var(--page-background);
     color: var(--foreground);
     font-family: Georgia, "Times New Roman", serif;
   }
@@ -81,15 +163,7 @@
 }
 
 .file-dropzone-bg {
-  background:
-    linear-gradient(180deg, rgba(181, 82, 51, 0.06), rgba(255, 255, 255, 0.55)),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(181, 82, 51, 0.05),
-      rgba(181, 82, 51, 0.05) 12px,
-      rgba(255, 255, 255, 0.35) 12px,
-      rgba(255, 255, 255, 0.35) 24px
-    );
+  background: var(--dropzone-background);
 }
 
 .receipt-preview {
@@ -98,15 +172,15 @@
   object-fit: contain;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--preview-background);
 }
 
 .raw-response {
   margin: 18px 0 0;
   padding: 16px;
   border-radius: 18px;
-  background: #241913;
-  color: #ffefe0;
+  background: var(--raw-response-background);
+  color: var(--raw-response-foreground);
   overflow-x: auto;
   font-size: 0.92rem;
   line-height: 1.6;
