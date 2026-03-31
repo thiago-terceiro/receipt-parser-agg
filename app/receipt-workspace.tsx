@@ -60,6 +60,24 @@ type ReceiptWorkspaceProps = {
   defaultModelId: string;
 };
 
+const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
+  const responseText = await response.text();
+  if (!responseText.trim()) {
+    throw new Error("The server returned an empty response.");
+  }
+
+  try {
+    return JSON.parse(responseText) as T;
+  } catch {
+    const snippet = responseText.replace(/\s+/g, " ").slice(0, 200);
+    throw new Error(
+      snippet
+        ? `The server returned an invalid JSON response: ${snippet}`
+        : "The server returned an invalid JSON response.",
+    );
+  }
+};
+
 export const ReceiptWorkspace = ({
   availableModels,
   defaultModelId,
@@ -184,7 +202,7 @@ export const ReceiptWorkspace = ({
 
     try {
       const response = await fetch("/api/extract", { method: "POST", body: formData });
-      const payload = (await response.json()) as ExtractionResponse | { error?: string };
+      const payload = await parseJsonResponse<ExtractionResponse | { error?: string }>(response);
       if (!response.ok) {
         throw new Error(
           "error" in payload && payload.error ? payload.error : "Extraction failed.",
@@ -223,12 +241,12 @@ export const ReceiptWorkspace = ({
         }),
       });
 
-      const payload = (await response.json()) as {
+      const payload = await parseJsonResponse<{
         error?: string;
         savedCount?: number;
         month?: string;
         receiptId?: string;
-      };
+      }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error || "Unable to save groceries.");
