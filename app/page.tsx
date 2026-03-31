@@ -8,7 +8,7 @@ const HomePage = () => {
   );
 
   return (
-    <main className="page-shell">
+    <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
       <GoogleAuthControls canUseGoogleAuth={hasGoogleAuthConfigured} />
       <ReceiptWorkspace
         availableModels={dropdownAvailableModels}
