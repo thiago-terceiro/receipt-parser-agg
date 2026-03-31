@@ -4,6 +4,7 @@ import {
     type GroceryCategory,
     type ReceiptItem,
 } from "@/lib/receipt";
+import type { AppLocale } from "@/lib/i18n/config";
 
 export type GroceryEntry = ReceiptItem & {
     id: string;
@@ -90,17 +91,21 @@ export const shiftMonthKey = (monthKey: string, offset: number) => {
     return getMonthKey(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + offset, 1)));
 };
 
-export const formatMonthLabel = (monthKey: string) => {
+export const formatMonthLabel = (monthKey: string, locale: AppLocale | string = "en") => {
     const { start } = getMonthRange(monthKey);
 
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
         month: "long",
         year: "numeric",
         timeZone: "UTC",
     }).format(start);
 };
 
-export const buildMonthOptions = (selectedMonth: string, totalMonths = 12): MonthOption[] => {
+export const buildMonthOptions = (
+    selectedMonth: string,
+    totalMonths = 12,
+    locale: AppLocale | string = "en",
+): MonthOption[] => {
     const currentMonth = getMonthKey(new Date());
     const values = new Set<string>([selectedMonth]);
 
@@ -112,7 +117,7 @@ export const buildMonthOptions = (selectedMonth: string, totalMonths = 12): Mont
         .sort((left, right) => right.localeCompare(left))
         .map((value) => ({
             value,
-            label: formatMonthLabel(value),
+            label: formatMonthLabel(value, locale),
         }));
 };
 

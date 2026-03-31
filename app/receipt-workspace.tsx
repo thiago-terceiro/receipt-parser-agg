@@ -4,48 +4,52 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-    ChangeEvent,
-    DragEvent,
-    FormEvent,
-    useEffect,
-    useRef,
-    useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 
 import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
 
+import { useLocale, useTranslations } from "@/components/locale-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+import { formatMonthLabel } from "@/lib/groceries";
+import { localizePath } from "@/lib/i18n/config";
 import {
-    formatCategoryLabel,
-    groceryCategories,
-    sanitizeCategory,
-    type AvailableModel,
-    type ReceiptItem,
+  formatCategoryLabel,
+  groceryCategories,
+  sanitizeCategory,
+  type AvailableModel,
+  type ReceiptItem,
 } from "../lib/receipt";
 
 type ExtractionResponse = {
@@ -82,6 +86,8 @@ export const ReceiptWorkspace = ({
   availableModels,
   defaultModelId,
 }: ReceiptWorkspaceProps) => {
+  const locale = useLocale();
+  const translations = useTranslations();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedModelId, setSelectedModelId] = useState(defaultModelId);
@@ -100,7 +106,16 @@ export const ReceiptWorkspace = ({
   const router = useRouter();
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
-  const [dashboardHref, setDashboardHref] = useState("/groceries");
+  const dashboardBaseHref = localizePath("/groceries", locale);
+  const [dashboardHref, setDashboardHref] = useState(dashboardBaseHref);
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: "USD",
+      }),
+    [locale],
+  );
 
   const displayedItems = result?.items.map((item, index) => editedItems[index] ?? item) ?? [];
   const correctedCount = Object.keys(editedItems).length;
@@ -125,7 +140,7 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
-    setDashboardHref("/groceries");
+    setDashboardHref(dashboardBaseHref);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -136,7 +151,7 @@ export const ReceiptWorkspace = ({
     }
 
     if (!nextFile.type.startsWith("image/")) {
-      setError("Use an image file such as PNG, JPG, or WEBP.");
+      setError(translations.receipt.errors.invalidImage);
       return;
     }
 
@@ -147,7 +162,7 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
-    setDashboardHref("/groceries");
+    setDashboardHref(dashboardBaseHref);
     setPreviewUrl(URL.createObjectURL(nextFile));
   };
 
@@ -183,7 +198,7 @@ export const ReceiptWorkspace = ({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!file) {
-      setError("Select a receipt image before extracting.");
+      setError(translations.receipt.errors.noFile);
       return;
     }
 
@@ -194,7 +209,7 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
-    setDashboardHref("/groceries");
+    setDashboardHref(dashboardBaseHref);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -205,13 +220,17 @@ export const ReceiptWorkspace = ({
       const payload = await parseJsonResponse<ExtractionResponse | { error?: string }>(response);
       if (!response.ok) {
         throw new Error(
-          "error" in payload && payload.error ? payload.error : "Extraction failed.",
+          "error" in payload && payload.error
+            ? payload.error
+            : translations.receipt.errors.extractionFailed,
         );
       }
       setResult(payload as ExtractionResponse);
     } catch (requestError) {
       setError(
-        requestError instanceof Error ? requestError.message : "Unexpected request error.",
+        requestError instanceof Error
+          ? requestError.message
+          : translations.receipt.errors.unexpectedRequest,
       );
     } finally {
       setIsLoading(false);
@@ -220,7 +239,7 @@ export const ReceiptWorkspace = ({
 
   const handleSaveGroceries = async () => {
     if (!result || displayedItems.length === 0) {
-      setError("Extract a receipt before saving groceries.");
+      setError(translations.receipt.errors.noResultToSave);
       return;
     }
 
@@ -249,22 +268,35 @@ export const ReceiptWorkspace = ({
       }>(response);
 
       if (!response.ok) {
-        throw new Error(payload.error || "Unable to save groceries.");
+        throw new Error(payload.error || translations.receipt.errors.saveFailed);
       }
 
       const savedMonth = payload.month ?? "";
       const nextDashboardHref = savedMonth
-        ? `/groceries?month=${savedMonth}&saved=${payload.receiptId ?? Date.now()}`
-        : `/groceries?saved=${payload.receiptId ?? Date.now()}`;
+        ? `${dashboardBaseHref}?month=${savedMonth}&saved=${payload.receiptId ?? Date.now()}`
+        : `${dashboardBaseHref}?saved=${payload.receiptId ?? Date.now()}`;
 
       setDashboardHref(nextDashboardHref);
       void router.prefetch(nextDashboardHref);
 
+      const savedMonthLabel = savedMonth
+        ? formatMonthLabel(savedMonth, locale)
+        : formatMonthLabel(
+            new Date().toISOString().slice(0, 7),
+            locale,
+          );
       setSaveMessage(
-        `Saved ${payload.savedCount ?? displayedItems.length} grocery lines to ${payload.month ?? "this month"}. The dashboard link is now primed with the fresh month view.`,
+        translations.receipt.saveSuccess(
+          payload.savedCount ?? displayedItems.length,
+          savedMonthLabel,
+        ),
       );
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unexpected save error.");
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : translations.receipt.errors.unexpectedSave,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -304,12 +336,12 @@ export const ReceiptWorkspace = ({
     const quantity = Number(draftQuantity);
 
     if (!category) {
-      setDraftError("Select a valid grocery category.");
+      setDraftError(translations.receipt.errors.invalidCategory);
       return;
     }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setDraftError("Quantity must be greater than zero.");
+      setDraftError(translations.receipt.errors.invalidQuantity);
       return;
     }
 
@@ -341,24 +373,19 @@ export const ReceiptWorkspace = ({
 
   return (
     <>
-      {/* ── Hero card ── */}
       <section className="grid gap-6 rounded-[28px] border border-[var(--border)] bg-card p-7 shadow-[var(--shadow)] backdrop-blur-[16px] [grid-template-columns:1.2fr_0.8fr] max-[900px]:[grid-template-columns:1fr]">
-        {/* Copy */}
         <div className="flex flex-col gap-3">
           <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
-            Receipt AI
+            {translations.receipt.eyebrow}
           </p>
           <h1 className="m-0 text-[clamp(2.4rem,5vw,4.5rem)] leading-[0.95] tracking-[-0.04em] text-balance">
-            Upload a receipt and extract line items without running the model locally.
+            {translations.receipt.heroTitle}
           </h1>
           <p className="max-w-[54ch] text-muted-foreground text-[1.02rem] leading-[1.7]">
-            This frontend is designed for Vercel. The browser uploads the image to a server
-            route, and the server route calls Hugging Face with the model configured in the
-            server environment.
+            {translations.receipt.heroDescription}
           </p>
         </div>
 
-        {/* Upload form */}
         <form
           className="flex flex-col gap-3.5 rounded-[22px] border border-[rgba(181,82,51,0.16)] bg-[var(--surface-strong)] p-5"
           onSubmit={handleSubmit}
@@ -393,12 +420,12 @@ export const ReceiptWorkspace = ({
                 </div>
                 <div className="grid gap-1">
                   <span className="text-[1.15rem] font-bold">
-                    {file ? "Receipt image ready" : "Drop a receipt image here"}
+                    {file ? translations.receipt.fileReady : translations.receipt.dropImage}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {file
-                      ? "Replace it by dropping another image or browsing files."
-                      : "PNG, JPG, or WEBP works best. Click to browse if you prefer."}
+                      ? translations.receipt.replaceHelp
+                      : translations.receipt.browseHelp}
                   </span>
                 </div>
               </div>
@@ -425,7 +452,7 @@ export const ReceiptWorkspace = ({
                     clearSelectedFile();
                   }}
                   disabled={isLoading}
-                  aria-label="Remove selected image"
+                  aria-label={translations.receipt.removeSelectedImage}
                 >
                   <X className="size-4" />
                 </Button>
@@ -433,22 +460,24 @@ export const ReceiptWorkspace = ({
             ) : (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <span className="rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1.5">
-                  Drag and drop
+                  {translations.receipt.dragAndDrop}
                 </span>
-                <span>or click anywhere in this panel to browse</span>
+                <span>{translations.receipt.clickToBrowse}</span>
               </div>
             )}
           </button>
 
           <div className="grid gap-2">
-            <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Model</span>
+            <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+              {translations.receipt.modelLabel}
+            </span>
             <Select
               value={selectedModelId}
               onValueChange={(v) => setSelectedModelId(v)}
               disabled={isLoading || availableModels.length === 0}
             >
               <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
-                <SelectValue placeholder="Select model" />
+                <SelectValue placeholder={translations.receipt.selectModel} />
               </SelectTrigger>
               <SelectContent>
                 {availableModels.map((model) => (
@@ -461,12 +490,12 @@ export const ReceiptWorkspace = ({
           </div>
 
           <p className="text-muted-foreground text-[0.9rem] leading-[1.5]">
-            The server default comes from HF_MODEL_ID. The model now categorizes grocery items as part of extraction.
+            {translations.receipt.modelHelp}
           </p>
 
           <div className="grid grid-cols-2 gap-3 max-[500px]:grid-cols-1">
             <Button type="submit" disabled={!file || isLoading} className="w-full">
-              {isLoading ? "Extracting..." : "Extract receipt"}
+              {isLoading ? translations.receipt.extracting : translations.receipt.extractReceipt}
             </Button>
             <Button
               variant="secondary"
@@ -475,7 +504,7 @@ export const ReceiptWorkspace = ({
               disabled={!file || isLoading}
               className="w-full"
             >
-              Remove image
+              {translations.receipt.removeImage}
             </Button>
           </div>
 
@@ -494,66 +523,75 @@ export const ReceiptWorkspace = ({
         </form>
       </section>
 
-      {/* ── Results grid ── */}
       <section className="mt-6 grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
-        {/* Preview panel */}
         <Card className="gap-0 rounded-[24px] border-[var(--border)] py-0 shadow-[var(--shadow)] backdrop-blur-[16px]">
           <div className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
-            <h2 className="m-0 text-[1.4rem]">Preview</h2>
+            <h2 className="m-0 text-[1.4rem]">{translations.receipt.preview}</h2>
             <span className="text-sm text-muted-foreground">
-              {file ? file.name : "No file selected"}
+              {file ? file.name : translations.receipt.noFileSelected}
             </span>
           </div>
           <CardContent className="p-6">
             {previewUrl ? (
-              <img className="receipt-preview" src={previewUrl} alt="Receipt preview" />
+              <img
+                className="receipt-preview"
+                src={previewUrl}
+                alt={translations.receipt.previewAlt}
+              />
             ) : (
               <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
-                Your receipt preview will appear here.
+                {translations.receipt.previewPlaceholder}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Results panel */}
         <Card className="gap-0 rounded-[24px] border-[var(--border)] py-0 shadow-[var(--shadow)] backdrop-blur-[16px]">
           <div className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
-            <h2 className="m-0 text-[1.4rem]">Extracted items</h2>
+            <h2 className="m-0 text-[1.4rem]">{translations.receipt.extractedItems}</h2>
             <span className="text-sm text-muted-foreground">
-              {result ? result.modelId : "Waiting for extraction"}
+              {result ? result.modelId : translations.receipt.waitingForExtraction}
             </span>
           </div>
           <CardContent className="p-6">
             {result ? (
               <>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="m-0 text-sm text-muted-foreground">Served by {result.backend}</p>
+                  <p className="m-0 text-sm text-muted-foreground">
+                    {translations.receipt.servedBy(result.backend)}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-                      {displayedItems.length} lines
+                      {translations.receipt.lines(displayedItems.length)}
                     </Badge>
                     <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-                      ${displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0).toFixed(2)} total
+                      {translations.receipt.total(
+                        currencyFormatter.format(
+                          displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0),
+                        ),
+                      )}
                     </Badge>
                     {correctedCount > 0 ? (
                       <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]">
-                        {correctedCount} corrected
+                        {translations.receipt.corrected(correctedCount)}
                       </Badge>
                     ) : null}
                   </div>
                 </div>
                 <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
-                  Review the AI picks before saving. Use Adjust on any row to override category or quantity.
+                  {translations.receipt.reviewHint}
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Unit</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Adjust</TableHead>
+                      <TableHead>{translations.receipt.table.item}</TableHead>
+                      <TableHead>{translations.receipt.table.category}</TableHead>
+                      <TableHead className="text-right">
+                        {translations.receipt.table.quantity}
+                      </TableHead>
+                      <TableHead className="text-right">{translations.receipt.table.unit}</TableHead>
+                      <TableHead className="text-right">{translations.receipt.table.total}</TableHead>
+                      <TableHead className="text-right">{translations.receipt.table.adjust}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -562,17 +600,21 @@ export const ReceiptWorkspace = ({
                         <TableCell>{entry.item}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1">
-                            {formatCategoryLabel(entry.category)}
+                            {formatCategoryLabel(entry.category, translations.categories)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">{entry.quantity}</TableCell>
-                        <TableCell className="text-right">${entry.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${entry.lineTotal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          {currencyFormatter.format(entry.unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {currencyFormatter.format(entry.lineTotal)}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             {editedItems[index] ? (
                               <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]">
-                                Corrected
+                                {translations.receipt.alerts.corrected}
                               </Badge>
                             ) : null}
                             <Button
@@ -582,7 +624,7 @@ export const ReceiptWorkspace = ({
                               className="border-[var(--border)] bg-[var(--surface-plain)]"
                               onClick={() => openEditor(index)}
                             >
-                              Adjust
+                              {translations.receipt.alerts.adjust}
                             </Button>
                           </div>
                         </TableCell>
@@ -593,11 +635,13 @@ export const ReceiptWorkspace = ({
 
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-4">
                   <div className="grid gap-1">
-                    <p className="m-0 text-[0.95rem] font-semibold">Save these groceries into the month view</p>
+                    <p className="m-0 text-[0.95rem] font-semibold">
+                      {translations.receipt.saveCardTitle}
+                    </p>
                     <p className="m-0 text-sm text-muted-foreground">
                       {isAuthenticated
-                        ? "Persist this categorized receipt and open the dashboard to inspect totals and repeated items."
-                        : "Sign in with Google first to persist groceries to your personal month dashboard."}
+                        ? translations.receipt.saveSignedIn
+                        : translations.receipt.saveSignedOut}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -606,12 +650,16 @@ export const ReceiptWorkspace = ({
                       onClick={handleSaveGroceries}
                       disabled={!isAuthenticated || isSaving}
                     >
-                      {isSaving ? "Saving..." : "Save groceries"}
+                      {isSaving ? translations.receipt.saving : translations.receipt.saveGroceries}
                     </Button>
                     <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
                       <Link href={dashboardHref}>
                         <LayoutDashboard className="size-4" />
-                        <span>{saveMessage ? "Open fresh dashboard" : "Open dashboard"}</span>
+                        <span>
+                          {saveMessage
+                            ? translations.receipt.openFreshDashboard
+                            : translations.receipt.openDashboard}
+                        </span>
                       </Link>
                     </Button>
                   </div>
@@ -620,7 +668,7 @@ export const ReceiptWorkspace = ({
               </>
             ) : (
               <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
-                Extracted categorized groceries and the raw model response will appear here.
+                {translations.receipt.resultPlaceholder}
               </div>
             )}
           </CardContent>
@@ -630,18 +678,18 @@ export const ReceiptWorkspace = ({
       <Dialog open={editingIndex !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent>
           {editingIndex !== null && displayedItems[editingIndex] ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Adjust extracted grocery</DialogTitle>
-                <DialogDescription>
-                  Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.
-                </DialogDescription>
-              </DialogHeader>
+              <>
+                <DialogHeader>
+                  <DialogTitle>{translations.receipt.editor.title}</DialogTitle>
+                  <DialogDescription>
+                    {translations.receipt.editor.description}
+                  </DialogDescription>
+                </DialogHeader>
 
               <div className="mt-4 grid gap-4">
                 <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
                   <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-                    Item
+                    {translations.receipt.editor.item}
                   </p>
                   <p className="m-0 mt-2 text-[1.05rem] font-semibold text-foreground">
                     {displayedItems[editingIndex].item}
@@ -649,15 +697,17 @@ export const ReceiptWorkspace = ({
                 </div>
 
                 <div className="grid gap-2">
-                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Category</span>
+                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+                    {translations.receipt.editor.category}
+                  </span>
                   <Select value={draftCategory} onValueChange={setDraftCategory}>
                     <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={translations.receipt.editor.selectCategory} />
                     </SelectTrigger>
                     <SelectContent>
                       {groceryCategories.map((category) => (
                         <SelectItem key={category} value={category}>
-                          {formatCategoryLabel(category)}
+                          {formatCategoryLabel(category, translations.categories)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -665,7 +715,9 @@ export const ReceiptWorkspace = ({
                 </div>
 
                 <div className="grid gap-2">
-                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">Quantity</span>
+                  <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+                    {translations.receipt.editor.quantity}
+                  </span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -678,7 +730,9 @@ export const ReceiptWorkspace = ({
                 </div>
 
                 <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
-                  Unit price stays fixed at ${displayedItems[editingIndex].unitPrice.toFixed(2)}. The line total will be recalculated when you apply the correction.
+                  {translations.receipt.editor.unitPriceFixed(
+                    currencyFormatter.format(displayedItems[editingIndex].unitPrice),
+                  )}
                 </div>
 
                 {draftError ? (
@@ -690,14 +744,19 @@ export const ReceiptWorkspace = ({
                 <div className="flex flex-wrap justify-end gap-2">
                   {editedItems[editingIndex] ? (
                     <Button type="button" variant="ghost" onClick={resetCorrection}>
-                      Reset to AI result
+                      {translations.receipt.editor.reset}
                     </Button>
                   ) : null}
-                  <Button type="button" variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]" onClick={closeEditor}>
-                    Cancel
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="border-[var(--border)] bg-[var(--surface-plain)]"
+                    onClick={closeEditor}
+                  >
+                    {translations.common.cancel}
                   </Button>
                   <Button type="button" onClick={applyCorrection}>
-                    Apply correction
+                    {translations.receipt.editor.apply}
                   </Button>
                 </div>
               </div>

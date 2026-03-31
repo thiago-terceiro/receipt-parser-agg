@@ -2,6 +2,22 @@
 
 Parse and aggregate receipts.
 
+## Internationalization
+
+The frontend now supports locale-prefixed routes for:
+
+- `en`
+- `es`
+- `pt-br`
+
+Examples:
+
+- `http://localhost:3000/en`
+- `http://localhost:3000/es`
+- `http://localhost:3000/pt-br`
+
+Requests without a locale prefix are redirected to the preferred locale based on the locale cookie or the browser `Accept-Language` header.
+
 ## Google Sign-In
 
 The frontend now includes a Google login button powered by Auth.js.

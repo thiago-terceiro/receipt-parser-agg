@@ -199,7 +199,15 @@ export const normalizeItemName = (value: string): string => {
         .trim();
 };
 
-export const formatCategoryLabel = (category: GroceryCategory): string => {
+export const formatCategoryLabel = (
+    category: GroceryCategory,
+    labels?: Partial<Record<GroceryCategory, string>>,
+): string => {
+    const translatedLabel = labels?.[category];
+    if (translatedLabel) {
+        return translatedLabel;
+    }
+
     return category
         .split("-")
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -384,5 +392,6 @@ export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
         throw new Error("Model response must be a JSON object with an items array.");
     }
 
+    console.log("Raw model response:", items);
     return items.map(parseReceiptItem);
 };

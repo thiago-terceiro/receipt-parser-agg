@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { useLocale, useTranslations } from "@/components/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,17 +25,9 @@ import {
     type GroceryCategorySummary,
     type MonthOption,
 } from "@/lib/groceries";
+import { localizePath } from "@/lib/i18n/config";
+import { formatCategoryLabel } from "@/lib/receipt";
 import { cn } from "@/lib/utils";
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-const percentFormatter = new Intl.NumberFormat("en-US", {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
 
 const getMonthProgress = (month: string) => {
   const [yearText, monthText] = month.split("-");
@@ -52,9 +45,17 @@ const getMonthProgress = (month: string) => {
 
 const CategoryDetails = ({
   category,
+  categoryLabel,
+  translations,
+  currencyFormatter,
+  percentFormatter,
   className,
 }: {
   category: GroceryCategorySummary;
+  categoryLabel: string;
+  translations: ReturnType<typeof useTranslations>;
+  currencyFormatter: Intl.NumberFormat;
+  percentFormatter: Intl.NumberFormat;
   className?: string;
 }) => {
   return (
@@ -62,7 +63,7 @@ const CategoryDetails = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
-            {category.label}
+            {categoryLabel}
           </p>
           <h3 className="m-0 mt-1 text-[1.9rem] leading-none tracking-[-0.04em]">
             {currencyFormatter.format(category.total)}
@@ -70,23 +71,23 @@ const CategoryDetails = ({
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
           <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-            {category.itemCount} units
+            {translations.groceries.units(category.itemCount)}
           </Badge>
           <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-            {category.uniqueItemCount} unique items
+            {translations.groceries.uniqueItems(category.uniqueItemCount)}
           </Badge>
           <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-            {percentFormatter.format(category.share)} of month
+            {percentFormatter.format(category.share)} {translations.groceries.ofMonth}
           </Badge>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]">
         <div className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
-          <span>Item</span>
-          <span className="text-right">Unit Price</span>
-          <span className="text-right">Amount</span>
-          <span className="text-right">Total</span>
+          <span>{translations.groceries.table.item}</span>
+          <span className="text-right">{translations.groceries.table.unitPrice}</span>
+          <span className="text-right">{translations.groceries.table.amount}</span>
+          <span className="text-right">{translations.groceries.table.total}</span>
         </div>
 
         <div className="grid gap-0">
@@ -98,19 +99,25 @@ const CategoryDetails = ({
               <div className="min-w-0">
                 <p className="m-0 truncate text-[1rem] font-semibold text-foreground">{group.item}</p>
                 <p className="m-0 mt-1 text-sm text-muted-foreground">
-                  {group.entries.length} receipt entr{group.entries.length === 1 ? "y" : "ies"}
+                  {translations.groceries.receiptEntries(group.entries.length)}
                 </p>
               </div>
               <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">Unit price</span>
+                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
+                  {translations.groceries.table.unitPrice}
+                </span>
                 <span className="font-semibold">{currencyFormatter.format(group.unitPrice)}</span>
               </div>
               <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">Amount</span>
+                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
+                  {translations.groceries.table.amount}
+                </span>
                 <span className="font-semibold">{group.quantity}</span>
               </div>
               <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">Total</span>
+                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
+                  {translations.groceries.table.total}
+                </span>
                 <span className="font-semibold">{currencyFormatter.format(group.total)}</span>
               </div>
             </div>
@@ -130,9 +137,29 @@ export const GroceriesDashboard = ({
   currentMonth: string;
   monthOptions: MonthOption[];
 }) => {
+  const locale = useLocale();
+  const translations = useTranslations();
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(payload.categories[0]?.category ?? null);
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
+  const groceriesPath = localizePath("/groceries", locale);
+  const homePath = localizePath("/", locale);
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: "USD",
+      }),
+    [locale],
+  );
+  const percentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: "percent",
+        maximumFractionDigits: 0,
+      }),
+    [locale],
+  );
 
   useEffect(() => {
     if (payload.categories.length === 0) {
@@ -160,7 +187,7 @@ export const GroceriesDashboard = ({
   };
 
   const handleMonthChange = (month: string) => {
-    router.push(month === currentMonth ? "/groceries" : `/groceries?month=${month}`);
+    router.push(month === currentMonth ? groceriesPath : `${groceriesPath}?month=${month}`);
   };
 
   return (
@@ -169,30 +196,32 @@ export const GroceriesDashboard = ({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
-              <span>Groceries</span>
+              <span>{translations.groceries.eyebrow}</span>
               <span className="text-[var(--muted-foreground)]">
-                {isCurrentMonth ? "Current month view" : "Historical month view"}
+                {isCurrentMonth
+                  ? translations.groceries.currentMonthView
+                  : translations.groceries.historicalMonthView}
               </span>
             </div>
             <div>
               <h1 className="m-0 text-[clamp(2.6rem,6vw,5rem)] leading-[0.92] tracking-[-0.05em] text-balance">
-                {formatMonthLabel(payload.month)}
+                {formatMonthLabel(payload.month, locale)}
               </h1>
               <p className="m-0 mt-3 max-w-[62ch] text-[1rem] leading-7 text-muted-foreground">
-                A live category map of what has landed in the basket so far this month, with fast drill-down into repeated items.
+                {translations.groceries.heroDescription}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 max-[700px]:w-full">
             <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
-              <Link href={previousMonth === currentMonth ? "/groceries" : `/groceries?month=${previousMonth}`}>
-                Previous month
+              <Link href={previousMonth === currentMonth ? groceriesPath : `${groceriesPath}?month=${previousMonth}`}>
+                {translations.groceries.previousMonth}
               </Link>
             </Button>
             <Select value={payload.month} onValueChange={handleMonthChange}>
               <SelectTrigger className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)]">
-                <SelectValue placeholder="Select month" />
+                <SelectValue placeholder={translations.groceries.selectMonth} />
               </SelectTrigger>
               <SelectContent>
                 {monthOptions.map((option) => (
@@ -204,17 +233,17 @@ export const GroceriesDashboard = ({
             </Select>
             {nextMonthDisabled ? (
               <Button variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain-soft)]" disabled>
-                Next month
+                {translations.groceries.nextMonth}
               </Button>
             ) : (
               <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
-                <Link href={nextMonth === currentMonth ? "/groceries" : `/groceries?month=${nextMonth}`}>
-                  Next month
+                <Link href={nextMonth === currentMonth ? groceriesPath : `${groceriesPath}?month=${nextMonth}`}>
+                  {translations.groceries.nextMonth}
                 </Link>
               </Button>
             )}
             <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)] max-[700px]:ml-auto">
-              <Link href="/">Back to receipt upload</Link>
+              <Link href={homePath}>{translations.groceries.backToUpload}</Link>
             </Button>
           </div>
         </div>
@@ -226,10 +255,10 @@ export const GroceriesDashboard = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <CalendarDays className="size-4 text-[var(--accent-dark)]" />
-              <span>Month progress</span>
+              <span>{translations.groceries.monthProgress}</span>
             </div>
             <p className="m-0 text-sm text-muted-foreground">
-              Day {progress.currentDay} of {progress.totalDays}
+              {translations.groceries.dayOf(progress.currentDay, progress.totalDays)}
             </p>
           </div>
 
@@ -259,22 +288,22 @@ export const GroceriesDashboard = ({
         <div className="grid grid-cols-4 gap-4 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
           {[
             {
-              label: "Month total",
+              label: translations.groceries.stats.monthTotal,
               value: currencyFormatter.format(payload.summary.total),
               icon: ReceiptText,
             },
             {
-              label: "Items tracked",
+              label: translations.groceries.stats.itemsTracked,
               value: String(payload.summary.itemCount),
               icon: Package2,
             },
             {
-              label: "Receipts saved",
+              label: translations.groceries.stats.receiptsSaved,
               value: String(payload.summary.receiptCount),
               icon: ReceiptText,
             },
             {
-              label: "Categories active",
+              label: translations.groceries.stats.categoriesActive,
               value: String(payload.summary.categoryCount),
               icon: CalendarDays,
             },
@@ -294,13 +323,15 @@ export const GroceriesDashboard = ({
         <Card className="rounded-[28px] border-[var(--border)] bg-[var(--surface-soft)] py-0 shadow-[var(--shadow)]">
           <CardContent className="grid min-h-[280px] place-items-center gap-3 p-8 text-center">
             <div className="grid gap-3">
-              <h2 className="m-0 text-[1.8rem] tracking-[-0.04em]">No groceries saved for this month yet</h2>
+              <h2 className="m-0 text-[1.8rem] tracking-[-0.04em]">
+                {translations.groceries.emptyTitle}
+              </h2>
               <p className="m-0 max-w-[48ch] text-muted-foreground">
-                Extract a grocery receipt, save the categorized result, and {formatMonthLabel(payload.month)} will bloom into the month view automatically.
+                {translations.groceries.emptyDescription(formatMonthLabel(payload.month, locale))}
               </p>
               <div>
                 <Button asChild>
-                  <Link href="/">Extract a receipt</Link>
+                  <Link href={homePath}>{translations.groceries.extractReceipt}</Link>
                 </Button>
               </div>
             </div>
@@ -328,7 +359,7 @@ export const GroceriesDashboard = ({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-[var(--accent-dark)]">
-                            {category.label}
+                            {formatCategoryLabel(category.category, translations.categories)}
                           </p>
                           <h2 className="m-0 mt-2 text-[1.85rem] leading-none tracking-[-0.04em]">
                             {currencyFormatter.format(category.total)}
@@ -341,7 +372,9 @@ export const GroceriesDashboard = ({
 
                       <div className="grid gap-3">
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{category.uniqueItemCount} repeated item groups</span>
+                          <span>
+                            {translations.groceries.repeatedGroups(category.uniqueItemCount)}
+                          </span>
                           <span>{percentFormatter.format(category.share)}</span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]">
@@ -371,7 +404,13 @@ export const GroceriesDashboard = ({
                   >
                     <Card className="rounded-[30px] border-[rgba(181,82,51,0.2)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)]">
                       <CardContent className="p-6">
-                        <CategoryDetails category={active} />
+                        <CategoryDetails
+                          category={active}
+                          categoryLabel={formatCategoryLabel(active.category, translations.categories)}
+                          translations={translations}
+                          currencyFormatter={currencyFormatter}
+                          percentFormatter={percentFormatter}
+                        />
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -383,19 +422,28 @@ export const GroceriesDashboard = ({
       )}
 
       <Dialog open={isMobileDetailOpen} onOpenChange={setIsMobileDetailOpen}>
-        <DialogContent className="lg:hidden">
-          {active ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{active.label}</DialogTitle>
-                <DialogDescription>
-                  Repeated items, quantity rollups, and spend for this category so far this month.
-                </DialogDescription>
-              </DialogHeader>
-              <CategoryDetails category={active} className="mt-4" />
-            </>
-          ) : null}
-        </DialogContent>
+            <DialogContent className="lg:hidden">
+           {active ? (
+             <>
+               <DialogHeader>
+                  <DialogTitle>
+                    {formatCategoryLabel(active.category, translations.categories)}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {translations.groceries.mobileDescription}
+                  </DialogDescription>
+                </DialogHeader>
+                <CategoryDetails
+                  category={active}
+                  categoryLabel={formatCategoryLabel(active.category, translations.categories)}
+                  translations={translations}
+                  currencyFormatter={currencyFormatter}
+                  percentFormatter={percentFormatter}
+                  className="mt-4"
+                />
+             </>
+           ) : null}
+         </DialogContent>
       </Dialog>
     </div>
   );

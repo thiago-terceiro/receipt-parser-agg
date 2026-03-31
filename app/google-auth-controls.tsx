@@ -2,8 +2,12 @@
 
 import { signIn, signOut, useSession } from "next-auth/react";
 
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { localizePath } from "@/lib/i18n/config";
+
+import { useLocale, useTranslations } from "@/components/locale-provider";
 
 const GoogleMark = () => (
   <span className="inline-grid h-[22px] w-[22px] place-items-center" aria-hidden="true">
@@ -43,47 +47,51 @@ type GoogleAuthControlsProps = {
 
 export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps) => {
   const { data: session, status } = useSession();
+  const locale = useLocale();
+  const translations = useTranslations();
 
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
-  const buttonLabel = isAuthenticated ? "Sign out" : "Continue with Google";
+  const homeHref = localizePath("/", locale);
+  const buttonLabel = isAuthenticated
+    ? translations.auth.signOut
+    : translations.auth.continueWithGoogle;
   const authNote = canUseGoogleAuth
     ? isAuthenticated
-      ? "Google account connected."
-      : "Use Google to start a session in this workspace."
-    : "Set AUTH_SECRET, AUTH_GOOGLE_ID, and AUTH_GOOGLE_SECRET to enable Google login.";
+      ? translations.auth.connected
+      : translations.auth.startSession
+    : translations.auth.setupHint;
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
-      void signOut({ callbackUrl: "/" });
+      void signOut({ callbackUrl: homeHref });
       return;
     }
-    void signIn("google", { callbackUrl: "/" });
+    void signIn("google", { callbackUrl: homeHref });
   };
 
   return (
     <section
       className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch"
-      aria-label="Authentication controls"
+      aria-label={translations.auth.sectionLabel}
     >
-      {/* Auth description */}
       <div className="grid gap-1">
-        <p className="m-0 text-[1rem] font-bold">Google login</p>
+        <p className="m-0 text-[1rem] font-bold">{translations.auth.title}</p>
         <p className="m-0 text-muted-foreground text-[0.9rem] leading-[1.5]">{authNote}</p>
       </div>
 
-      {/* Auth actions */}
       <div className="flex items-center gap-3 max-[900px]:justify-between max-[900px]:flex-wrap">
+        <LocaleSwitcher />
         <ThemeToggle />
         {isAuthenticated ? (
           <div className="flex items-center gap-2.5" aria-live="polite">
             {session.user?.image ? (
               <img
-                className="size-[42px] rounded-full border border-[var(--border)] object-cover"
-                src={session.user.image}
-                alt={session.user.name ?? "User"}
-              />
-            ) : (
+                 className="size-[42px] rounded-full border border-[var(--border)] object-cover"
+                 src={session.user.image}
+                 alt={session.user.name ?? translations.auth.userAlt}
+               />
+             ) : (
               <div
                 className="grid size-[42px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent-dark)] to-[var(--accent)] text-sm font-bold text-[#fffaf3]"
                 aria-hidden="true"
@@ -92,9 +100,11 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
               </div>
             )}
             <div className="grid gap-0.5">
-              <p className="m-0 text-[1rem] font-bold">{session.user?.name ?? "Signed in"}</p>
+              <p className="m-0 text-[1rem] font-bold">
+                {session.user?.name ?? translations.auth.signedInFallback}
+              </p>
               <p className="m-0 text-muted-foreground text-[0.9rem]">
-                {session.user?.email ?? "Google account"}
+                {session.user?.email ?? translations.auth.emailFallback}
               </p>
             </div>
           </div>
@@ -108,7 +118,7 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
           className="min-w-[220px] border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
         >
           <GoogleMark />
-          <span>{isLoading ? "Checking Google login..." : buttonLabel}</span>
+          <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
         </Button>
       </div>
     </section>

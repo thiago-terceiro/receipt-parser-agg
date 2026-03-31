@@ -6,34 +6,45 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { type Theme, useTheme } from "./theme-provider";
-
-const themeOptions: Array<{
-  value: Theme;
-  label: string;
-  Icon: typeof Sun;
-}> = [
-  { value: "system", label: "System", Icon: LaptopMinimal },
-  { value: "light", label: "Light", Icon: Sun },
-  { value: "dark", label: "Dark", Icon: Moon },
-];
+import { useTranslations } from "./locale-provider";
 
 export const ThemeToggle = () => {
   const { theme, resolvedTheme, isLoaded, setTheme } = useTheme();
+  const translations = useTranslations();
+
+  const themeOptions: Array<{
+    value: Theme;
+    label: string;
+    Icon: typeof Sun;
+  }> = [
+    { value: "system", label: translations.theme.system, Icon: LaptopMinimal },
+    { value: "light", label: translations.theme.light, Icon: Sun },
+    { value: "dark", label: translations.theme.dark, Icon: Moon },
+  ];
+
+  const resolvedThemeLabel =
+    resolvedTheme === "dark" ? translations.theme.dark : translations.theme.light;
+  const explicitThemeLabel =
+    theme === "system"
+      ? translations.theme.system
+      : theme === "dark"
+        ? translations.theme.dark
+        : translations.theme.light;
   const themeSummary = isLoaded
     ? theme === "system"
-      ? `Current preference: system (${resolvedTheme}).`
-      : `Current preference: ${theme}.`
-    : "Current preference: system.";
+      ? translations.theme.currentPreferenceSystem(resolvedThemeLabel)
+      : translations.theme.currentPreferenceExplicit(explicitThemeLabel)
+    : translations.theme.currentPreferenceExplicit(translations.theme.system);
 
   return (
     <div className="grid gap-1">
       <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-        Theme
+        {translations.theme.label}
       </span>
       <div
         className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] p-1"
         role="group"
-        aria-label="Theme switcher"
+        aria-label={translations.theme.switcherLabel}
       >
         {themeOptions.map(({ value, label, Icon }) => {
           const isActive = isLoaded ? theme === value : value === "system";
