@@ -2,18 +2,19 @@ import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
 
 import {
-    type AvailableModel,
     buildDataUrl,
     defaultModelId,
     defaultProvider,
-    fallbackAvailableModels,
+    dropdownAvailableModels,
     parseReceiptItems,
     receiptPrompt,
+    resolveRequestedModelId,
 } from "../../../lib/receipt";
 
 export const runtime = "nodejs";
 
-const hfRouterModelsUrl = "https://router.huggingface.co/v1/models";
+const hfToken = process.env.HF_TOKEN;
+const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
 
 type ChatMessageContent =
     | string
@@ -30,125 +31,49 @@ type ChatMessageContent =
         }
     >;
 
-type RouterModelProvider = {
-    provider?: string;
-    status?: string;
-};
-
-type RouterModel = {
-    id?: string;
-    architecture?: {
-        input_modalities?: string[];
-        output_modalities?: string[];
-    };
-    providers?: RouterModelProvider[];
-};
-
-type RouterModelsResponse = {
-    data?: RouterModel[];
-};
-
-function getConfiguredProvider(): string {
-    return defaultProvider;
-}
-
-function hasVisionInput(model: RouterModel): boolean {
-    const inputModalities = model.architecture?.input_modalities ?? [];
-    const outputModalities = model.architecture?.output_modalities ?? [];
-
-    return inputModalities.includes("image") && outputModalities.includes("text");
-}
-
-function buildLiveModelList(models: RouterModel[], provider: string): AvailableModel[] {
-    return models
-        .filter((model) => typeof model.id === "string" && hasVisionInput(model))
-        .map((model) => {
-            const liveProviders = (model.providers ?? [])
-                .filter((entry) => entry.status === "live")
-                .map((entry) => entry.provider)
-                .filter((entry): entry is string => typeof entry === "string" && !!entry);
-
-            return {
-                id: model.id as string,
-                label: model.id as string,
-                providers: liveProviders,
-            } satisfies AvailableModel;
-        })
-        .filter((model) =>
-            provider === "auto"
-                ? model.providers.length > 0
-                : model.providers.includes(provider),
-        )
-        .sort((left, right) => {
-            if (left.id === defaultModelId) {
-                return -1;
-            }
-
-            if (right.id === defaultModelId) {
-                return 1;
-            }
-
-            if (right.providers.length !== left.providers.length) {
-                return right.providers.length - left.providers.length;
-            }
-
-            return left.id.localeCompare(right.id);
-        });
-}
-
-async function getAvailableModels(token?: string): Promise<{
-    models: AvailableModel[];
-    source: "router" | "fallback";
-}> {
-    try {
-        const response = await fetch(hfRouterModelsUrl, {
-            headers: token
-                ? {
-                    Authorization: `Bearer ${token}`,
-                }
-                : undefined,
-            cache: "no-store",
-        });
-
-        if (!response.ok) {
-            throw new Error(`Model catalog request failed with status ${response.status}.`);
-        }
-
-        const payload = (await response.json()) as RouterModelsResponse;
-        const models = buildLiveModelList(payload.data ?? [], getConfiguredProvider());
-        if (models.length === 0) {
-            throw new Error("No compatible vision models were returned by the Hugging Face router.");
-        }
-
-        return {
-            models,
-            source: "router",
-        };
-    } catch {
-        return {
-            models: fallbackAvailableModels,
-            source: "fallback",
-        };
+class RequestValidationError extends Error {
+    constructor(
+        message: string,
+        readonly status: number,
+    ) {
+        super(message);
+        this.name = "RequestValidationError";
     }
 }
 
-export async function GET() {
-    const token = process.env.HF_TOKEN;
-    const { models, source } = await getAvailableModels(token);
+const getConfiguredProvider = (): string => defaultProvider;
 
+const getUploadedImageDataUrl = async (formData: FormData): Promise<string> => {
+    const file = formData.get("file");
+
+    if (!(file instanceof File)) {
+        throw new RequestValidationError(
+            "Request must include an image file under the 'file' field.",
+            400,
+        );
+    }
+
+    if (!file.type.startsWith("image/")) {
+        throw new RequestValidationError("Uploaded file must be an image.", 400);
+    }
+
+    const bytes = await file.arrayBuffer();
+    if (bytes.byteLength === 0) {
+        throw new RequestValidationError("Uploaded file is empty.", 400);
+    }
+
+    return buildDataUrl(bytes, file.type || "image/jpeg");
+};
+
+export const GET = async () => {
     return NextResponse.json({
-        models,
-        defaultModelId: models.some((model) => model.id === defaultModelId)
-            ? defaultModelId
-            : models[0]?.id ?? defaultModelId,
-        provider: getConfiguredProvider(),
-        source,
+        defaultModelId,
+        availableModels: dropdownAvailableModels,
     });
-}
+};
 
-export async function POST(request: Request) {
-    const token = process.env.HF_TOKEN;
-    if (!token) {
+export const POST = async (request: Request) => {
+    if (!inferenceClient) {
         return NextResponse.json(
             { error: "HF_TOKEN is not configured on the server." },
             { status: 500 },
@@ -156,40 +81,26 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-    const file = formData.get("file");
-    const modelIdField = formData.get("modelId");
-    if (!(file instanceof File)) {
-        return NextResponse.json(
-            { error: "Request must include an image file under the 'file' field." },
-            { status: 400 },
-        );
-    }
-
-    if (!file.type.startsWith("image/")) {
-        return NextResponse.json(
-            { error: "Uploaded file must be an image." },
-            { status: 400 },
-        );
-    }
-
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength === 0) {
-        return NextResponse.json(
-            { error: "Uploaded file is empty." },
-            { status: 400 },
-        );
-    }
-
-    const client = new InferenceClient(token);
-    const provider = getConfiguredProvider() as never;
-    const model =
-        typeof modelIdField === "string" && modelIdField.trim()
-            ? modelIdField.trim()
-            : defaultModelId;
-    const imageUrl = buildDataUrl(bytes, file.type || "image/jpeg");
+    const model = resolveRequestedModelId({
+        selectedModelId: formData.get("modelId"),
+    });
+    let imageUrl: string;
 
     try {
-        const response = await client.chatCompletion({
+        imageUrl = await getUploadedImageDataUrl(formData);
+    } catch (error) {
+        if (error instanceof RequestValidationError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+
+        const message = error instanceof Error ? error.message : "Unexpected request parsing error.";
+        return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    const provider = getConfiguredProvider() as never;
+
+    try {
+        const response = await inferenceClient.chatCompletion({
             provider,
             model,
             messages: [
@@ -207,7 +118,24 @@ export async function POST(request: Request) {
                     ] satisfies ChatMessageContent,
                 },
             ],
-            max_tokens: 500,
+            response_format: {
+                type: "json_object", json_schema: {
+                    name: "ReceiptItems",
+                    strict: true,
+                    schema: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                name: { type: "string" },
+                                price: { type: "number" }
+                            },
+                            required: ["name", "price"],
+                        },
+                    },
+                },
+            },
+            max_tokens: 800,
             temperature: 0,
         });
 
@@ -218,7 +146,6 @@ export async function POST(request: Request) {
                 { status: 502 },
             );
         }
-
         const items = parseReceiptItems(rawResponse);
         return NextResponse.json({
             backend: "vercel-hf-route",
@@ -230,4 +157,4 @@ export async function POST(request: Request) {
         const message = error instanceof Error ? error.message : "Unexpected extraction error.";
         return NextResponse.json({ error: message }, { status: 502 });
     }
-}
+};
