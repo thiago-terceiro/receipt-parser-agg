@@ -4,26 +4,26 @@ import { CalendarDays, ChevronRight, Package2, ReceiptText } from "lucide-react"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    formatMonthLabel,
-    shiftMonthKey,
-    type GroceriesMonthPayload,
-    type GroceryCategorySummary,
-    type MonthOption,
+  formatMonthLabel,
+  shiftMonthKey,
+  type GroceriesMonthPayload,
+  type GroceryCategorySummary,
+  type MonthOption,
 } from "@/lib/groceries";
 import { localizePath } from "@/lib/i18n/config";
 import { formatCategoryLabel } from "@/lib/receipt";
@@ -43,6 +43,15 @@ const getMonthProgress = (month: string) => {
   return { totalDays, currentDay, progress: Math.min(Math.max(progress, 0), 1) };
 };
 
+type CategoryDetailsProps = {
+  category: GroceryCategorySummary;
+  categoryLabel: string;
+  translations: ReturnType<typeof useTranslations>;
+  currencyFormatter: Intl.NumberFormat;
+  percentFormatter: Intl.NumberFormat;
+  className?: string;
+};
+
 const CategoryDetails = ({
   category,
   categoryLabel,
@@ -50,14 +59,7 @@ const CategoryDetails = ({
   currencyFormatter,
   percentFormatter,
   className,
-}: {
-  category: GroceryCategorySummary;
-  categoryLabel: string;
-  translations: ReturnType<typeof useTranslations>;
-  currencyFormatter: Intl.NumberFormat;
-  percentFormatter: Intl.NumberFormat;
-  className?: string;
-}) => {
+}: CategoryDetailsProps) => {
   return (
     <div className={cn("grid gap-4", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -128,6 +130,8 @@ const CategoryDetails = ({
   );
 };
 
+const MemoizedCategoryDetails = memo(CategoryDetails);
+
 export const GroceriesDashboard = ({
   payload,
   currentMonth,
@@ -173,22 +177,64 @@ export const GroceriesDashboard = ({
   }, [activeCategory, payload.categories]);
 
   const progress = useMemo(() => getMonthProgress(payload.month), [payload.month]);
-  const active = payload.categories.find((category) => category.category === activeCategory) ?? null;
+  const active = useMemo(
+    () => payload.categories.find((category) => category.category === activeCategory) ?? null,
+    [activeCategory, payload.categories],
+  );
+  const activeCategoryLabel = useMemo(
+    () => (active ? formatCategoryLabel(active.category, translations.categories) : null),
+    [active, translations.categories],
+  );
   const isCurrentMonth = payload.month === currentMonth;
   const previousMonth = shiftMonthKey(payload.month, -1);
   const nextMonth = shiftMonthKey(payload.month, 1);
   const nextMonthDisabled = nextMonth > currentMonth;
+  const statCards = useMemo(
+    () => [
+      {
+        label: translations.groceries.stats.monthTotal,
+        value: currencyFormatter.format(payload.summary.total),
+        icon: ReceiptText,
+      },
+      {
+        label: translations.groceries.stats.itemsTracked,
+        value: String(payload.summary.itemCount),
+        icon: Package2,
+      },
+      {
+        label: translations.groceries.stats.receiptsSaved,
+        value: String(payload.summary.receiptCount),
+        icon: ReceiptText,
+      },
+      {
+        label: translations.groceries.stats.categoriesActive,
+        value: String(payload.summary.categoryCount),
+        icon: CalendarDays,
+      },
+    ],
+    [
+      currencyFormatter,
+      payload.summary.categoryCount,
+      payload.summary.itemCount,
+      payload.summary.receiptCount,
+      payload.summary.total,
+      translations.groceries.stats.categoriesActive,
+      translations.groceries.stats.itemsTracked,
+      translations.groceries.stats.monthTotal,
+      translations.groceries.stats.receiptsSaved,
+    ],
+  );
 
-  const handleSelectCategory = (category: GroceryCategorySummary) => {
+  const handleSelectCategory = useCallback((category: GroceryCategorySummary) => {
     setActiveCategory(category.category);
     if (typeof window !== "undefined" && window.innerWidth < 900) {
       setIsMobileDetailOpen(true);
     }
-  };
+  }, []);
 
-  const handleMonthChange = (month: string) => {
+  const handleMonthChange = useCallback((month: string) => {
     router.push(month === currentMonth ? groceriesPath : `${groceriesPath}?month=${month}`);
-  };
+  }, [currentMonth, groceriesPath, router]);
 
   return (
     <div className="grid gap-6">
@@ -286,28 +332,7 @@ export const GroceriesDashboard = ({
         </div>
 
         <div className="grid grid-cols-4 gap-4 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-          {[
-            {
-              label: translations.groceries.stats.monthTotal,
-              value: currencyFormatter.format(payload.summary.total),
-              icon: ReceiptText,
-            },
-            {
-              label: translations.groceries.stats.itemsTracked,
-              value: String(payload.summary.itemCount),
-              icon: Package2,
-            },
-            {
-              label: translations.groceries.stats.receiptsSaved,
-              value: String(payload.summary.receiptCount),
-              icon: ReceiptText,
-            },
-            {
-              label: translations.groceries.stats.categoriesActive,
-              value: String(payload.summary.categoryCount),
-              icon: CalendarDays,
-            },
-          ].map((stat) => (
+          {statCards.map((stat) => (
             <div key={stat.label} className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="m-0 text-sm text-muted-foreground">{stat.label}</p>
@@ -404,9 +429,9 @@ export const GroceriesDashboard = ({
                   >
                     <Card className="rounded-[30px] border-[rgba(181,82,51,0.2)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)]">
                       <CardContent className="p-6">
-                        <CategoryDetails
+                        <MemoizedCategoryDetails
                           category={active}
-                          categoryLabel={formatCategoryLabel(active.category, translations.categories)}
+                          categoryLabel={activeCategoryLabel ?? ""}
                           translations={translations}
                           currencyFormatter={currencyFormatter}
                           percentFormatter={percentFormatter}
@@ -433,9 +458,9 @@ export const GroceriesDashboard = ({
                     {translations.groceries.mobileDescription}
                   </DialogDescription>
                 </DialogHeader>
-                <CategoryDetails
+                <MemoizedCategoryDetails
                   category={active}
-                  categoryLabel={formatCategoryLabel(active.category, translations.categories)}
+                  categoryLabel={activeCategoryLabel ?? ""}
                   translations={translations}
                   currencyFormatter={currencyFormatter}
                   percentFormatter={percentFormatter}

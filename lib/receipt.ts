@@ -1,3 +1,5 @@
+import { jsonrepair } from "jsonrepair";
+
 export const groceryCategories = [
     "produce",
     "dairy",
@@ -11,6 +13,36 @@ export const groceryCategories = [
     "personal-care",
     "other",
 ] as const;
+
+export const receiptItemsJsonSchema = {
+    name: "ReceiptItems",
+    strict: true,
+    schema: {
+        type: "object",
+        properties: {
+            items: {
+                type: "array",
+                items: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                        name: { type: "string" },
+                        category: {
+                            type: "string",
+                            enum: [...groceryCategories],
+                        },
+                        quantity: { type: "number" },
+                        unitPrice: { type: "number" },
+                        lineTotal: { type: "number" },
+                    },
+                    required: ["name", "category", "quantity", "unitPrice", "lineTotal"],
+                },
+            },
+        },
+        additionalProperties: false,
+        required: ["items"],
+    },
+} as const;
 
 export type GroceryCategory = (typeof groceryCategories)[number];
 
@@ -223,157 +255,35 @@ export const sanitizeCategory = (value: unknown): GroceryCategory | null => {
     return groceryCategorySet.has(normalized) ? normalized : null;
 };
 
-const extractJsonPayload = (rawResponse: string): string => {
+const parseReceiptJson = (rawResponse: string): unknown => {
     const trimmed = rawResponse.trim();
     if (!trimmed) {
         throw new Error("Model response was empty.");
     }
 
+    // Extract JSON from code fences if present.
     const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-    if (fencedMatch?.[1]) {
-        return fencedMatch[1].trim();
+    const jsonStr = fencedMatch?.[1] ?? trimmed;
+
+    // Find JSON boundaries.
+    const jsonStart = jsonStr.search(/[{\[]/);
+    if (jsonStart === -1) {
+        throw new Error("No JSON found in response.");
     }
 
-    const openingIndex = trimmed.search(/[{\[]/);
-    if (openingIndex === -1) {
-        return trimmed;
+    // Extract from first { or [ to last } or ].
+    const jsonEnd = Math.max(jsonStr.lastIndexOf("}"), jsonStr.lastIndexOf("]"));
+    if (jsonEnd === -1) {
+        throw new Error("Incomplete JSON in response.");
     }
 
-    let depth = 0;
-    let startIndex = -1;
-    let inString = false;
-    let isEscaped = false;
-
-    for (let index = openingIndex; index < trimmed.length; index += 1) {
-        const char = trimmed[index];
-
-        if (inString) {
-            if (isEscaped) {
-                isEscaped = false;
-                continue;
-            }
-
-            if (char === "\\") {
-                isEscaped = true;
-                continue;
-            }
-
-            if (char === "\"") {
-                inString = false;
-            }
-
-            continue;
-        }
-
-        if (char === "\"") {
-            inString = true;
-            continue;
-        }
-
-        if (char === "{" || char === "[") {
-            if (startIndex === -1) {
-                startIndex = index;
-            }
-
-            depth += 1;
-            continue;
-        }
-
-        if (char === "}" || char === "]") {
-            depth -= 1;
-            if (depth === 0 && startIndex !== -1) {
-                return trimmed.slice(startIndex, index + 1);
-            }
-        }
-    }
-
-    return trimmed.slice(openingIndex);
-};
-
-const isLikelyJsonStringTerminator = (source: string, index: number): boolean => {
-    for (let lookAhead = index + 1; lookAhead < source.length; lookAhead += 1) {
-        const nextChar = source[lookAhead];
-        if (/\s/.test(nextChar)) {
-            continue;
-        }
-
-        return [",", "}", "]", ":"].includes(nextChar);
-    }
-
-    return true;
-};
-
-const repairJsonStringLiterals = (source: string): string => {
-    let repaired = "";
-    let inString = false;
-    let isEscaped = false;
-
-    for (let index = 0; index < source.length; index += 1) {
-        const char = source[index];
-
-        if (!inString) {
-            if (char === "\"") {
-                inString = true;
-            }
-
-            repaired += char;
-            continue;
-        }
-
-        if (isEscaped) {
-            repaired += char;
-            isEscaped = false;
-            continue;
-        }
-
-        if (char === "\\") {
-            repaired += char;
-            isEscaped = true;
-            continue;
-        }
-
-        if (char === "\"") {
-            if (isLikelyJsonStringTerminator(source, index)) {
-                repaired += char;
-                inString = false;
-            } else {
-                repaired += "\\\"";
-            }
-
-            continue;
-        }
-
-        if (char === "\n") {
-            repaired += "\\n";
-            continue;
-        }
-
-        if (char === "\r") {
-            repaired += "\\r";
-            continue;
-        }
-
-        if (char === "\t") {
-            repaired += "\\t";
-            continue;
-        }
-
-        repaired += char;
-    }
-
-    return repaired;
-};
-
-const parseReceiptJson = (rawResponse: string): unknown => {
-    const jsonPayload = extractJsonPayload(rawResponse);
+    const extracted = jsonStr.slice(jsonStart, jsonEnd + 1).trim();
 
     try {
-        return JSON.parse(jsonPayload) as unknown;
+        return JSON.parse(extracted) as unknown;
     } catch (initialError) {
-        const repairedPayload = repairJsonStringLiterals(jsonPayload);
-
         try {
-            return JSON.parse(repairedPayload) as unknown;
+            return JSON.parse(jsonrepair(extracted)) as unknown;
         } catch {
             const message =
                 initialError instanceof Error ? initialError.message : "Unknown JSON parsing error.";
@@ -392,6 +302,5 @@ export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
         throw new Error("Model response must be a JSON object with an items array.");
     }
 
-    console.log("Raw model response:", items);
     return items.map(parseReceiptItem);
 };

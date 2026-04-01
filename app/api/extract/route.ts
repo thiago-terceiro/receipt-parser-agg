@@ -8,6 +8,7 @@ import {
     defaultProvider,
     dropdownAvailableModels,
     parseReceiptItems,
+    receiptItemsJsonSchema,
     resolveRequestedModelId,
 } from "../../../lib/receipt";
 
@@ -119,47 +120,8 @@ export const POST = async (request: Request) => {
                 },
             ],
             response_format: {
-                type: "json_object", json_schema: {
-                    name: "ReceiptItems",
-                    strict: true,
-                    schema: {
-                        type: "object",
-                        properties: {
-                            items: {
-                                type: "array",
-                                items: {
-                                    type: "object",
-                                    additionalProperties: false,
-                                    properties: {
-                                        name: { type: "string" },
-                                        category: {
-                                            type: "string",
-                                            enum: [
-                                                "produce",
-                                                "dairy",
-                                                "bakery",
-                                                "meat",
-                                                "pantry",
-                                                "frozen",
-                                                "beverages",
-                                                "snacks",
-                                                "household",
-                                                "personal-care",
-                                                "other",
-                                            ],
-                                        },
-                                        quantity: { type: "number" },
-                                        unitPrice: { type: "number" },
-                                        lineTotal: { type: "number" },
-                                    },
-                                    required: ["name", "category", "quantity", "unitPrice", "lineTotal"],
-                                },
-                            },
-                        },
-                        additionalProperties: false,
-                        required: ["items"],
-                    },
-                },
+                type: "json_object",
+                json_schema: receiptItemsJsonSchema,
             },
             max_tokens: 800,
             temperature: 0,

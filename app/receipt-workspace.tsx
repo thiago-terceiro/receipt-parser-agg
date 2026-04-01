@@ -4,13 +4,14 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  type ChangeEvent,
-  type DragEvent,
-  type FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
 } from "react";
 
 import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
@@ -102,6 +103,7 @@ export const ReceiptWorkspace = ({
   const [draftCategory, setDraftCategory] = useState<string>("");
   const [draftQuantity, setDraftQuantity] = useState<string>("");
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [showRawResponse, setShowRawResponse] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
   const { status } = useSession();
@@ -117,8 +119,19 @@ export const ReceiptWorkspace = ({
     [locale],
   );
 
-  const displayedItems = result?.items.map((item, index) => editedItems[index] ?? item) ?? [];
-  const correctedCount = Object.keys(editedItems).length;
+  const displayedItems = useMemo(
+    () => result?.items.map((item, index) => editedItems[index] ?? item) ?? [],
+    [editedItems, result],
+  );
+  const correctedCount = useMemo(() => Object.keys(editedItems).length, [editedItems]);
+  const displayedTotal = useMemo(
+    () => displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0),
+    [displayedItems],
+  );
+  const editingItem = useMemo(
+    () => (editingIndex === null ? null : displayedItems[editingIndex] ?? null),
+    [displayedItems, editingIndex],
+  );
 
   useEffect(() => {
     setSelectedModelId(defaultModelId);
@@ -130,7 +143,7 @@ export const ReceiptWorkspace = ({
     };
   }, [previewUrl]);
 
-  const clearSelectedFile = () => {
+  const clearSelectedFile = useCallback(() => {
     setFile(null);
     setPreviewUrl(null);
     setResult(null);
@@ -140,11 +153,12 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
+    setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  }, [dashboardBaseHref]);
 
-  const applySelectedFile = (nextFile: File | null) => {
+  const applySelectedFile = useCallback((nextFile: File | null) => {
     if (!nextFile) {
       clearSelectedFile();
       return;
@@ -162,40 +176,41 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
+    setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
     setPreviewUrl(URL.createObjectURL(nextFile));
-  };
+  }, [clearSelectedFile, dashboardBaseHref, translations.receipt.errors.invalidImage]);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;
     applySelectedFile(nextFile);
-  };
+  }, [applySelectedFile]);
 
-  const handleDropzoneClick = () => {
+  const handleDropzoneClick = useCallback(() => {
     fileInputRef.current?.click();
-  };
+  }, []);
 
-  const handleDropzoneDragOver = (event: DragEvent<HTMLButtonElement>) => {
+  const handleDropzoneDragOver = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setIsDraggingFile(true);
-  };
+  }, []);
 
-  const handleDropzoneDragLeave = (event: DragEvent<HTMLButtonElement>) => {
+  const handleDropzoneDragLeave = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
       return;
     }
     setIsDraggingFile(false);
-  };
+  }, []);
 
-  const handleDropzoneDrop = (event: DragEvent<HTMLButtonElement>) => {
+  const handleDropzoneDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setIsDraggingFile(false);
     const nextFile = event.dataTransfer.files?.[0] ?? null;
     applySelectedFile(nextFile);
-  };
+  }, [applySelectedFile]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!file) {
       setError(translations.receipt.errors.noFile);
@@ -209,6 +224,7 @@ export const ReceiptWorkspace = ({
     setEditedItems({});
     setEditingIndex(null);
     setDraftError(null);
+    setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
 
     const formData = new FormData();
@@ -235,9 +251,16 @@ export const ReceiptWorkspace = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    dashboardBaseHref,
+    file,
+    selectedModelId,
+    translations.receipt.errors.extractionFailed,
+    translations.receipt.errors.noFile,
+    translations.receipt.errors.unexpectedRequest,
+  ]);
 
-  const handleSaveGroceries = async () => {
+  const handleSaveGroceries = useCallback(async () => {
     if (!result || displayedItems.length === 0) {
       setError(translations.receipt.errors.noResultToSave);
       return;
@@ -300,16 +323,27 @@ export const ReceiptWorkspace = ({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [
+    dashboardBaseHref,
+    displayedItems,
+    file?.name,
+    locale,
+    result,
+    router,
+    translations.receipt.errors.noResultToSave,
+    translations.receipt.errors.saveFailed,
+    translations.receipt.errors.unexpectedSave,
+    translations.receipt.saveSuccess,
+  ]);
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => {
     setEditingIndex(null);
     setDraftCategory("");
     setDraftQuantity("");
     setDraftError(null);
-  };
+  }, []);
 
-  const openEditor = (index: number) => {
+  const openEditor = useCallback((index: number) => {
     const item = displayedItems[index];
     if (!item) {
       return;
@@ -319,9 +353,9 @@ export const ReceiptWorkspace = ({
     setDraftCategory(item.category);
     setDraftQuantity(String(item.quantity));
     setDraftError(null);
-  };
+  }, [displayedItems]);
 
-  const applyCorrection = () => {
+  const applyCorrection = useCallback(() => {
     if (editingIndex === null) {
       return;
     }
@@ -356,9 +390,17 @@ export const ReceiptWorkspace = ({
       },
     }));
     closeEditor();
-  };
+  }, [
+    closeEditor,
+    displayedItems,
+    draftCategory,
+    draftQuantity,
+    editingIndex,
+    translations.receipt.errors.invalidCategory,
+    translations.receipt.errors.invalidQuantity,
+  ]);
 
-  const resetCorrection = () => {
+  const resetCorrection = useCallback(() => {
     if (editingIndex === null) {
       return;
     }
@@ -369,7 +411,11 @@ export const ReceiptWorkspace = ({
       return next;
     });
     closeEditor();
-  };
+  }, [closeEditor, editingIndex]);
+
+  const toggleRawResponse = useCallback(() => {
+    setShowRawResponse((current) => !current);
+  }, []);
 
   return (
     <>
@@ -429,9 +475,6 @@ export const ReceiptWorkspace = ({
                   </span>
                 </div>
               </div>
-              <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
-                image/*
-              </Badge>
             </div>
 
             {file ? (
@@ -459,9 +502,7 @@ export const ReceiptWorkspace = ({
               </div>
             ) : (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1.5">
-                  {translations.receipt.dragAndDrop}
-                </span>
+                <span>{translations.receipt.dragAndDrop}</span>
                 <span>{translations.receipt.clickToBrowse}</span>
               </div>
             )}
@@ -566,9 +607,7 @@ export const ReceiptWorkspace = ({
                     </Badge>
                     <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
                       {translations.receipt.total(
-                        currencyFormatter.format(
-                          displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0),
-                        ),
+                        currencyFormatter.format(displayedTotal),
                       )}
                     </Badge>
                     {correctedCount > 0 ? (
@@ -664,7 +703,19 @@ export const ReceiptWorkspace = ({
                     </Button>
                   </div>
                 </div>
-                <pre className="raw-response">{result.rawResponse}</pre>
+                <div className="mt-5 grid gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="justify-start px-0"
+                    onClick={toggleRawResponse}
+                  >
+                    {showRawResponse ? "Hide raw response" : "Show raw response"}
+                  </Button>
+                  {showRawResponse ? (
+                    <pre className="raw-response max-h-56 overflow-auto">{result.rawResponse}</pre>
+                  ) : null}
+                </div>
               </>
             ) : (
               <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
@@ -677,7 +728,7 @@ export const ReceiptWorkspace = ({
 
       <Dialog open={editingIndex !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent>
-          {editingIndex !== null && displayedItems[editingIndex] ? (
+          {editingItem ? (
               <>
                 <DialogHeader>
                   <DialogTitle>{translations.receipt.editor.title}</DialogTitle>
@@ -692,7 +743,7 @@ export const ReceiptWorkspace = ({
                     {translations.receipt.editor.item}
                   </p>
                   <p className="m-0 mt-2 text-[1.05rem] font-semibold text-foreground">
-                    {displayedItems[editingIndex].item}
+                    {editingItem.item}
                   </p>
                 </div>
 
@@ -731,7 +782,7 @@ export const ReceiptWorkspace = ({
 
                 <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
                   {translations.receipt.editor.unitPriceFixed(
-                    currencyFormatter.format(displayedItems[editingIndex].unitPrice),
+                    currencyFormatter.format(editingItem.unitPrice),
                   )}
                 </div>
 
@@ -742,7 +793,7 @@ export const ReceiptWorkspace = ({
                 ) : null}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  {editedItems[editingIndex] ? (
+                  {editingIndex !== null && editedItems[editingIndex] ? (
                     <Button type="button" variant="ghost" onClick={resetCorrection}>
                       {translations.receipt.editor.reset}
                     </Button>

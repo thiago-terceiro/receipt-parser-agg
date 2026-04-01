@@ -24,6 +24,7 @@ const themeBootScript = `(() => {
         : theme;
 
   document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
   document.documentElement.lang = documentLanguage;
   document.documentElement.style.colorScheme = resolvedTheme;
 })();`;

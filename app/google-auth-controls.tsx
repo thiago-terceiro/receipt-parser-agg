@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useCallback } from "react";
 
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -62,64 +63,75 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
       : translations.auth.startSession
     : translations.auth.setupHint;
 
-  const handleAuthClick = () => {
+  const handleAuthClick = useCallback(() => {
     if (isAuthenticated) {
       void signOut({ callbackUrl: homeHref });
       return;
     }
     void signIn("google", { callbackUrl: homeHref });
-  };
+  }, [homeHref, isAuthenticated]);
 
   return (
     <section
-      className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch"
+      className="mb-4 grid gap-5 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
       aria-label={translations.auth.sectionLabel}
     >
-      <div className="grid gap-1">
+      <div className="grid gap-1.5">
         <p className="m-0 text-[1rem] font-bold">{translations.auth.title}</p>
         <p className="m-0 text-muted-foreground text-[0.9rem] leading-[1.5]">{authNote}</p>
       </div>
 
-      <div className="flex items-center gap-3 max-[900px]:justify-between max-[900px]:flex-wrap">
-        <LocaleSwitcher />
-        <ThemeToggle />
-        {isAuthenticated ? (
-          <div className="flex items-center gap-2.5" aria-live="polite">
-            {session.user?.image ? (
-              <img
-                 className="size-[42px] rounded-full border border-[var(--border)] object-cover"
-                 src={session.user.image}
-                 alt={session.user.name ?? translations.auth.userAlt}
-               />
-             ) : (
-              <div
-                className="grid size-[42px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent-dark)] to-[var(--accent)] text-sm font-bold text-[#fffaf3]"
-                aria-hidden="true"
-              >
-                {getInitials(session.user?.name, session.user?.email)}
-              </div>
-            )}
-            <div className="grid gap-0.5">
-              <p className="m-0 text-[1rem] font-bold">
-                {session.user?.name ?? translations.auth.signedInFallback}
-              </p>
-              <p className="m-0 text-muted-foreground text-[0.9rem]">
-                {session.user?.email ?? translations.auth.emailFallback}
-              </p>
-            </div>
-          </div>
-        ) : null}
+      <div className="grid gap-4 lg:justify-items-end">
+        <div className="grid gap-3 md:grid-cols-2 lg:justify-items-end">
+          <LocaleSwitcher />
+          <ThemeToggle />
+        </div>
 
-        <Button
-          variant="secondary"
-          type="button"
-          disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
-          onClick={handleAuthClick}
-          className="min-w-[220px] border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
-        >
-          <GoogleMark />
-          <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
-        </Button>
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center lg:justify-end">
+          {isAuthenticated ? (
+            <div
+              className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-2.5"
+              aria-live="polite"
+            >
+              {session.user?.image ? (
+                <img
+                  className="size-[42px] rounded-full border border-[var(--border)] object-cover"
+                  src={session.user.image}
+                  alt={session.user.name ?? translations.auth.userAlt}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div
+                  className="grid size-[42px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent-dark)] to-[var(--accent)] text-sm font-bold text-[#fffaf3]"
+                  aria-hidden="true"
+                >
+                  {getInitials(session.user?.name, session.user?.email)}
+                </div>
+              )}
+              <div className="grid min-w-0 gap-0.5">
+                <p className="m-0 truncate text-[1rem] font-bold">
+                  {session.user?.name ?? translations.auth.signedInFallback}
+                </p>
+                <p className="m-0 truncate text-[0.9rem] text-muted-foreground">
+                  {session.user?.email ?? translations.auth.emailFallback}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <Button
+            variant="secondary"
+            type="button"
+            disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
+            onClick={handleAuthClick}
+            className="h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto"
+          >
+            <GoogleMark />
+            <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
+          </Button>
+        </div>
       </div>
     </section>
   );

@@ -35,6 +35,7 @@ const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   const root = document.documentElement;
 
   root.dataset.theme = resolvedTheme;
+  root.classList.toggle("dark", resolvedTheme === "dark");
   root.style.colorScheme = resolvedTheme;
 
   return resolvedTheme;

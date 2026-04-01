@@ -38,7 +38,11 @@ export const getLocaleFromSegment = (value: string | null | undefined): AppLocal
   }
 
   const normalized = value.toLowerCase();
-  return segmentToLocaleMap[normalized] ?? defaultLocale;
+  if (isLocaleSegment(normalized)) {
+    return segmentToLocaleMap[normalized];
+  }
+
+  return defaultLocale;
 };
 
 export const getLocaleFromPreference = (value: string | null | undefined): AppLocale | null => {
