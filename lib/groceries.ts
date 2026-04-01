@@ -1,10 +1,10 @@
+import type { AppLocale } from "@/lib/i18n/config";
 import {
     formatCategoryLabel,
     groceryCategories,
     type GroceryCategory,
     type ReceiptItem,
 } from "@/lib/receipt";
-import type { AppLocale } from "@/lib/i18n/config";
 
 export type GroceryEntry = ReceiptItem & {
     id: string;
@@ -13,6 +13,18 @@ export type GroceryEntry = ReceiptItem & {
     modelId: string | null;
     purchaseDate: string;
     createdAt: string;
+};
+
+export type ExtractedReceipt = {
+    id: string;
+    month: string;
+    sourceFileName: string | null;
+    modelId: string | null;
+    extractedAt: string;
+    itemCount: number;
+    total: number;
+    categories: GroceryCategory[];
+    items: ReceiptItem[];
 };
 
 export type GroceryDetailGroup = {
@@ -46,6 +58,7 @@ export type GroceriesMonthPayload = {
     summary: GroceriesMonthSummary;
     categories: GroceryCategorySummary[];
     entries: GroceryEntry[];
+    extractedReceipts: ExtractedReceipt[];
 };
 
 export type MonthOption = {
@@ -129,11 +142,20 @@ export const getLegacyGroceriesStorageKeyByEmail = (email: string, month: string
     return `groceries:${normalizeStorageToken(email)}:${month}`;
 };
 
+export const getReceiptExtractionStorageKeyByUserId = (userId: string, month: string) => {
+    return `receipt-extractions:uid:${normalizeStorageToken(userId)}:${month}`;
+};
+
+export const getLegacyReceiptExtractionStorageKeyByEmail = (email: string, month: string) => {
+    return `receipt-extractions:${normalizeStorageToken(email)}:${month}`;
+};
+
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
 export const buildGroceriesMonthPayload = (
     month: string,
     entries: GroceryEntry[],
+    extractedReceipts: ExtractedReceipt[] = [],
 ): GroceriesMonthPayload => {
     const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
     const receiptIds = new Set(entries.map((entry) => entry.receiptId));
@@ -192,5 +214,8 @@ export const buildGroceriesMonthPayload = (
         },
         categories,
         entries,
+        extractedReceipts: [...extractedReceipts].sort(
+            (left, right) => right.extractedAt.localeCompare(left.extractedAt),
+        ),
     };
 };

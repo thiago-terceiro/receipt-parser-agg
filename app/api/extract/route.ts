@@ -1,6 +1,15 @@
 import { InferenceClient } from "@huggingface/inference";
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
+import { authOptions } from "@/auth";
+import {
+    getLegacyReceiptExtractionStorageKeyByEmail,
+    getMonthKey,
+    getReceiptExtractionStorageKeyByUserId,
+    type ExtractedReceipt,
+} from "@/lib/groceries";
+import { redis } from "@/lib/redis";
 import {
     buildDataUrl,
     buildReceiptPrompt,
@@ -16,6 +25,21 @@ export const runtime = "nodejs";
 
 const hfToken = process.env.HF_TOKEN;
 const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
+
+const getSessionIdentity = async () => {
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as { id?: string } | undefined)?.id?.trim() || null;
+    const email = session?.user?.email?.trim().toLowerCase() || null;
+
+    if (!userId && !email) {
+        return null;
+    }
+
+    return {
+        userId,
+        email,
+    };
+};
 
 type ChatMessageContent =
     | string
@@ -44,7 +68,9 @@ class RequestValidationError extends Error {
 
 const getConfiguredProvider = (): string => defaultProvider;
 
-const getUploadedImageDataUrl = async (formData: FormData): Promise<string> => {
+const getUploadedImageDataUrl = async (
+    formData: FormData,
+): Promise<{ fileName: string | null; imageUrl: string }> => {
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
@@ -63,7 +89,10 @@ const getUploadedImageDataUrl = async (formData: FormData): Promise<string> => {
         throw new RequestValidationError("Uploaded file is empty.", 400);
     }
 
-    return buildDataUrl(bytes, file.type || "image/jpeg");
+    return {
+        fileName: file.name?.trim() || null,
+        imageUrl: buildDataUrl(bytes, file.type || "image/jpeg"),
+    };
 };
 
 export const GET = async () => {
@@ -85,10 +114,13 @@ export const POST = async (request: Request) => {
     const model = resolveRequestedModelId({
         selectedModelId: formData.get("modelId"),
     });
+    let fileName: string | null;
     let imageUrl: string;
 
     try {
-        imageUrl = await getUploadedImageDataUrl(formData);
+        const upload = await getUploadedImageDataUrl(formData);
+        fileName = upload.fileName;
+        imageUrl = upload.imageUrl;
     } catch (error) {
         if (error instanceof RequestValidationError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
@@ -135,6 +167,29 @@ export const POST = async (request: Request) => {
             );
         }
         const items = parseReceiptItems(rawResponse);
+
+        const identity = await getSessionIdentity();
+        if (identity?.userId || identity?.email) {
+            const extractedAt = new Date().toISOString();
+            const month = getMonthKey(new Date(extractedAt));
+            const extraction: ExtractedReceipt = {
+                id: crypto.randomUUID(),
+                month,
+                sourceFileName: fileName,
+                modelId: model,
+                extractedAt,
+                itemCount: items.length,
+                total: Number(items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2)),
+                categories: Array.from(new Set(items.map((item) => item.category))),
+                items,
+            };
+            const key = identity.userId
+                ? getReceiptExtractionStorageKeyByUserId(identity.userId, month)
+                : getLegacyReceiptExtractionStorageKeyByEmail(identity.email!, month);
+
+            await redis.lpush(key, JSON.stringify(extraction));
+        }
+
         return NextResponse.json({
             backend: "vercel-hf-route",
             modelId: model,

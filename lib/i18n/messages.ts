@@ -136,6 +136,9 @@ export type Messages = {
       receiptsSaved: string;
       categoriesActive: string;
     };
+    recentExtractions: string;
+    recentExtractionsDescription: string;
+    untitledReceipt: string;
     emptyTitle: string;
     emptyDescription: (monthLabel: string) => string;
     extractReceipt: string;
@@ -345,6 +348,10 @@ const englishMessages: Messages = {
       receiptsSaved: "Receipts saved",
       categoriesActive: "Categories active",
     },
+    recentExtractions: "Recent extractions",
+    recentExtractionsDescription:
+      "Receipt captures saved at extract time. These appear immediately, even before grocery corrections are saved into the grouped totals.",
+    untitledReceipt: "Untitled receipt",
     emptyTitle: "No groceries saved for this month yet",
     emptyDescription: (monthLabel) =>
       `Extract a grocery receipt, save the categorized result, and ${monthLabel} will bloom into the month view automatically.`,
@@ -515,6 +522,10 @@ const spanishMessages: Messages = {
       receiptsSaved: "Recibos guardados",
       categoriesActive: "Categorías activas",
     },
+    recentExtractions: "Extracciones recientes",
+    recentExtractionsDescription:
+      "Capturas de recibos guardadas en el momento de la extracción. Aparecen enseguida, incluso antes de guardar las correcciones en los totales agrupados.",
+    untitledReceipt: "Recibo sin título",
     emptyTitle: "Todavía no hay compras guardadas para este mes",
     emptyDescription: (monthLabel) =>
       `Extrae un recibo de compras, guarda el resultado categorizado y ${monthLabel} se convertirá automáticamente en la vista mensual.`,
@@ -685,6 +696,10 @@ const portugueseMessages: Messages = {
       receiptsSaved: "Recibos salvos",
       categoriesActive: "Categorias ativas",
     },
+    recentExtractions: "Extrações recentes",
+    recentExtractionsDescription:
+      "Capturas de recibos salvas no momento da extração. Elas aparecem na hora, mesmo antes de salvar correções nos totais agrupados.",
+    untitledReceipt: "Recibo sem título",
     emptyTitle: "Ainda não há compras salvas para este mês",
     emptyDescription: (monthLabel) =>
       `Extraia um recibo de compras, salve o resultado categorizado e ${monthLabel} vai aparecer automaticamente na visão mensal.`,
