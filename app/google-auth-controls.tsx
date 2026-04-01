@@ -73,22 +73,12 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
 
   return (
     <section
-      className="mb-4 grid gap-5 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+      className="mb-4 flex gap-5 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
       aria-label={translations.auth.sectionLabel}
     >
-      <div className="grid gap-1.5">
-        <p className="m-0 text-[1rem] font-bold">{translations.auth.title}</p>
-        <p className="m-0 text-muted-foreground text-[0.9rem] leading-[1.5]">{authNote}</p>
-      </div>
-
-      <div className="grid gap-4 lg:justify-items-end">
-        <div className="grid gap-3 md:grid-cols-2 lg:justify-items-end">
-          <LocaleSwitcher />
-          <ThemeToggle />
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center lg:justify-end">
-          {isAuthenticated ? (
+      <div className="gap-1.5 flex flex-col">
+        <p className="ml-2 text-[1rem] font-bold">{translations.auth.title}</p>
+        {isAuthenticated ? (
             <div
               className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-2.5"
               aria-live="polite"
@@ -120,18 +110,21 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
               </div>
             </div>
           ) : null}
-
-          <Button
+       <Button
             variant="secondary"
             type="button"
             disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
             onClick={handleAuthClick}
-            className="h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto"
+            className="h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto mt-1"
           >
             <GoogleMark />
             <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
           </Button>
-        </div>
+      </div>
+
+      <div className="gap-4 flex flex-col">
+        <ThemeToggle />
+        <LocaleSwitcher />
       </div>
     </section>
   );

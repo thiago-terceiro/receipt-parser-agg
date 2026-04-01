@@ -23,9 +23,9 @@ export const LocaleSwitcher = () => {
 
   return (
     <div className="grid gap-1">
-      <span className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+      <p className="text-[0.82rem] py-1 font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
         {translations.common.language}
-      </span>
+      </p>
       <div
         className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] p-1"
         role="group"
