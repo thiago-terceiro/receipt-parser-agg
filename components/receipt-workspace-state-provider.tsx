@@ -69,11 +69,6 @@ export const ReceiptWorkspaceStateProvider = ({
       file,
       result,
       selectedModelId,
-      setEditedItems,
-      setFile,
-      setResult,
-      setSelectedModelId,
-      setShowRawResponse,
       showRawResponse,
     ],
   );
