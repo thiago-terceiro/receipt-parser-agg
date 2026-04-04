@@ -2,7 +2,9 @@
 
 import { SessionProvider } from "next-auth/react";
 
+import { ReceiptWorkspaceStateProvider } from "@/components/receipt-workspace-state-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { defaultModelId } from "@/lib/receipt";
 
 type AppSessionProviderProps = {
   children: React.ReactNode;
@@ -11,7 +13,9 @@ type AppSessionProviderProps = {
 export const AppSessionProvider = ({ children }: AppSessionProviderProps) => {
   return (
     <SessionProvider>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ReceiptWorkspaceStateProvider defaultModelId={defaultModelId}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </ReceiptWorkspaceStateProvider>
     </SessionProvider>
   );
 };

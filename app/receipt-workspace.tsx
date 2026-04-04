@@ -17,6 +17,10 @@ import {
 import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/locale-provider";
+import {
+  useReceiptWorkspaceState,
+  type ExtractionResponse,
+} from "@/components/receipt-workspace-state-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,16 +57,8 @@ import {
   type ReceiptItem,
 } from "../lib/receipt";
 
-type ExtractionResponse = {
-  backend: string;
-  modelId: string;
-  items: ReceiptItem[];
-  rawResponse: string;
-};
-
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
-  defaultModelId: string;
 };
 
 const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
@@ -85,25 +81,31 @@ const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
 
 export const ReceiptWorkspace = ({
   availableModels,
-  defaultModelId,
 }: ReceiptWorkspaceProps) => {
   const locale = useLocale();
   const translations = useTranslations();
-  const [file, setFile] = useState<File | null>(null);
+  const {
+    file,
+    setFile,
+    selectedModelId,
+    setSelectedModelId,
+    result,
+    setResult,
+    editedItems,
+    setEditedItems,
+    showRawResponse,
+    setShowRawResponse,
+  } = useReceiptWorkspaceState();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState(defaultModelId);
-  const [result, setResult] = useState<ExtractionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftCategory, setDraftCategory] = useState<string>("");
   const [draftQuantity, setDraftQuantity] = useState<string>("");
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [showRawResponse, setShowRawResponse] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
   const { status } = useSession();
@@ -134,18 +136,21 @@ export const ReceiptWorkspace = ({
   );
 
   useEffect(() => {
-    setSelectedModelId(defaultModelId);
-  }, [defaultModelId]);
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
 
-  useEffect(() => {
+    const nextPreviewUrl = URL.createObjectURL(file);
+    setPreviewUrl(nextPreviewUrl);
+
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      URL.revokeObjectURL(nextPreviewUrl);
     };
-  }, [previewUrl]);
+  }, [file]);
 
   const clearSelectedFile = useCallback(() => {
     setFile(null);
-    setPreviewUrl(null);
     setResult(null);
     setError(null);
     setIsDraggingFile(false);
@@ -156,7 +161,7 @@ export const ReceiptWorkspace = ({
     setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [dashboardBaseHref]);
+  }, [dashboardBaseHref, setEditedItems, setFile, setResult, setShowRawResponse]);
 
   const applySelectedFile = useCallback((nextFile: File | null) => {
     if (!nextFile) {
@@ -178,8 +183,15 @@ export const ReceiptWorkspace = ({
     setDraftError(null);
     setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
-    setPreviewUrl(URL.createObjectURL(nextFile));
-  }, [clearSelectedFile, dashboardBaseHref, translations.receipt.errors.invalidImage]);
+  }, [
+    clearSelectedFile,
+    dashboardBaseHref,
+    setEditedItems,
+    setFile,
+    setResult,
+    setShowRawResponse,
+    translations.receipt.errors.invalidImage,
+  ]);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;

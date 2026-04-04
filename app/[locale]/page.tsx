@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getLocaleFromSegment, localizePath } from "@/lib/i18n/config";
 import { getMessages } from "@/lib/i18n/messages";
-import { defaultModelId, dropdownAvailableModels } from "@/lib/receipt";
+import { dropdownAvailableModels } from "@/lib/receipt";
 
 import { GoogleAuthControls } from "../google-auth-controls";
 import { ReceiptWorkspace } from "../receipt-workspace";
@@ -42,10 +42,7 @@ const HomePage = async ({ params }: HomePageProps) => {
           </Link>
         </Button>
       </section>
-      <ReceiptWorkspace
-        availableModels={dropdownAvailableModels}
-        defaultModelId={defaultModelId}
-      />
+      <ReceiptWorkspace availableModels={dropdownAvailableModels} />
     </main>
   );
 };
