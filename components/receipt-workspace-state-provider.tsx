@@ -64,7 +64,18 @@ export const ReceiptWorkspaceStateProvider = ({
       showRawResponse,
       setShowRawResponse,
     }),
-    [editedItems, file, result, selectedModelId, showRawResponse],
+    [
+      editedItems,
+      file,
+      result,
+      selectedModelId,
+      setEditedItems,
+      setFile,
+      setResult,
+      setSelectedModelId,
+      setShowRawResponse,
+      showRawResponse,
+    ],
   );
 
   return (

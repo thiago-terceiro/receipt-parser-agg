@@ -161,7 +161,7 @@ export const ReceiptWorkspace = ({
     setShowRawResponse(false);
     setDashboardHref(dashboardBaseHref);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [dashboardBaseHref, setEditedItems, setFile, setResult, setShowRawResponse]);
+  }, [dashboardBaseHref]);
 
   const applySelectedFile = useCallback((nextFile: File | null) => {
     if (!nextFile) {
@@ -186,10 +186,6 @@ export const ReceiptWorkspace = ({
   }, [
     clearSelectedFile,
     dashboardBaseHref,
-    setEditedItems,
-    setFile,
-    setResult,
-    setShowRawResponse,
     translations.receipt.errors.invalidImage,
   ]);
 
