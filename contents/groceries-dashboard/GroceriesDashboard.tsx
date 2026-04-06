@@ -1,18 +1,12 @@
 "use client";
 
-import {
-  CalendarDays,
-  ChevronRight,
-  Package2,
-  ReceiptText,
-} from "lucide-react";
+import { CalendarDays, Package2, ReceiptText } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -38,7 +32,14 @@ import {
 } from "@/lib/groceries";
 import { localizePath } from "@/lib/i18n/config";
 import { formatCategoryLabel } from "@/lib/receipt";
-import { cn } from "@/lib/utils";
+
+import {
+  CategorySummaryCard,
+  EmptyStateCard,
+  MemoizedCategoryDetails,
+  RecentExtractedReceiptsSection,
+  StatsGrid,
+} from "./GroceriesDashboardParts";
 
 const getMonthProgress = (month: string) => {
   const [yearText, monthText] = month.split("-");
@@ -58,117 +59,6 @@ const getMonthProgress = (month: string) => {
   };
 };
 
-type CategoryDetailsProps = {
-  category: GroceryCategorySummary;
-  categoryLabel: string;
-  translations: ReturnType<typeof useTranslations>;
-  currencyFormatter: Intl.NumberFormat;
-  percentFormatter: Intl.NumberFormat;
-  className?: string;
-};
-
-const CategoryDetails = ({
-  category,
-  categoryLabel,
-  translations,
-  currencyFormatter,
-  percentFormatter,
-  className,
-}: CategoryDetailsProps) => {
-  return (
-    <div className={cn("grid gap-4", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
-            {categoryLabel}
-          </p>
-          <h3 className="m-0 mt-1 text-[1.9rem] leading-none tracking-[-0.04em]">
-            {currencyFormatter.format(category.total)}
-          </h3>
-        </div>
-        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <Badge
-            variant="outline"
-            className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
-          >
-            {translations.groceries.units(category.itemCount)}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
-          >
-            {translations.groceries.uniqueItems(category.uniqueItemCount)}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
-          >
-            {percentFormatter.format(category.share)}{" "}
-            {translations.groceries.ofMonth}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]">
-        <div className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
-          <span>{translations.groceries.table.item}</span>
-          <span className="text-right">
-            {translations.groceries.table.unitPrice}
-          </span>
-          <span className="text-right">
-            {translations.groceries.table.amount}
-          </span>
-          <span className="text-right">
-            {translations.groceries.table.total}
-          </span>
-        </div>
-
-        <div className="grid gap-0">
-          {category.groups.map((group) => (
-            <div
-              key={group.normalizedItem}
-              className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
-            >
-              <div className="min-w-0">
-                <p className="m-0 truncate text-[1rem] font-semibold text-foreground">
-                  {group.item}
-                </p>
-                <p className="m-0 mt-1 text-sm text-muted-foreground">
-                  {translations.groceries.receiptEntries(group.entries.length)}
-                </p>
-              </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
-                  {translations.groceries.table.unitPrice}
-                </span>
-                <span className="font-semibold">
-                  {currencyFormatter.format(group.unitPrice)}
-                </span>
-              </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
-                  {translations.groceries.table.amount}
-                </span>
-                <span className="font-semibold">{group.quantity}</span>
-              </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
-                <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
-                  {translations.groceries.table.total}
-                </span>
-                <span className="font-semibold">
-                  {currencyFormatter.format(group.total)}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const MemoizedCategoryDetails = memo(CategoryDetails);
-
 export const GroceriesDashboard = ({
   payload,
   currentMonth,
@@ -187,6 +77,7 @@ export const GroceriesDashboard = ({
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
   const groceriesPath = localizePath("/groceries", locale);
   const homePath = localizePath("/", locale);
+
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
@@ -251,6 +142,7 @@ export const GroceriesDashboard = ({
   const previousMonth = shiftMonthKey(payload.month, -1);
   const nextMonth = shiftMonthKey(payload.month, 1);
   const nextMonthDisabled = nextMonth > currentMonth;
+
   const statCards = useMemo(
     () => [
       {
@@ -438,126 +330,23 @@ export const GroceriesDashboard = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-          {statCards.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="m-0 text-sm text-muted-foreground">
-                  {stat.label}
-                </p>
-                <stat.icon className="size-4 text-[var(--accent-dark)]" />
-              </div>
-              <p className="m-0 mt-3 text-[1.85rem] font-semibold tracking-[-0.04em]">
-                {stat.value}
-              </p>
-            </div>
-          ))}
-        </div>
+        <StatsGrid stats={statCards} />
       </section>
 
-      {recentExtractedReceipts.length > 0 ? (
-        <section className="grid gap-4 rounded-[30px] border border-[var(--border)] bg-[var(--surface-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="grid gap-2">
-              <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
-                {translations.groceries.recentExtractions}
-              </p>
-              <p className="m-0 max-w-[70ch] text-sm leading-6 text-muted-foreground">
-                {translations.groceries.recentExtractionsDescription}
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
-            >
-              {payload.extractedReceipts.length}{" "}
-              {translations.groceries.stats.receiptsSaved.toLowerCase()}
-            </Badge>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {recentExtractedReceipts.map((receipt) => (
-              <Card
-                key={receipt.id}
-                className="rounded-[24px] border-[var(--border)] bg-[var(--surface-plain-soft)] py-0 shadow-none"
-              >
-                <CardContent className="grid gap-4 p-5">
-                  <div className="grid gap-1">
-                    <p className="m-0 truncate text-[1rem] font-semibold text-foreground">
-                      {receipt.sourceFileName ||
-                        translations.groceries.untitledReceipt}
-                    </p>
-                    <p className="m-0 text-sm text-muted-foreground">
-                      {dateTimeFormatter.format(new Date(receipt.extractedAt))}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                    <Badge
-                      variant="outline"
-                      className="border-[var(--border)] bg-[var(--surface-plain)] px-3 py-1"
-                    >
-                      {translations.receipt.lines(receipt.itemCount)}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="border-[var(--border)] bg-[var(--surface-plain)] px-3 py-1"
-                    >
-                      {translations.receipt.total(
-                        currencyFormatter.format(receipt.total),
-                      )}
-                    </Badge>
-                  </div>
-
-                  {receipt.modelId ? (
-                    <p className="m-0 truncate text-sm text-muted-foreground">
-                      {translations.receipt.modelLabel}: {receipt.modelId}
-                    </p>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-2">
-                    {receipt.categories.map((category) => (
-                      <Badge
-                        key={`${receipt.id}-${category}`}
-                        variant="outline"
-                        className="border-[rgba(181,82,51,0.16)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]"
-                      >
-                        {formatCategoryLabel(category, translations.categories)}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <RecentExtractedReceiptsSection
+        receipts={recentExtractedReceipts}
+        translations={translations}
+        currencyFormatter={currencyFormatter}
+        dateTimeFormatter={dateTimeFormatter}
+      />
 
       {payload.categories.length === 0 ? (
-        <Card className="rounded-[28px] border-[var(--border)] bg-[var(--surface-soft)] py-0 shadow-[var(--shadow)]">
-          <CardContent className="grid min-h-[280px] place-items-center gap-3 p-8 text-center">
-            <div className="grid gap-3">
-              <h2 className="m-0 text-[1.8rem] tracking-[-0.04em]">
-                {translations.groceries.emptyTitle}
-              </h2>
-              <p className="m-0 max-w-[48ch] text-muted-foreground">
-                {translations.groceries.emptyDescription(
-                  formatMonthLabel(payload.month, locale),
-                )}
-              </p>
-              <div>
-                <Button asChild>
-                  <Link href={homePath}>
-                    {translations.groceries.extractReceipt}
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          homePath={homePath}
+          month={payload.month}
+          locale={locale}
+          translations={translations}
+        />
       ) : (
         <LayoutGroup>
           <section className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.9fr)]">
@@ -565,66 +354,17 @@ export const GroceriesDashboard = ({
               layout
               className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
             >
-              {payload.categories.map((category) => {
-                const isActive = activeCategory === category.category;
-
-                return (
-                  <motion.div key={category.category} layout>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectCategory(category)}
-                      className={cn(
-                        "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors",
-                        isActive
-                          ? "border-[var(--accent)] bg-[var(--surface-accent)] shadow-[0_0_0_4px_var(--focus-surface)]"
-                          : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:bg-[var(--surface-soft)]",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-[var(--accent-dark)]">
-                            {formatCategoryLabel(
-                              category.category,
-                              translations.categories,
-                            )}
-                          </p>
-                          <h2 className="m-0 mt-2 text-[1.85rem] leading-none tracking-[-0.04em]">
-                            {currencyFormatter.format(category.total)}
-                          </h2>
-                        </div>
-                        <div className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)]">
-                          <ChevronRight
-                            className={cn(
-                              "size-4 transition-transform",
-                              isActive && "rotate-90",
-                            )}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>
-                            {translations.groceries.repeatedGroups(
-                              category.uniqueItemCount,
-                            )}
-                          </span>
-                          <span>{percentFormatter.format(category.share)}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              backgroundImage: "var(--accent-gradient)",
-                              width: `${Math.max(category.share * 100, 8)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </button>
-                  </motion.div>
-                );
-              })}
+              {payload.categories.map((category) => (
+                <CategorySummaryCard
+                  key={category.category}
+                  category={category}
+                  isActive={activeCategory === category.category}
+                  translations={translations}
+                  currencyFormatter={currencyFormatter}
+                  percentFormatter={percentFormatter}
+                  onSelect={handleSelectCategory}
+                />
+              ))}
             </motion.div>
 
             <div className="hidden lg:block">
@@ -664,10 +404,7 @@ export const GroceriesDashboard = ({
             <>
               <DialogHeader>
                 <DialogTitle>
-                  {formatCategoryLabel(
-                    active.category,
-                    translations.categories,
-                  )}
+                  {formatCategoryLabel(active.category, translations.categories)}
                 </DialogTitle>
                 <DialogDescription>
                   {translations.groceries.mobileDescription}
