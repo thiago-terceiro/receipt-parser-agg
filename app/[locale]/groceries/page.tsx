@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { setRequestLocale } from "next-intl/server";
 import Link from "next/link";
 
 import { authOptions } from "@/auth";
@@ -36,7 +37,8 @@ type GroceriesPageProps = {
 const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const { locale } = await params;
   const resolvedLocale = getLocaleFromSegment(locale);
-  const translations = getMessages(resolvedLocale);
+  setRequestLocale(resolvedLocale);
+  const translations = await getMessages(resolvedLocale);
   const session = await getServerSession(authOptions);
   const email = session?.user?.email?.trim().toLowerCase();
   const userId = (session?.user as { id?: string } | undefined)?.id?.trim();

@@ -1,10 +1,8 @@
-import type { GroceryCategory } from "@/lib/receipt";
+import { getTranslations } from "next-intl/server";
+
+import { groceryCategories, type GroceryCategory } from "@/lib/receipt";
 
 import type { AppLocale } from "./config";
-
-const pluralize = (count: number, singular: string, plural: string) => {
-  return count === 1 ? singular : plural;
-};
 
 export type Messages = {
   metadata: {
@@ -158,575 +156,740 @@ export type Messages = {
   categories: Record<GroceryCategory, string>;
 };
 
-const englishCategories: Record<GroceryCategory, string> = {
-  produce: "Produce",
-  dairy: "Dairy",
-  bakery: "Bakery",
-  meat: "Meat",
-  pantry: "Pantry",
-  frozen: "Frozen",
-  beverages: "Beverages",
-  snacks: "Snacks",
-  household: "Household",
-  "personal-care": "Personal care",
-  other: "Other",
+type TranslationValues = Record<string, string | number | boolean | null | undefined>;
+
+type TranslationFn = (key: string, values?: TranslationValues) => string;
+
+const buildCategoryLabels = (t: TranslationFn) => {
+  return Object.fromEntries(
+    groceryCategories.map((category) => [category, t(`categories.${category}`)]),
+  ) as Record<GroceryCategory, string>;
 };
 
-const spanishCategories: Record<GroceryCategory, string> = {
-  produce: "Frutas y verduras",
-  dairy: "Lácteos",
-  bakery: "Panadería",
-  meat: "Carnes",
-  pantry: "Despensa",
-  frozen: "Congelados",
-  beverages: "Bebidas",
-  snacks: "Snacks",
-  household: "Hogar",
-  "personal-care": "Cuidado personal",
-  other: "Otros",
+export const createMessagesObject = (t: TranslationFn, _locale: AppLocale): Messages => {
+  return {
+    metadata: {
+      title: t("metadata.title"),
+      description: t("metadata.description"),
+    },
+    locales: {
+      en: t("locales.en"),
+      es: t("locales.es"),
+      "pt-BR": t("locales.pt-BR"),
+    },
+    common: {
+      language: t("common.language"),
+      cancel: t("common.cancel"),
+    },
+    theme: {
+      label: t("theme.label"),
+      switcherLabel: t("theme.switcherLabel"),
+      system: t("theme.system"),
+      light: t("theme.light"),
+      dark: t("theme.dark"),
+      currentPreference: t("theme.currentPreference"),
+      currentPreferenceSystem: (resolvedThemeLabel) =>
+        t("theme.currentPreferenceSystem", {
+          resolvedThemeLabel: resolvedThemeLabel.toLowerCase(),
+        }),
+      currentPreferenceExplicit: (themeLabel) =>
+        t("theme.currentPreferenceExplicit", {
+          themeLabel: themeLabel.toLowerCase(),
+        }),
+    },
+    auth: {
+      sectionLabel: t("auth.sectionLabel"),
+      title: t("auth.title"),
+      connected: t("auth.connected"),
+      startSession: t("auth.startSession"),
+      setupHint: t("auth.setupHint"),
+      signOut: t("auth.signOut"),
+      continueWithGoogle: t("auth.continueWithGoogle"),
+      checking: t("auth.checking"),
+      userAlt: t("auth.userAlt"),
+      signedInFallback: t("auth.signedInFallback"),
+      emailFallback: t("auth.emailFallback"),
+    },
+    home: {
+      dashboardTitle: t("home.dashboardTitle"),
+      dashboardDescription: t("home.dashboardDescription"),
+      openGroceriesView: t("home.openGroceriesView"),
+    },
+    receipt: {
+      eyebrow: t("receipt.eyebrow"),
+      heroTitle: t("receipt.heroTitle"),
+      heroDescription: t("receipt.heroDescription"),
+      fileReady: t("receipt.fileReady"),
+      dropImage: t("receipt.dropImage"),
+      replaceHelp: t("receipt.replaceHelp"),
+      browseHelp: t("receipt.browseHelp"),
+      removeSelectedImage: t("receipt.removeSelectedImage"),
+      dragAndDrop: t("receipt.dragAndDrop"),
+      clickToBrowse: t("receipt.clickToBrowse"),
+      modelLabel: t("receipt.modelLabel"),
+      selectModel: t("receipt.selectModel"),
+      modelHelp: t("receipt.modelHelp"),
+      extracting: t("receipt.extracting"),
+      extractReceipt: t("receipt.extractReceipt"),
+      removeImage: t("receipt.removeImage"),
+      preview: t("receipt.preview"),
+      noFileSelected: t("receipt.noFileSelected"),
+      previewAlt: t("receipt.previewAlt"),
+      previewPlaceholder: t("receipt.previewPlaceholder"),
+      extractedItems: t("receipt.extractedItems"),
+      waitingForExtraction: t("receipt.waitingForExtraction"),
+      servedBy: (backend) => t("receipt.servedBy", { backend }),
+      lines: (count) => t("receipt.lines", { count }),
+      total: (amount) => t("receipt.total", { amount }),
+      corrected: (count) => t("receipt.corrected", { count }),
+      reviewHint: t("receipt.reviewHint"),
+      saveCardTitle: t("receipt.saveCardTitle"),
+      saveSignedIn: t("receipt.saveSignedIn"),
+      saveSignedOut: t("receipt.saveSignedOut"),
+      saving: t("receipt.saving"),
+      saveGroceries: t("receipt.saveGroceries"),
+      openDashboard: t("receipt.openDashboard"),
+      openFreshDashboard: t("receipt.openFreshDashboard"),
+      resultPlaceholder: t("receipt.resultPlaceholder"),
+      table: {
+        item: t("receipt.table.item"),
+        category: t("receipt.table.category"),
+        quantity: t("receipt.table.quantity"),
+        unit: t("receipt.table.unit"),
+        total: t("receipt.table.total"),
+        adjust: t("receipt.table.adjust"),
+      },
+      editor: {
+        title: t("receipt.editor.title"),
+        description: t("receipt.editor.description"),
+        item: t("receipt.editor.item"),
+        category: t("receipt.editor.category"),
+        selectCategory: t("receipt.editor.selectCategory"),
+        quantity: t("receipt.editor.quantity"),
+        unitPriceFixed: (price) => t("receipt.editor.unitPriceFixed", { price }),
+        reset: t("receipt.editor.reset"),
+        apply: t("receipt.editor.apply"),
+      },
+      alerts: {
+        corrected: t("receipt.alerts.corrected"),
+        adjust: t("receipt.alerts.adjust"),
+      },
+      errors: {
+        invalidImage: t("receipt.errors.invalidImage"),
+        noFile: t("receipt.errors.noFile"),
+        extractionFailed: t("receipt.errors.extractionFailed"),
+        unexpectedRequest: t("receipt.errors.unexpectedRequest"),
+        noResultToSave: t("receipt.errors.noResultToSave"),
+        saveFailed: t("receipt.errors.saveFailed"),
+        unexpectedSave: t("receipt.errors.unexpectedSave"),
+        invalidCategory: t("receipt.errors.invalidCategory"),
+        invalidQuantity: t("receipt.errors.invalidQuantity"),
+      },
+      saveSuccess: (count, monthLabel) => t("receipt.saveSuccess", { count, monthLabel }),
+    },
+    groceries: {
+      signInTitle: t("groceries.signInTitle"),
+      signInDescription: t("groceries.signInDescription"),
+      backToHome: t("groceries.backToHome"),
+      eyebrow: t("groceries.eyebrow"),
+      currentMonthView: t("groceries.currentMonthView"),
+      historicalMonthView: t("groceries.historicalMonthView"),
+      heroDescription: t("groceries.heroDescription"),
+      previousMonth: t("groceries.previousMonth"),
+      selectMonth: t("groceries.selectMonth"),
+      nextMonth: t("groceries.nextMonth"),
+      backToUpload: t("groceries.backToUpload"),
+      monthProgress: t("groceries.monthProgress"),
+      dayOf: (currentDay, totalDays) =>
+        t("groceries.dayOf", { currentDay, totalDays }),
+      stats: {
+        monthTotal: t("groceries.stats.monthTotal"),
+        itemsTracked: t("groceries.stats.itemsTracked"),
+        receiptsSaved: t("groceries.stats.receiptsSaved"),
+        categoriesActive: t("groceries.stats.categoriesActive"),
+      },
+      recentExtractions: t("groceries.recentExtractions"),
+      recentExtractionsDescription: t("groceries.recentExtractionsDescription"),
+      untitledReceipt: t("groceries.untitledReceipt"),
+      emptyTitle: t("groceries.emptyTitle"),
+      emptyDescription: (monthLabel) => t("groceries.emptyDescription", { monthLabel }),
+      extractReceipt: t("groceries.extractReceipt"),
+      repeatedGroups: (count) => t("groceries.repeatedGroups", { count }),
+      mobileDescription: t("groceries.mobileDescription"),
+      units: (count) => t("groceries.units", { count }),
+      uniqueItems: (count) => t("groceries.uniqueItems", { count }),
+      ofMonth: t("groceries.ofMonth"),
+      table: {
+        item: t("groceries.table.item"),
+        unitPrice: t("groceries.table.unitPrice"),
+        amount: t("groceries.table.amount"),
+        total: t("groceries.table.total"),
+      },
+      receiptEntries: (count) => t("groceries.receiptEntries", { count }),
+    },
+    categories: buildCategoryLabels(t),
+  };
 };
 
-const portugueseCategories: Record<GroceryCategory, string> = {
-  produce: "Hortifruti",
-  dairy: "Laticínios",
-  bakery: "Padaria",
-  meat: "Carnes",
-  pantry: "Despensa",
-  frozen: "Congelados",
-  beverages: "Bebidas",
-  snacks: "Lanches",
-  household: "Casa",
-  "personal-care": "Cuidados pessoais",
-  other: "Outros",
-};
+export const localeMessages = {
+  en: {
+    metadata: {
+      title: "Receipt AI",
+      description: "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
+    },
+    locales: {
+      en: "English",
+      es: "Spanish",
+      "pt-BR": "Portuguese (Brazil)",
+    },
+    common: {
+      language: "Language",
+      cancel: "Cancel",
+    },
+    theme: {
+      label: "Theme",
+      switcherLabel: "Theme switcher",
+      system: "System",
+      light: "Light",
+      dark: "Dark",
+      currentPreference: "Current preference",
+      currentPreferenceSystem: "Current preference: system ({resolvedThemeLabel}).",
+      currentPreferenceExplicit: "Current preference: {themeLabel}.",
+    },
+    auth: {
+      sectionLabel: "Authentication controls",
+      title: "Google login",
+      connected: "Google account connected.",
+      startSession: "Use Google to start a session in this workspace.",
+      setupHint:
+        "Set AUTH_SECRET, AUTH_GOOGLE_ID, and AUTH_GOOGLE_SECRET to enable Google login.",
+      signOut: "Sign out",
+      continueWithGoogle: "Continue with Google",
+      checking: "Checking Google login...",
+      userAlt: "User",
+      signedInFallback: "Signed in",
+      emailFallback: "Google account",
+    },
+    home: {
+      dashboardTitle: "Groceries dashboard",
+      dashboardDescription:
+        "Open the month view with category cards, totals, and repeated-item rollups.",
+      openGroceriesView: "Open groceries view",
+    },
+    receipt: {
+      eyebrow: "Receipt AI",
+      heroTitle: "Upload a receipt and extract line items without running the model locally.",
+      heroDescription:
+        "This frontend is designed for Vercel. The browser uploads the image to a server route, and the server route calls Hugging Face with the model configured in the server environment.",
+      fileReady: "Receipt image ready",
+      dropImage: "Drop a receipt image here",
+      replaceHelp: "Replace it by dropping another image or browsing files.",
+      browseHelp: "PNG, JPG, or WEBP works best. Click to browse if you prefer.",
+      removeSelectedImage: "Remove selected image",
+      dragAndDrop: "Drag and drop",
+      clickToBrowse: "or click anywhere in this panel to browse",
+      modelLabel: "Model",
+      selectModel: "Select model",
+      modelHelp:
+        "The server default comes from HF_MODEL_ID. The model now categorizes grocery items as part of extraction.",
+      extracting: "Extracting...",
+      extractReceipt: "Extract receipt",
+      removeImage: "Remove image",
+      preview: "Preview",
+      noFileSelected: "No file selected",
+      previewAlt: "Receipt preview",
+      previewPlaceholder: "Your receipt preview will appear here.",
+      extractedItems: "Extracted items",
+      waitingForExtraction: "Waiting for extraction",
+      servedBy: "Served by {backend}",
+      lines: "{count, plural, one {# line} other {# lines}}",
+      total: "{amount} total",
+      corrected: "{count} corrected",
+      reviewHint:
+        "Review the AI picks before saving. Use Adjust on any row to override category or quantity.",
+      saveCardTitle: "Save these groceries into the month view",
+      saveSignedIn:
+        "Persist this categorized receipt and open the dashboard to inspect totals and repeated items.",
+      saveSignedOut:
+        "Sign in with Google first to persist groceries to your personal month dashboard.",
+      saving: "Saving...",
+      saveGroceries: "Save groceries",
+      openDashboard: "Open dashboard",
+      openFreshDashboard: "Open fresh dashboard",
+      resultPlaceholder:
+        "Extracted categorized groceries and the raw model response will appear here.",
+      table: {
+        item: "Item",
+        category: "Category",
+        quantity: "Qty",
+        unit: "Unit",
+        total: "Total",
+        adjust: "Adjust",
+      },
+      editor: {
+        title: "Adjust extracted grocery",
+        description:
+          "Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.",
+        item: "Item",
+        category: "Category",
+        selectCategory: "Select category",
+        quantity: "Quantity",
+        unitPriceFixed:
+          "Unit price stays fixed at {price}. The line total will be recalculated when you apply the correction.",
+        reset: "Reset to AI result",
+        apply: "Apply correction",
+      },
+      alerts: {
+        corrected: "Corrected",
+        adjust: "Adjust",
+      },
+      errors: {
+        invalidImage: "Use an image file such as PNG, JPG, or WEBP.",
+        noFile: "Select a receipt image before extracting.",
+        extractionFailed: "Extraction failed.",
+        unexpectedRequest: "Unexpected request error.",
+        noResultToSave: "Extract a receipt before saving groceries.",
+        saveFailed: "Unable to save groceries.",
+        unexpectedSave: "Unexpected save error.",
+        invalidCategory: "Select a valid grocery category.",
+        invalidQuantity: "Quantity must be greater than zero.",
+      },
+      saveSuccess:
+        "Saved {count} grocery lines to {monthLabel}. The dashboard link is now primed with the fresh month view.",
+    },
+    groceries: {
+      signInTitle: "Sign in to unlock your groceries dashboard",
+      signInDescription:
+        "This page reads user-scoped grocery history, so it only opens once a Google session is active.",
+      backToHome: "Back to home",
+      eyebrow: "Groceries",
+      currentMonthView: "Current month view",
+      historicalMonthView: "Historical month view",
+      heroDescription:
+        "A live category map of what has landed in the basket so far this month, with fast drill-down into repeated items.",
+      previousMonth: "Previous month",
+      selectMonth: "Select month",
+      nextMonth: "Next month",
+      backToUpload: "Back to receipt upload",
+      monthProgress: "Month progress",
+      dayOf: "Day {currentDay} of {totalDays}",
+      stats: {
+        monthTotal: "Month total",
+        itemsTracked: "Items tracked",
+        receiptsSaved: "Receipts saved",
+        categoriesActive: "Categories active",
+      },
+      recentExtractions: "Recent extractions",
+      recentExtractionsDescription:
+        "Receipt captures saved at extract time. These appear immediately, even before grocery corrections are saved into the grouped totals.",
+      untitledReceipt: "Untitled receipt",
+      emptyTitle: "No groceries saved for this month yet",
+      emptyDescription:
+        "Extract a grocery receipt, save the categorized result, and {monthLabel} will bloom into the month view automatically.",
+      extractReceipt: "Extract a receipt",
+      repeatedGroups: "{count} repeated item groups",
+      mobileDescription:
+        "Repeated items, quantity rollups, and spend for this category so far this month.",
+      units: "{count, plural, one {# unit} other {# units}}",
+      uniqueItems: "{count} unique items",
+      ofMonth: "of month",
+      table: {
+        item: "Item",
+        unitPrice: "Unit price",
+        amount: "Amount",
+        total: "Total",
+      },
+      receiptEntries: "{count, plural, one {# receipt entry} other {# receipt entries}}",
+    },
+    categories: {
+      produce: "Produce",
+      dairy: "Dairy",
+      bakery: "Bakery",
+      meat: "Meat",
+      pantry: "Pantry",
+      frozen: "Frozen",
+      beverages: "Beverages",
+      snacks: "Snacks",
+      household: "Household",
+      "personal-care": "Personal care",
+      other: "Other",
+    },
+  },
+  es: {
+    metadata: {
+      title: "Receipt AI",
+      description: "Interfaz de extracción de recibos con Hugging Face Inference en Vercel.",
+    },
+    locales: {
+      en: "Inglés",
+      es: "Español",
+      "pt-BR": "Portugués (Brasil)",
+    },
+    common: {
+      language: "Idioma",
+      cancel: "Cancelar",
+    },
+    theme: {
+      label: "Tema",
+      switcherLabel: "Selector de tema",
+      system: "Sistema",
+      light: "Claro",
+      dark: "Oscuro",
+      currentPreference: "Preferencia actual",
+      currentPreferenceSystem: "Preferencia actual: sistema ({resolvedThemeLabel}).",
+      currentPreferenceExplicit: "Preferencia actual: {themeLabel}.",
+    },
+    auth: {
+      sectionLabel: "Controles de autenticación",
+      title: "Inicio de sesión con Google",
+      connected: "Cuenta de Google conectada.",
+      startSession: "Usa Google para iniciar una sesión en este espacio de trabajo.",
+      setupHint:
+        "Define AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET para habilitar el inicio de sesión con Google.",
+      signOut: "Cerrar sesión",
+      continueWithGoogle: "Continuar con Google",
+      checking: "Comprobando inicio de sesión con Google...",
+      userAlt: "Usuario",
+      signedInFallback: "Sesión iniciada",
+      emailFallback: "Cuenta de Google",
+    },
+    home: {
+      dashboardTitle: "Panel de compras",
+      dashboardDescription:
+        "Abre la vista mensual con tarjetas por categoría, totales y agrupaciones de artículos repetidos.",
+      openGroceriesView: "Abrir vista de compras",
+    },
+    receipt: {
+      eyebrow: "Receipt AI",
+      heroTitle: "Sube un recibo y extrae las líneas sin ejecutar el modelo localmente.",
+      heroDescription:
+        "Este frontend está diseñado para Vercel. El navegador sube la imagen a una ruta del servidor y esa ruta llama a Hugging Face con el modelo configurado en el entorno del servidor.",
+      fileReady: "Imagen del recibo lista",
+      dropImage: "Suelta una imagen del recibo aquí",
+      replaceHelp: "Reemplázala soltando otra imagen o buscando archivos.",
+      browseHelp: "PNG, JPG o WEBP funcionan mejor. Haz clic para buscar si lo prefieres.",
+      removeSelectedImage: "Quitar imagen seleccionada",
+      dragAndDrop: "Arrastrar y soltar",
+      clickToBrowse: "o haz clic en cualquier parte de este panel para buscar",
+      modelLabel: "Modelo",
+      selectModel: "Selecciona un modelo",
+      modelHelp:
+        "El valor predeterminado del servidor proviene de HF_MODEL_ID. Ahora el modelo categoriza artículos de supermercado durante la extracción.",
+      extracting: "Extrayendo...",
+      extractReceipt: "Extraer recibo",
+      removeImage: "Quitar imagen",
+      preview: "Vista previa",
+      noFileSelected: "Ningún archivo seleccionado",
+      previewAlt: "Vista previa del recibo",
+      previewPlaceholder: "La vista previa del recibo aparecerá aquí.",
+      extractedItems: "Artículos extraídos",
+      waitingForExtraction: "Esperando extracción",
+      servedBy: "Servido por {backend}",
+      lines: "{count, plural, one {# línea} other {# líneas}}",
+      total: "{amount} total",
+      corrected: "{count} corregidos",
+      reviewHint:
+        "Revisa las selecciones de la IA antes de guardar. Usa Ajustar en cualquier fila para sobrescribir la categoría o la cantidad.",
+      saveCardTitle: "Guarda estas compras en la vista mensual",
+      saveSignedIn:
+        "Guarda este recibo categorizado y abre el panel para revisar totales y artículos repetidos.",
+      saveSignedOut:
+        "Primero inicia sesión con Google para guardar las compras en tu panel mensual personal.",
+      saving: "Guardando...",
+      saveGroceries: "Guardar compras",
+      openDashboard: "Abrir panel",
+      openFreshDashboard: "Abrir panel actualizado",
+      resultPlaceholder:
+        "Las compras categorizadas extraídas y la respuesta sin procesar del modelo aparecerán aquí.",
+      table: {
+        item: "Artículo",
+        category: "Categoría",
+        quantity: "Cant.",
+        unit: "Unidad",
+        total: "Total",
+        adjust: "Ajustar",
+      },
+      editor: {
+        title: "Ajustar compra extraída",
+        description:
+          "Sobrescribe la categoría o la cantidad elegida por la IA antes de guardar este recibo en el panel mensual.",
+        item: "Artículo",
+        category: "Categoría",
+        selectCategory: "Selecciona una categoría",
+        quantity: "Cantidad",
+        unitPriceFixed:
+          "El precio unitario permanece fijo en {price}. El total de la línea se recalculará cuando apliques la corrección.",
+        reset: "Restablecer al resultado de la IA",
+        apply: "Aplicar corrección",
+      },
+      alerts: {
+        corrected: "Corregido",
+        adjust: "Ajustar",
+      },
+      errors: {
+        invalidImage: "Usa un archivo de imagen como PNG, JPG o WEBP.",
+        noFile: "Selecciona una imagen del recibo antes de extraer.",
+        extractionFailed: "La extracción falló.",
+        unexpectedRequest: "Error inesperado en la solicitud.",
+        noResultToSave: "Extrae un recibo antes de guardar las compras.",
+        saveFailed: "No se pudieron guardar las compras.",
+        unexpectedSave: "Error inesperado al guardar.",
+        invalidCategory: "Selecciona una categoría válida.",
+        invalidQuantity: "La cantidad debe ser mayor que cero.",
+      },
+      saveSuccess:
+        "Se guardaron {count} líneas de compras en {monthLabel}. El enlace al panel ya quedó listo con la vista mensual actualizada.",
+    },
+    groceries: {
+      signInTitle: "Inicia sesión para desbloquear tu panel de compras",
+      signInDescription:
+        "Esta página lee el historial de compras asociado al usuario, así que solo se abre cuando hay una sesión de Google activa.",
+      backToHome: "Volver al inicio",
+      eyebrow: "Compras",
+      currentMonthView: "Vista del mes actual",
+      historicalMonthView: "Vista histórica",
+      heroDescription:
+        "Un mapa vivo por categoría de lo que ya entró en la canasta este mes, con acceso rápido a artículos repetidos.",
+      previousMonth: "Mes anterior",
+      selectMonth: "Seleccionar mes",
+      nextMonth: "Mes siguiente",
+      backToUpload: "Volver a cargar recibo",
+      monthProgress: "Progreso del mes",
+      dayOf: "Día {currentDay} de {totalDays}",
+      stats: {
+        monthTotal: "Total del mes",
+        itemsTracked: "Artículos registrados",
+        receiptsSaved: "Recibos guardados",
+        categoriesActive: "Categorías activas",
+      },
+      recentExtractions: "Extracciones recientes",
+      recentExtractionsDescription:
+        "Capturas de recibos guardadas en el momento de la extracción. Aparecen enseguida, incluso antes de guardar las correcciones en los totales agrupados.",
+      untitledReceipt: "Recibo sin título",
+      emptyTitle: "Todavía no hay compras guardadas para este mes",
+      emptyDescription:
+        "Extrae un recibo de compras, guarda el resultado categorizado y {monthLabel} se convertirá automáticamente en la vista mensual.",
+      extractReceipt: "Extraer un recibo",
+      repeatedGroups: "{count} grupos de artículos repetidos",
+      mobileDescription:
+        "Artículos repetidos, cantidades acumuladas y gasto de esta categoría en lo que va del mes.",
+      units: "{count, plural, one {# unidad} other {# unidades}}",
+      uniqueItems: "{count} artículos únicos",
+      ofMonth: "del mes",
+      table: {
+        item: "Artículo",
+        unitPrice: "Precio unitario",
+        amount: "Cantidad",
+        total: "Total",
+      },
+      receiptEntries:
+        "{count, plural, one {# entrada de recibo} other {# entradas de recibo}}",
+    },
+    categories: {
+      produce: "Frutas y verduras",
+      dairy: "Lácteos",
+      bakery: "Panadería",
+      meat: "Carnes",
+      pantry: "Despensa",
+      frozen: "Congelados",
+      beverages: "Bebidas",
+      snacks: "Snacks",
+      household: "Hogar",
+      "personal-care": "Cuidado personal",
+      other: "Otros",
+    },
+  },
+  "pt-BR": {
+    metadata: {
+      title: "Receipt AI",
+      description: "Interface de extração de recibos com Hugging Face Inference na Vercel.",
+    },
+    locales: {
+      en: "Inglês",
+      es: "Espanhol",
+      "pt-BR": "Português (Brasil)",
+    },
+    common: {
+      language: "Idioma",
+      cancel: "Cancelar",
+    },
+    theme: {
+      label: "Tema",
+      switcherLabel: "Seletor de tema",
+      system: "Sistema",
+      light: "Claro",
+      dark: "Escuro",
+      currentPreference: "Preferência atual",
+      currentPreferenceSystem: "Preferência atual: sistema ({resolvedThemeLabel}).",
+      currentPreferenceExplicit: "Preferência atual: {themeLabel}.",
+    },
+    auth: {
+      sectionLabel: "Controles de autenticação",
+      title: "Login com Google",
+      connected: "Conta do Google conectada.",
+      startSession: "Use o Google para iniciar uma sessão neste workspace.",
+      setupHint:
+        "Defina AUTH_SECRET, AUTH_GOOGLE_ID e AUTH_GOOGLE_SECRET para habilitar o login com Google.",
+      signOut: "Sair",
+      continueWithGoogle: "Continuar com Google",
+      checking: "Verificando login do Google...",
+      userAlt: "Usuário",
+      signedInFallback: "Sessão iniciada",
+      emailFallback: "Conta do Google",
+    },
+    home: {
+      dashboardTitle: "Painel de compras",
+      dashboardDescription:
+        "Abra a visão mensal com cartões por categoria, totais e agrupamentos de itens repetidos.",
+      openGroceriesView: "Abrir visão de compras",
+    },
+    receipt: {
+      eyebrow: "Receipt AI",
+      heroTitle: "Envie um recibo e extraia os itens sem rodar o modelo localmente.",
+      heroDescription:
+        "Este frontend foi pensado para a Vercel. O navegador envia a imagem para uma rota do servidor, e a rota do servidor chama o Hugging Face com o modelo configurado no ambiente.",
+      fileReady: "Imagem do recibo pronta",
+      dropImage: "Solte uma imagem do recibo aqui",
+      replaceHelp: "Substitua soltando outra imagem ou procurando arquivos.",
+      browseHelp: "PNG, JPG ou WEBP funcionam melhor. Clique para procurar se preferir.",
+      removeSelectedImage: "Remover imagem selecionada",
+      dragAndDrop: "Arrastar e soltar",
+      clickToBrowse: "ou clique em qualquer lugar deste painel para procurar",
+      modelLabel: "Modelo",
+      selectModel: "Selecione um modelo",
+      modelHelp:
+        "O padrão do servidor vem de HF_MODEL_ID. Agora o modelo categoriza itens de supermercado durante a extração.",
+      extracting: "Extraindo...",
+      extractReceipt: "Extrair recibo",
+      removeImage: "Remover imagem",
+      preview: "Prévia",
+      noFileSelected: "Nenhum arquivo selecionado",
+      previewAlt: "Prévia do recibo",
+      previewPlaceholder: "A prévia do recibo aparecerá aqui.",
+      extractedItems: "Itens extraídos",
+      waitingForExtraction: "Aguardando extração",
+      servedBy: "Atendido por {backend}",
+      lines: "{count, plural, one {# linha} other {# linhas}}",
+      total: "{amount} no total",
+      corrected: "{count} corrigidos",
+      reviewHint:
+        "Revise as escolhas da IA antes de salvar. Use Ajustar em qualquer linha para sobrescrever categoria ou quantidade.",
+      saveCardTitle: "Salve estas compras na visão mensal",
+      saveSignedIn:
+        "Persista este recibo categorizado e abra o painel para conferir totais e itens repetidos.",
+      saveSignedOut:
+        "Faça login com Google primeiro para salvar as compras no seu painel mensal pessoal.",
+      saving: "Salvando...",
+      saveGroceries: "Salvar compras",
+      openDashboard: "Abrir painel",
+      openFreshDashboard: "Abrir painel atualizado",
+      resultPlaceholder:
+        "As compras categorizadas extraídas e a resposta bruta do modelo aparecerão aqui.",
+      table: {
+        item: "Item",
+        category: "Categoria",
+        quantity: "Qtd.",
+        unit: "Unid.",
+        total: "Total",
+        adjust: "Ajustar",
+      },
+      editor: {
+        title: "Ajustar compra extraída",
+        description:
+          "Sobrescreva a categoria ou a quantidade escolhida pela IA antes de salvar este recibo no painel mensal.",
+        item: "Item",
+        category: "Categoria",
+        selectCategory: "Selecione uma categoria",
+        quantity: "Quantidade",
+        unitPriceFixed:
+          "O preço unitário permanece fixo em {price}. O total da linha será recalculado quando você aplicar a correção.",
+        reset: "Voltar ao resultado da IA",
+        apply: "Aplicar correção",
+      },
+      alerts: {
+        corrected: "Corrigido",
+        adjust: "Ajustar",
+      },
+      errors: {
+        invalidImage: "Use um arquivo de imagem como PNG, JPG ou WEBP.",
+        noFile: "Selecione uma imagem do recibo antes de extrair.",
+        extractionFailed: "A extração falhou.",
+        unexpectedRequest: "Erro inesperado na requisição.",
+        noResultToSave: "Extraia um recibo antes de salvar as compras.",
+        saveFailed: "Não foi possível salvar as compras.",
+        unexpectedSave: "Erro inesperado ao salvar.",
+        invalidCategory: "Selecione uma categoria válida.",
+        invalidQuantity: "A quantidade deve ser maior que zero.",
+      },
+      saveSuccess:
+        "Salvou {count} linhas de compras em {monthLabel}. O link do painel já foi preparado com a visão mensal atualizada.",
+    },
+    groceries: {
+      signInTitle: "Faça login para desbloquear seu painel de compras",
+      signInDescription:
+        "Esta página lê o histórico de compras do usuário, então ela só abre quando existe uma sessão do Google ativa.",
+      backToHome: "Voltar para o início",
+      eyebrow: "Compras",
+      currentMonthView: "Visão do mês atual",
+      historicalMonthView: "Visão histórica",
+      heroDescription:
+        "Um mapa vivo por categoria do que já entrou na cesta neste mês, com detalhamento rápido de itens repetidos.",
+      previousMonth: "Mês anterior",
+      selectMonth: "Selecionar mês",
+      nextMonth: "Próximo mês",
+      backToUpload: "Voltar para envio do recibo",
+      monthProgress: "Progresso do mês",
+      dayOf: "Dia {currentDay} de {totalDays}",
+      stats: {
+        monthTotal: "Total do mês",
+        itemsTracked: "Itens acompanhados",
+        receiptsSaved: "Recibos salvos",
+        categoriesActive: "Categorias ativas",
+      },
+      recentExtractions: "Extrações recentes",
+      recentExtractionsDescription:
+        "Capturas de recibos salvas no momento da extração. Elas aparecem na hora, mesmo antes de salvar correções nos totais agrupados.",
+      untitledReceipt: "Recibo sem título",
+      emptyTitle: "Ainda não há compras salvas para este mês",
+      emptyDescription:
+        "Extraia um recibo de compras, salve o resultado categorizado e {monthLabel} vai aparecer automaticamente na visão mensal.",
+      extractReceipt: "Extrair um recibo",
+      repeatedGroups: "{count} grupos de itens repetidos",
+      mobileDescription:
+        "Itens repetidos, quantidades acumuladas e gasto desta categoria até agora neste mês.",
+      units: "{count, plural, one {# unidade} other {# unidades}}",
+      uniqueItems: "{count} itens únicos",
+      ofMonth: "do mês",
+      table: {
+        item: "Item",
+        unitPrice: "Preço unitário",
+        amount: "Quantidade",
+        total: "Total",
+      },
+      receiptEntries:
+        "{count, plural, one {# entrada de recibo} other {# entradas de recibo}}",
+    },
+    categories: {
+      produce: "Hortifruti",
+      dairy: "Laticínios",
+      bakery: "Padaria",
+      meat: "Carnes",
+      pantry: "Despensa",
+      frozen: "Congelados",
+      beverages: "Bebidas",
+      snacks: "Lanches",
+      household: "Casa",
+      "personal-care": "Cuidados pessoais",
+      other: "Outros",
+    },
+  },
+} as const satisfies Record<AppLocale, Record<string, unknown>>;
 
-const englishMessages: Messages = {
-  metadata: {
-    title: "Receipt AI",
-    description: "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
-  },
-  locales: {
-    en: "English",
-    es: "Spanish",
-    "pt-BR": "Portuguese (Brazil)",
-  },
-  common: {
-    language: "Language",
-    cancel: "Cancel",
-  },
-  theme: {
-    label: "Theme",
-    switcherLabel: "Theme switcher",
-    system: "System",
-    light: "Light",
-    dark: "Dark",
-    currentPreference: "Current preference",
-    currentPreferenceSystem: (resolvedThemeLabel) =>
-      `Current preference: system (${resolvedThemeLabel.toLowerCase()}).`,
-    currentPreferenceExplicit: (themeLabel) =>
-      `Current preference: ${themeLabel.toLowerCase()}.`,
-  },
-  auth: {
-    sectionLabel: "Authentication controls",
-    title: "Google login",
-    connected: "Google account connected.",
-    startSession: "Use Google to start a session in this workspace.",
-    setupHint:
-      "Set AUTH_SECRET, AUTH_GOOGLE_ID, and AUTH_GOOGLE_SECRET to enable Google login.",
-    signOut: "Sign out",
-    continueWithGoogle: "Continue with Google",
-    checking: "Checking Google login...",
-    userAlt: "User",
-    signedInFallback: "Signed in",
-    emailFallback: "Google account",
-  },
-  home: {
-    dashboardTitle: "Groceries dashboard",
-    dashboardDescription:
-      "Open the month view with category cards, totals, and repeated-item rollups.",
-    openGroceriesView: "Open groceries view",
-  },
-  receipt: {
-    eyebrow: "Receipt AI",
-    heroTitle: "Upload a receipt and extract line items without running the model locally.",
-    heroDescription:
-      "This frontend is designed for Vercel. The browser uploads the image to a server route, and the server route calls Hugging Face with the model configured in the server environment.",
-    fileReady: "Receipt image ready",
-    dropImage: "Drop a receipt image here",
-    replaceHelp: "Replace it by dropping another image or browsing files.",
-    browseHelp: "PNG, JPG, or WEBP works best. Click to browse if you prefer.",
-    removeSelectedImage: "Remove selected image",
-    dragAndDrop: "Drag and drop",
-    clickToBrowse: "or click anywhere in this panel to browse",
-    modelLabel: "Model",
-    selectModel: "Select model",
-    modelHelp:
-      "The server default comes from HF_MODEL_ID. The model now categorizes grocery items as part of extraction.",
-    extracting: "Extracting...",
-    extractReceipt: "Extract receipt",
-    removeImage: "Remove image",
-    preview: "Preview",
-    noFileSelected: "No file selected",
-    previewAlt: "Receipt preview",
-    previewPlaceholder: "Your receipt preview will appear here.",
-    extractedItems: "Extracted items",
-    waitingForExtraction: "Waiting for extraction",
-    servedBy: (backend) => `Served by ${backend}`,
-    lines: (count) => `${count} ${pluralize(count, "line", "lines")}`,
-    total: (amount) => `${amount} total`,
-    corrected: (count) => `${count} corrected`,
-    reviewHint:
-      "Review the AI picks before saving. Use Adjust on any row to override category or quantity.",
-    saveCardTitle: "Save these groceries into the month view",
-    saveSignedIn:
-      "Persist this categorized receipt and open the dashboard to inspect totals and repeated items.",
-    saveSignedOut:
-      "Sign in with Google first to persist groceries to your personal month dashboard.",
-    saving: "Saving...",
-    saveGroceries: "Save groceries",
-    openDashboard: "Open dashboard",
-    openFreshDashboard: "Open fresh dashboard",
-    resultPlaceholder: "Extracted categorized groceries and the raw model response will appear here.",
-    table: {
-      item: "Item",
-      category: "Category",
-      quantity: "Qty",
-      unit: "Unit",
-      total: "Total",
-      adjust: "Adjust",
-    },
-    editor: {
-      title: "Adjust extracted grocery",
-      description:
-        "Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.",
-      item: "Item",
-      category: "Category",
-      selectCategory: "Select category",
-      quantity: "Quantity",
-      unitPriceFixed: (price) =>
-        `Unit price stays fixed at ${price}. The line total will be recalculated when you apply the correction.`,
-      reset: "Reset to AI result",
-      apply: "Apply correction",
-    },
-    alerts: {
-      corrected: "Corrected",
-      adjust: "Adjust",
-    },
-    errors: {
-      invalidImage: "Use an image file such as PNG, JPG, or WEBP.",
-      noFile: "Select a receipt image before extracting.",
-      extractionFailed: "Extraction failed.",
-      unexpectedRequest: "Unexpected request error.",
-      noResultToSave: "Extract a receipt before saving groceries.",
-      saveFailed: "Unable to save groceries.",
-      unexpectedSave: "Unexpected save error.",
-      invalidCategory: "Select a valid grocery category.",
-      invalidQuantity: "Quantity must be greater than zero.",
-    },
-    saveSuccess: (count, monthLabel) =>
-      `Saved ${count} grocery lines to ${monthLabel}. The dashboard link is now primed with the fresh month view.`,
-  },
-  groceries: {
-    signInTitle: "Sign in to unlock your groceries dashboard",
-    signInDescription:
-      "This page reads user-scoped grocery history, so it only opens once a Google session is active.",
-    backToHome: "Back to home",
-    eyebrow: "Groceries",
-    currentMonthView: "Current month view",
-    historicalMonthView: "Historical month view",
-    heroDescription:
-      "A live category map of what has landed in the basket so far this month, with fast drill-down into repeated items.",
-    previousMonth: "Previous month",
-    selectMonth: "Select month",
-    nextMonth: "Next month",
-    backToUpload: "Back to receipt upload",
-    monthProgress: "Month progress",
-    dayOf: (currentDay, totalDays) => `Day ${currentDay} of ${totalDays}`,
-    stats: {
-      monthTotal: "Month total",
-      itemsTracked: "Items tracked",
-      receiptsSaved: "Receipts saved",
-      categoriesActive: "Categories active",
-    },
-    recentExtractions: "Recent extractions",
-    recentExtractionsDescription:
-      "Receipt captures saved at extract time. These appear immediately, even before grocery corrections are saved into the grouped totals.",
-    untitledReceipt: "Untitled receipt",
-    emptyTitle: "No groceries saved for this month yet",
-    emptyDescription: (monthLabel) =>
-      `Extract a grocery receipt, save the categorized result, and ${monthLabel} will bloom into the month view automatically.`,
-    extractReceipt: "Extract a receipt",
-    repeatedGroups: (count) => `${count} repeated item groups`,
-    mobileDescription:
-      "Repeated items, quantity rollups, and spend for this category so far this month.",
-    units: (count) => `${count} ${pluralize(count, "unit", "units")}`,
-    uniqueItems: (count) => `${count} unique items`,
-    ofMonth: "of month",
-    table: {
-      item: "Item",
-      unitPrice: "Unit price",
-      amount: "Amount",
-      total: "Total",
-    },
-    receiptEntries: (count) => `${count} receipt ${pluralize(count, "entry", "entries")}`,
-  },
-  categories: englishCategories,
-};
+export const getMessages = async (locale: AppLocale): Promise<Messages> => {
+  const t = await getTranslations({ locale });
 
-const spanishMessages: Messages = {
-  metadata: {
-    title: "Receipt AI",
-    description: "Interfaz de extracción de recibos con Hugging Face Inference en Vercel.",
-  },
-  locales: {
-    en: "Inglés",
-    es: "Español",
-    "pt-BR": "Portugués (Brasil)",
-  },
-  common: {
-    language: "Idioma",
-    cancel: "Cancelar",
-  },
-  theme: {
-    label: "Tema",
-    switcherLabel: "Selector de tema",
-    system: "Sistema",
-    light: "Claro",
-    dark: "Oscuro",
-    currentPreference: "Preferencia actual",
-    currentPreferenceSystem: (resolvedThemeLabel) =>
-      `Preferencia actual: sistema (${resolvedThemeLabel.toLowerCase()}).`,
-    currentPreferenceExplicit: (themeLabel) =>
-      `Preferencia actual: ${themeLabel.toLowerCase()}.`,
-  },
-  auth: {
-    sectionLabel: "Controles de autenticación",
-    title: "Inicio de sesión con Google",
-    connected: "Cuenta de Google conectada.",
-    startSession: "Usa Google para iniciar una sesión en este espacio de trabajo.",
-    setupHint:
-      "Define AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET para habilitar el inicio de sesión con Google.",
-    signOut: "Cerrar sesión",
-    continueWithGoogle: "Continuar con Google",
-    checking: "Comprobando inicio de sesión con Google...",
-    userAlt: "Usuario",
-    signedInFallback: "Sesión iniciada",
-    emailFallback: "Cuenta de Google",
-  },
-  home: {
-    dashboardTitle: "Panel de compras",
-    dashboardDescription:
-      "Abre la vista mensual con tarjetas por categoría, totales y agrupaciones de artículos repetidos.",
-    openGroceriesView: "Abrir vista de compras",
-  },
-  receipt: {
-    eyebrow: "Receipt AI",
-    heroTitle: "Sube un recibo y extrae las líneas sin ejecutar el modelo localmente.",
-    heroDescription:
-      "Este frontend está diseñado para Vercel. El navegador sube la imagen a una ruta del servidor y esa ruta llama a Hugging Face con el modelo configurado en el entorno del servidor.",
-    fileReady: "Imagen del recibo lista",
-    dropImage: "Suelta una imagen del recibo aquí",
-    replaceHelp: "Reemplázala soltando otra imagen o buscando archivos.",
-    browseHelp: "PNG, JPG o WEBP funcionan mejor. Haz clic para buscar si lo prefieres.",
-    removeSelectedImage: "Quitar imagen seleccionada",
-    dragAndDrop: "Arrastrar y soltar",
-    clickToBrowse: "o haz clic en cualquier parte de este panel para buscar",
-    modelLabel: "Modelo",
-    selectModel: "Selecciona un modelo",
-    modelHelp:
-      "El valor predeterminado del servidor proviene de HF_MODEL_ID. Ahora el modelo categoriza artículos de supermercado durante la extracción.",
-    extracting: "Extrayendo...",
-    extractReceipt: "Extraer recibo",
-    removeImage: "Quitar imagen",
-    preview: "Vista previa",
-    noFileSelected: "Ningún archivo seleccionado",
-    previewAlt: "Vista previa del recibo",
-    previewPlaceholder: "La vista previa del recibo aparecerá aquí.",
-    extractedItems: "Artículos extraídos",
-    waitingForExtraction: "Esperando extracción",
-    servedBy: (backend) => `Servido por ${backend}`,
-    lines: (count) => `${count} ${pluralize(count, "línea", "líneas")}`,
-    total: (amount) => `${amount} total`,
-    corrected: (count) => `${count} corregidos`,
-    reviewHint:
-      "Revisa las selecciones de la IA antes de guardar. Usa Ajustar en cualquier fila para sobrescribir la categoría o la cantidad.",
-    saveCardTitle: "Guarda estas compras en la vista mensual",
-    saveSignedIn:
-      "Guarda este recibo categorizado y abre el panel para revisar totales y artículos repetidos.",
-    saveSignedOut:
-      "Primero inicia sesión con Google para guardar las compras en tu panel mensual personal.",
-    saving: "Guardando...",
-    saveGroceries: "Guardar compras",
-    openDashboard: "Abrir panel",
-    openFreshDashboard: "Abrir panel actualizado",
-    resultPlaceholder:
-      "Las compras categorizadas extraídas y la respuesta sin procesar del modelo aparecerán aquí.",
-    table: {
-      item: "Artículo",
-      category: "Categoría",
-      quantity: "Cant.",
-      unit: "Unidad",
-      total: "Total",
-      adjust: "Ajustar",
-    },
-    editor: {
-      title: "Ajustar compra extraída",
-      description:
-        "Sobrescribe la categoría o la cantidad elegida por la IA antes de guardar este recibo en el panel mensual.",
-      item: "Artículo",
-      category: "Categoría",
-      selectCategory: "Selecciona una categoría",
-      quantity: "Cantidad",
-      unitPriceFixed: (price) =>
-        `El precio unitario permanece fijo en ${price}. El total de la línea se recalculará cuando apliques la corrección.`,
-      reset: "Restablecer al resultado de la IA",
-      apply: "Aplicar corrección",
-    },
-    alerts: {
-      corrected: "Corregido",
-      adjust: "Ajustar",
-    },
-    errors: {
-      invalidImage: "Usa un archivo de imagen como PNG, JPG o WEBP.",
-      noFile: "Selecciona una imagen del recibo antes de extraer.",
-      extractionFailed: "La extracción falló.",
-      unexpectedRequest: "Error inesperado en la solicitud.",
-      noResultToSave: "Extrae un recibo antes de guardar las compras.",
-      saveFailed: "No se pudieron guardar las compras.",
-      unexpectedSave: "Error inesperado al guardar.",
-      invalidCategory: "Selecciona una categoría válida.",
-      invalidQuantity: "La cantidad debe ser mayor que cero.",
-    },
-    saveSuccess: (count, monthLabel) =>
-      `Se guardaron ${count} líneas de compras en ${monthLabel}. El enlace al panel ya quedó listo con la vista mensual actualizada.`,
-  },
-  groceries: {
-    signInTitle: "Inicia sesión para desbloquear tu panel de compras",
-    signInDescription:
-      "Esta página lee el historial de compras asociado al usuario, así que solo se abre cuando hay una sesión de Google activa.",
-    backToHome: "Volver al inicio",
-    eyebrow: "Compras",
-    currentMonthView: "Vista del mes actual",
-    historicalMonthView: "Vista histórica",
-    heroDescription:
-      "Un mapa vivo por categoría de lo que ya entró en la canasta este mes, con acceso rápido a artículos repetidos.",
-    previousMonth: "Mes anterior",
-    selectMonth: "Seleccionar mes",
-    nextMonth: "Mes siguiente",
-    backToUpload: "Volver a cargar recibo",
-    monthProgress: "Progreso del mes",
-    dayOf: (currentDay, totalDays) => `Día ${currentDay} de ${totalDays}`,
-    stats: {
-      monthTotal: "Total del mes",
-      itemsTracked: "Artículos registrados",
-      receiptsSaved: "Recibos guardados",
-      categoriesActive: "Categorías activas",
-    },
-    recentExtractions: "Extracciones recientes",
-    recentExtractionsDescription:
-      "Capturas de recibos guardadas en el momento de la extracción. Aparecen enseguida, incluso antes de guardar las correcciones en los totales agrupados.",
-    untitledReceipt: "Recibo sin título",
-    emptyTitle: "Todavía no hay compras guardadas para este mes",
-    emptyDescription: (monthLabel) =>
-      `Extrae un recibo de compras, guarda el resultado categorizado y ${monthLabel} se convertirá automáticamente en la vista mensual.`,
-    extractReceipt: "Extraer un recibo",
-    repeatedGroups: (count) => `${count} grupos de artículos repetidos`,
-    mobileDescription:
-      "Artículos repetidos, cantidades acumuladas y gasto de esta categoría en lo que va del mes.",
-    units: (count) => `${count} ${pluralize(count, "unidad", "unidades")}`,
-    uniqueItems: (count) => `${count} artículos únicos`,
-    ofMonth: "del mes",
-    table: {
-      item: "Artículo",
-      unitPrice: "Precio unitario",
-      amount: "Cantidad",
-      total: "Total",
-    },
-    receiptEntries: (count) => `${count} ${pluralize(count, "entrada de recibo", "entradas de recibo")}`,
-  },
-  categories: spanishCategories,
-};
-
-const portugueseMessages: Messages = {
-  metadata: {
-    title: "Receipt AI",
-    description: "Interface de extração de recibos com Hugging Face Inference na Vercel.",
-  },
-  locales: {
-    en: "Inglês",
-    es: "Espanhol",
-    "pt-BR": "Português (Brasil)",
-  },
-  common: {
-    language: "Idioma",
-    cancel: "Cancelar",
-  },
-  theme: {
-    label: "Tema",
-    switcherLabel: "Seletor de tema",
-    system: "Sistema",
-    light: "Claro",
-    dark: "Escuro",
-    currentPreference: "Preferência atual",
-    currentPreferenceSystem: (resolvedThemeLabel) =>
-      `Preferência atual: sistema (${resolvedThemeLabel.toLowerCase()}).`,
-    currentPreferenceExplicit: (themeLabel) =>
-      `Preferência atual: ${themeLabel.toLowerCase()}.`,
-  },
-  auth: {
-    sectionLabel: "Controles de autenticação",
-    title: "Login com Google",
-    connected: "Conta do Google conectada.",
-    startSession: "Use o Google para iniciar uma sessão neste workspace.",
-    setupHint:
-      "Defina AUTH_SECRET, AUTH_GOOGLE_ID e AUTH_GOOGLE_SECRET para habilitar o login com Google.",
-    signOut: "Sair",
-    continueWithGoogle: "Continuar com Google",
-    checking: "Verificando login do Google...",
-    userAlt: "Usuário",
-    signedInFallback: "Sessão iniciada",
-    emailFallback: "Conta do Google",
-  },
-  home: {
-    dashboardTitle: "Painel de compras",
-    dashboardDescription:
-      "Abra a visão mensal com cartões por categoria, totais e agrupamentos de itens repetidos.",
-    openGroceriesView: "Abrir visão de compras",
-  },
-  receipt: {
-    eyebrow: "Receipt AI",
-    heroTitle: "Envie um recibo e extraia os itens sem rodar o modelo localmente.",
-    heroDescription:
-      "Este frontend foi pensado para a Vercel. O navegador envia a imagem para uma rota do servidor, e a rota do servidor chama o Hugging Face com o modelo configurado no ambiente.",
-    fileReady: "Imagem do recibo pronta",
-    dropImage: "Solte uma imagem do recibo aqui",
-    replaceHelp: "Substitua soltando outra imagem ou procurando arquivos.",
-    browseHelp: "PNG, JPG ou WEBP funcionam melhor. Clique para procurar se preferir.",
-    removeSelectedImage: "Remover imagem selecionada",
-    dragAndDrop: "Arrastar e soltar",
-    clickToBrowse: "ou clique em qualquer lugar deste painel para procurar",
-    modelLabel: "Modelo",
-    selectModel: "Selecione um modelo",
-    modelHelp:
-      "O padrão do servidor vem de HF_MODEL_ID. Agora o modelo categoriza itens de supermercado durante a extração.",
-    extracting: "Extraindo...",
-    extractReceipt: "Extrair recibo",
-    removeImage: "Remover imagem",
-    preview: "Prévia",
-    noFileSelected: "Nenhum arquivo selecionado",
-    previewAlt: "Prévia do recibo",
-    previewPlaceholder: "A prévia do recibo aparecerá aqui.",
-    extractedItems: "Itens extraídos",
-    waitingForExtraction: "Aguardando extração",
-    servedBy: (backend) => `Atendido por ${backend}`,
-    lines: (count) => `${count} ${pluralize(count, "linha", "linhas")}`,
-    total: (amount) => `${amount} no total`,
-    corrected: (count) => `${count} corrigidos`,
-    reviewHint:
-      "Revise as escolhas da IA antes de salvar. Use Ajustar em qualquer linha para sobrescrever categoria ou quantidade.",
-    saveCardTitle: "Salve estas compras na visão mensal",
-    saveSignedIn:
-      "Persista este recibo categorizado e abra o painel para conferir totais e itens repetidos.",
-    saveSignedOut:
-      "Faça login com Google primeiro para salvar as compras no seu painel mensal pessoal.",
-    saving: "Salvando...",
-    saveGroceries: "Salvar compras",
-    openDashboard: "Abrir painel",
-    openFreshDashboard: "Abrir painel atualizado",
-    resultPlaceholder:
-      "As compras categorizadas extraídas e a resposta bruta do modelo aparecerão aqui.",
-    table: {
-      item: "Item",
-      category: "Categoria",
-      quantity: "Qtd.",
-      unit: "Unid.",
-      total: "Total",
-      adjust: "Ajustar",
-    },
-    editor: {
-      title: "Ajustar compra extraída",
-      description:
-        "Sobrescreva a categoria ou a quantidade escolhida pela IA antes de salvar este recibo no painel mensal.",
-      item: "Item",
-      category: "Categoria",
-      selectCategory: "Selecione uma categoria",
-      quantity: "Quantidade",
-      unitPriceFixed: (price) =>
-        `O preço unitário permanece fixo em ${price}. O total da linha será recalculado quando você aplicar a correção.`,
-      reset: "Voltar ao resultado da IA",
-      apply: "Aplicar correção",
-    },
-    alerts: {
-      corrected: "Corrigido",
-      adjust: "Ajustar",
-    },
-    errors: {
-      invalidImage: "Use um arquivo de imagem como PNG, JPG ou WEBP.",
-      noFile: "Selecione uma imagem do recibo antes de extrair.",
-      extractionFailed: "A extração falhou.",
-      unexpectedRequest: "Erro inesperado na requisição.",
-      noResultToSave: "Extraia um recibo antes de salvar as compras.",
-      saveFailed: "Não foi possível salvar as compras.",
-      unexpectedSave: "Erro inesperado ao salvar.",
-      invalidCategory: "Selecione uma categoria válida.",
-      invalidQuantity: "A quantidade deve ser maior que zero.",
-    },
-    saveSuccess: (count, monthLabel) =>
-      `Salvou ${count} linhas de compras em ${monthLabel}. O link do painel já foi preparado com a visão mensal atualizada.`,
-  },
-  groceries: {
-    signInTitle: "Faça login para desbloquear seu painel de compras",
-    signInDescription:
-      "Esta página lê o histórico de compras do usuário, então ela só abre quando existe uma sessão do Google ativa.",
-    backToHome: "Voltar para o início",
-    eyebrow: "Compras",
-    currentMonthView: "Visão do mês atual",
-    historicalMonthView: "Visão histórica",
-    heroDescription:
-      "Um mapa vivo por categoria do que já entrou na cesta neste mês, com detalhamento rápido de itens repetidos.",
-    previousMonth: "Mês anterior",
-    selectMonth: "Selecionar mês",
-    nextMonth: "Próximo mês",
-    backToUpload: "Voltar para envio do recibo",
-    monthProgress: "Progresso do mês",
-    dayOf: (currentDay, totalDays) => `Dia ${currentDay} de ${totalDays}`,
-    stats: {
-      monthTotal: "Total do mês",
-      itemsTracked: "Itens acompanhados",
-      receiptsSaved: "Recibos salvos",
-      categoriesActive: "Categorias ativas",
-    },
-    recentExtractions: "Extrações recentes",
-    recentExtractionsDescription:
-      "Capturas de recibos salvas no momento da extração. Elas aparecem na hora, mesmo antes de salvar correções nos totais agrupados.",
-    untitledReceipt: "Recibo sem título",
-    emptyTitle: "Ainda não há compras salvas para este mês",
-    emptyDescription: (monthLabel) =>
-      `Extraia um recibo de compras, salve o resultado categorizado e ${monthLabel} vai aparecer automaticamente na visão mensal.`,
-    extractReceipt: "Extrair um recibo",
-    repeatedGroups: (count) => `${count} grupos de itens repetidos`,
-    mobileDescription:
-      "Itens repetidos, quantidades acumuladas e gasto desta categoria até agora neste mês.",
-    units: (count) => `${count} ${pluralize(count, "unidade", "unidades")}`,
-    uniqueItems: (count) => `${count} itens únicos`,
-    ofMonth: "do mês",
-    table: {
-      item: "Item",
-      unitPrice: "Preço unitário",
-      amount: "Quantidade",
-      total: "Total",
-    },
-    receiptEntries: (count) => `${count} ${pluralize(count, "entrada de recibo", "entradas de recibo")}`,
-  },
-  categories: portugueseCategories,
-};
-
-export const messages: Record<AppLocale, Messages> = {
-  en: englishMessages,
-  es: spanishMessages,
-  "pt-BR": portugueseMessages,
-};
-
-export const getMessages = (locale: AppLocale): Messages => {
-  return messages[locale];
+  return createMessagesObject(
+    (key, values) => t(key as never, values as never),
+    locale,
+  );
 };

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 
+import { getHtmlLang, getLocaleFromPreference, localeCookieName } from "@/lib/i18n/config";
 import "./globals.css";
-import { getHtmlLang, getLocaleFromPreference } from "@/lib/i18n/config";
 import { AppSessionProvider } from "./session-provider";
 
 const themeBootScript = `(() => {
@@ -39,8 +39,8 @@ const RootLayout = async ({
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
-  const headerStore = await headers();
-  const locale = getLocaleFromPreference(headerStore.get("x-receipt-ai-locale")) ?? "en";
+  const cookieStore = await cookies();
+  const locale = getLocaleFromPreference(cookieStore.get(localeCookieName)?.value) ?? "en";
 
   return (
     <html lang={getHtmlLang(locale)} suppressHydrationWarning>
