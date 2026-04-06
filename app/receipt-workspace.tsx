@@ -52,8 +52,7 @@ import {
   formatCategoryLabel,
   groceryCategories,
   sanitizeCategory,
-  type AvailableModel,
-  type ReceiptItem,
+  type AvailableModel
 } from "../lib/receipt";
 
 type ReceiptWorkspaceProps = {
@@ -117,9 +116,7 @@ export const ReceiptWorkspace = ({
   const [draftCategory, setDraftCategory] = useState<string>("");
   const [draftQuantity, setDraftQuantity] = useState<string>("");
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
   const [editorState, setEditorState] = useState<EditorState | null>(null);
-  const [showRawResponse, setShowRawResponse] = useState(false);
   const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { status } = useSession();
