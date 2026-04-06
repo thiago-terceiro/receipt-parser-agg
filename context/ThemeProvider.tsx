@@ -42,7 +42,7 @@ const getStoredTheme = (): Theme => {
 
 const subscribeToThemePreference = (onStoreChange: () => void) => {
   if (typeof window === "undefined") {
-    return () => {};
+    return () => { };
   }
 
   const handleStorage = (event: StorageEvent) => {
@@ -68,7 +68,7 @@ const subscribeToThemePreference = (onStoreChange: () => void) => {
 
 const subscribeToSystemTheme = (onStoreChange: () => void) => {
   if (typeof window === "undefined") {
-    return () => {};
+    return () => { };
   }
 
   const mediaQuery = window.matchMedia(SYSTEM_THEME_QUERY);
@@ -102,7 +102,7 @@ const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
 };
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const theme = useSyncExternalStore(
+  const theme = useSyncExternalStore<Theme>(
     subscribeToThemePreference,
     getStoredTheme,
     () => "system",
@@ -112,7 +112,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     getSystemThemeSnapshot,
     () => "light",
   );
-  const resolvedTheme = theme === "system" ? systemTheme : theme;
+  const resolvedTheme = (theme === "system" ? systemTheme : theme) as ResolvedTheme;
   const isLoaded = true;
 
   const setTheme = useCallback((nextTheme: Theme) => {
