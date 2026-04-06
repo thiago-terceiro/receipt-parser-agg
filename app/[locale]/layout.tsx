@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
-import { LocaleProvider } from "@/components/locale-provider";
-import { getLocaleFromSegment, isLocaleSegment } from "@/lib/i18n/config";
+import { LocaleEffects } from "@/components/locale-provider";
+import { routing } from "@/i18n/routing";
 import { getMessages } from "@/lib/i18n/messages";
 
 type LocaleLayoutProps = {
@@ -12,7 +14,7 @@ type LocaleLayoutProps = {
   }>;
 };
 
-export const generateStaticParams = () => [{ locale: "en" }, { locale: "es" }, { locale: "pt-br" }];
+export const generateStaticParams = () => routing.locales.map((locale) => ({ locale }));
 
 export const generateMetadata = async ({
   params,
@@ -22,14 +24,13 @@ export const generateMetadata = async ({
   }>;
 }): Promise<Metadata> => {
   const { locale } = await params;
-  if (!isLocaleSegment(locale)) {
+  if (!hasLocale(routing.locales, locale)) {
     return {
       title: "Not Found",
     };
   }
 
-  const resolvedLocale = getLocaleFromSegment(locale);
-  const translations = getMessages(resolvedLocale);
+  const translations = await getMessages(locale);
 
   return {
     title: translations.metadata.title,
@@ -40,11 +41,17 @@ export const generateMetadata = async ({
 const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
   const { locale } = await params;
 
-  if (!isLocaleSegment(locale)) {
+  if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
 
-  return <LocaleProvider locale={getLocaleFromSegment(locale)}>{children}</LocaleProvider>;
+  setRequestLocale(locale);
+
+  return (
+    <NextIntlClientProvider locale={locale}>
+      <LocaleEffects locale={locale}>{children}</LocaleEffects>
+    </NextIntlClientProvider>
+  );
 };
 
 export default LocaleLayout;

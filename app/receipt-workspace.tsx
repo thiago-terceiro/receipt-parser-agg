@@ -2,7 +2,6 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -61,6 +60,18 @@ type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
 };
 
+type EditorState = {
+  index: number;
+  category: string;
+  quantity: string;
+  error: string | null;
+};
+
+type SavedReceiptState = {
+  month: string;
+  receiptId: string;
+};
+
 const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
   const responseText = await response.text();
   if (!responseText.trim()) {
@@ -106,12 +117,14 @@ export const ReceiptWorkspace = ({
   const [draftCategory, setDraftCategory] = useState<string>("");
   const [draftQuantity, setDraftQuantity] = useState<string>("");
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
+  const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [showRawResponse, setShowRawResponse] = useState(false);
+  const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const router = useRouter();
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
   const dashboardBaseHref = localizePath("/groceries", locale);
-  const [dashboardHref, setDashboardHref] = useState(dashboardBaseHref);
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
@@ -125,15 +138,17 @@ export const ReceiptWorkspace = ({
     () => result?.items.map((item, index) => editedItems[index] ?? item) ?? [],
     [editedItems, result],
   );
-  const correctedCount = useMemo(() => Object.keys(editedItems).length, [editedItems]);
   const displayedTotal = useMemo(
     () => displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0),
     [displayedItems],
   );
-  const editingItem = useMemo(
-    () => (editingIndex === null ? null : displayedItems[editingIndex] ?? null),
-    [displayedItems, editingIndex],
-  );
+  const correctedCount = Object.keys(editedItems).length;
+  const editingItem = editorState ? displayedItems[editorState.index] ?? null : null;
+  const dashboardHref = savedReceipt
+    ? savedReceipt.month
+      ? `${dashboardBaseHref}?month=${savedReceipt.month}&saved=${savedReceipt.receiptId}`
+      : `${dashboardBaseHref}?saved=${savedReceipt.receiptId}`
+    : dashboardBaseHref;
 
   useEffect(() => {
     if (!file) {
@@ -149,19 +164,23 @@ export const ReceiptWorkspace = ({
     };
   }, [file]);
 
-  const clearSelectedFile = useCallback(() => {
-    setFile(null);
+  const resetWorkspaceState = useCallback(() => {
     setResult(null);
     setError(null);
-    setIsDraggingFile(false);
     setSaveMessage(null);
     setEditedItems({});
-    setEditingIndex(null);
-    setDraftError(null);
+    setEditorState(null);
     setShowRawResponse(false);
-    setDashboardHref(dashboardBaseHref);
+    setSavedReceipt(null);
+  }, []);
+
+  const clearSelectedFile = useCallback(() => {
+    setFile(null);
+    setPreviewUrl(null);
+    setIsDraggingFile(false);
+    resetWorkspaceState();
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [dashboardBaseHref]);
+  }, [resetWorkspaceState]);
 
   const applySelectedFile = useCallback((nextFile: File | null) => {
     if (!nextFile) {
@@ -175,19 +194,9 @@ export const ReceiptWorkspace = ({
     }
 
     setFile(nextFile);
-    setResult(null);
-    setError(null);
-    setSaveMessage(null);
-    setEditedItems({});
-    setEditingIndex(null);
-    setDraftError(null);
-    setShowRawResponse(false);
-    setDashboardHref(dashboardBaseHref);
-  }, [
-    clearSelectedFile,
-    dashboardBaseHref,
-    translations.receipt.errors.invalidImage,
-  ]);
+    resetWorkspaceState();
+    setPreviewUrl(URL.createObjectURL(nextFile));
+  }, [clearSelectedFile, resetWorkspaceState, translations.receipt.errors.invalidImage]);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;
@@ -226,14 +235,7 @@ export const ReceiptWorkspace = ({
     }
 
     setIsLoading(true);
-    setError(null);
-    setResult(null);
-    setSaveMessage(null);
-    setEditedItems({});
-    setEditingIndex(null);
-    setDraftError(null);
-    setShowRawResponse(false);
-    setDashboardHref(dashboardBaseHref);
+    resetWorkspaceState();
 
     const formData = new FormData();
     formData.append("file", file);
@@ -260,8 +262,8 @@ export const ReceiptWorkspace = ({
       setIsLoading(false);
     }
   }, [
-    dashboardBaseHref,
     file,
+    resetWorkspaceState,
     selectedModelId,
     translations.receipt.errors.extractionFailed,
     translations.receipt.errors.noFile,
@@ -302,13 +304,9 @@ export const ReceiptWorkspace = ({
         throw new Error(payload.error || translations.receipt.errors.saveFailed);
       }
 
+      const receiptId = payload.receiptId ?? String(Date.now());
       const savedMonth = payload.month ?? "";
-      const nextDashboardHref = savedMonth
-        ? `${dashboardBaseHref}?month=${savedMonth}&saved=${payload.receiptId ?? Date.now()}`
-        : `${dashboardBaseHref}?saved=${payload.receiptId ?? Date.now()}`;
-
-      setDashboardHref(nextDashboardHref);
-      void router.prefetch(nextDashboardHref);
+      setSavedReceipt({ month: savedMonth, receiptId });
 
       const savedMonthLabel = savedMonth
         ? formatMonthLabel(savedMonth, locale)
@@ -332,12 +330,10 @@ export const ReceiptWorkspace = ({
       setIsSaving(false);
     }
   }, [
-    dashboardBaseHref,
     displayedItems,
     file?.name,
     locale,
     result,
-    router,
     translations.receipt.errors.noResultToSave,
     translations.receipt.errors.saveFailed,
     translations.receipt.errors.unexpectedSave,
@@ -345,10 +341,7 @@ export const ReceiptWorkspace = ({
   ]);
 
   const closeEditor = useCallback(() => {
-    setEditingIndex(null);
-    setDraftCategory("");
-    setDraftQuantity("");
-    setDraftError(null);
+    setEditorState(null);
   }, []);
 
   const openEditor = useCallback((index: number) => {
@@ -357,40 +350,50 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    setEditingIndex(index);
-    setDraftCategory(item.category);
-    setDraftQuantity(String(item.quantity));
-    setDraftError(null);
+    setEditorState({
+      index,
+      category: item.category,
+      quantity: String(item.quantity),
+      error: null,
+    });
   }, [displayedItems]);
 
   const applyCorrection = useCallback(() => {
-    if (editingIndex === null) {
+    if (!editorState) {
       return;
     }
 
-    const sourceItem = displayedItems[editingIndex];
+    const sourceItem = displayedItems[editorState.index];
     if (!sourceItem) {
       closeEditor();
       return;
     }
 
-    const category = sanitizeCategory(draftCategory);
-    const quantity = Number(draftQuantity);
+    const category = sanitizeCategory(editorState.category);
+    const quantity = Number(editorState.quantity);
 
     if (!category) {
-      setDraftError(translations.receipt.errors.invalidCategory);
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidCategory }
+          : current,
+      );
       return;
     }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setDraftError(translations.receipt.errors.invalidQuantity);
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidQuantity }
+          : current,
+      );
       return;
     }
 
     const roundedQuantity = Number(quantity.toFixed(2));
     setEditedItems((current) => ({
       ...current,
-      [editingIndex]: {
+      [editorState.index]: {
         ...sourceItem,
         category,
         quantity: roundedQuantity,
@@ -401,25 +404,23 @@ export const ReceiptWorkspace = ({
   }, [
     closeEditor,
     displayedItems,
-    draftCategory,
-    draftQuantity,
-    editingIndex,
+    editorState,
     translations.receipt.errors.invalidCategory,
     translations.receipt.errors.invalidQuantity,
   ]);
 
   const resetCorrection = useCallback(() => {
-    if (editingIndex === null) {
+    if (!editorState) {
       return;
     }
 
     setEditedItems((current) => {
       const next = { ...current };
-      delete next[editingIndex];
+      delete next[editorState.index];
       return next;
     });
     closeEditor();
-  }, [closeEditor, editingIndex]);
+  }, [closeEditor, editorState]);
 
   const toggleRawResponse = useCallback(() => {
     setShowRawResponse((current) => !current);
@@ -734,7 +735,7 @@ export const ReceiptWorkspace = ({
         </Card>
       </section>
 
-      <Dialog open={editingIndex !== null} onOpenChange={(open) => !open && closeEditor()}>
+      <Dialog open={editorState !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent>
           {editingItem ? (
               <>
@@ -759,7 +760,14 @@ export const ReceiptWorkspace = ({
                   <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
                     {translations.receipt.editor.category}
                   </span>
-                  <Select value={draftCategory} onValueChange={setDraftCategory}>
+                  <Select
+                    value={editorState?.category ?? ""}
+                    onValueChange={(category) => {
+                      setEditorState((current) =>
+                        current ? { ...current, category, error: null } : current,
+                      );
+                    }}
+                  >
                     <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
                       <SelectValue placeholder={translations.receipt.editor.selectCategory} />
                     </SelectTrigger>
@@ -782,8 +790,13 @@ export const ReceiptWorkspace = ({
                     inputMode="decimal"
                     min="0.01"
                     step="0.01"
-                    value={draftQuantity}
-                    onChange={(event) => setDraftQuantity(event.target.value)}
+                    value={editorState?.quantity ?? ""}
+                    onChange={(event) => {
+                      const quantity = event.target.value;
+                      setEditorState((current) =>
+                        current ? { ...current, quantity, error: null } : current,
+                      );
+                    }}
                     className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
                   />
                 </div>
@@ -794,14 +807,14 @@ export const ReceiptWorkspace = ({
                   )}
                 </div>
 
-                {draftError ? (
+                {editorState?.error ? (
                   <Alert variant="destructive">
-                    <AlertDescription>{draftError}</AlertDescription>
+                    <AlertDescription>{editorState.error}</AlertDescription>
                   </Alert>
                 ) : null}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  {editingIndex !== null && editedItems[editingIndex] ? (
+                  {editorState && editedItems[editorState.index] ? (
                     <Button type="button" variant="ghost" onClick={resetCorrection}>
                       {translations.receipt.editor.reset}
                     </Button>

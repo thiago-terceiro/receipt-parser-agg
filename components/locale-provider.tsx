@@ -1,20 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { useLocale as useNextLocale, useTranslations as useNextTranslations } from "next-intl";
+import { useEffect, useMemo } from "react";
 
 import {
-  getHtmlLang,
-  localeCookieName,
-  localeStorageKey,
-  type AppLocale,
+    getHtmlLang,
+    localeCookieName,
+    localeStorageKey,
+    type AppLocale,
 } from "@/lib/i18n/config";
-import { getMessages } from "@/lib/i18n/messages";
-
-type LocaleContextValue = {
-  locale: AppLocale;
-};
-
-const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
+import { createMessagesObject, type Messages } from "@/lib/i18n/messages";
 
 export const persistLocalePreference = (locale: AppLocale) => {
   document.cookie = `${localeCookieName}=${encodeURIComponent(locale)}; path=/; max-age=31536000; SameSite=Lax`;
@@ -22,32 +17,30 @@ export const persistLocalePreference = (locale: AppLocale) => {
   document.documentElement.lang = getHtmlLang(locale);
 };
 
-export const LocaleProvider = ({
+export const LocaleEffects = ({
   children,
   locale,
-}: {
-  children: React.ReactNode;
+}: React.PropsWithChildren<{
   locale: AppLocale;
-}) => {
+}>) => {
   useEffect(() => {
     persistLocalePreference(locale);
   }, [locale]);
 
-  const value = useMemo(() => ({ locale }), [locale]);
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+  return <>{children}</>;
 };
 
-export const useLocale = () => {
-  const context = useContext(LocaleContext);
-
-  if (!context) {
-    throw new Error("useLocale must be used within LocaleProvider.");
-  }
-
-  return context.locale;
+export const useLocale = (): AppLocale => {
+  return useNextLocale() as AppLocale;
 };
 
-export const useTranslations = () => {
+export const useTranslations = (): Messages => {
   const locale = useLocale();
-  return getMessages(locale);
+  const t = useNextTranslations();
+
+  return useMemo(
+    () =>
+      createMessagesObject((key, values) => t(key as never, values as never), locale),
+    [locale, t],
+  );
 };

@@ -1,3 +1,4 @@
+import { setRequestLocale } from "next-intl/server";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,8 @@ type HomePageProps = {
 const HomePage = async ({ params }: HomePageProps) => {
   const { locale } = await params;
   const resolvedLocale = getLocaleFromSegment(locale);
-  const translations = getMessages(resolvedLocale);
+  setRequestLocale(resolvedLocale);
+  const translations = await getMessages(resolvedLocale);
   const hasGoogleAuthConfigured = Boolean(
     process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
   );
