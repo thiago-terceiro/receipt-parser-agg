@@ -16,6 +16,10 @@ import {
 import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/locale-provider";
+import {
+  useReceiptWorkspaceState,
+  type ExtractionResponse,
+} from "@/components/receipt-workspace-state-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,16 +56,8 @@ import {
   type ReceiptItem,
 } from "../lib/receipt";
 
-type ExtractionResponse = {
-  backend: string;
-  modelId: string;
-  items: ReceiptItem[];
-  rawResponse: string;
-};
-
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
-  defaultModelId: string;
 };
 
 type EditorState = {
@@ -96,19 +92,31 @@ const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
 
 export const ReceiptWorkspace = ({
   availableModels,
-  defaultModelId,
 }: ReceiptWorkspaceProps) => {
   const locale = useLocale();
   const translations = useTranslations();
-  const [file, setFile] = useState<File | null>(null);
+  const {
+    file,
+    setFile,
+    selectedModelId,
+    setSelectedModelId,
+    result,
+    setResult,
+    editedItems,
+    setEditedItems,
+    showRawResponse,
+    setShowRawResponse,
+  } = useReceiptWorkspaceState();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState(defaultModelId);
-  const [result, setResult] = useState<ExtractionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draftCategory, setDraftCategory] = useState<string>("");
+  const [draftQuantity, setDraftQuantity] = useState<string>("");
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [showRawResponse, setShowRawResponse] = useState(false);
@@ -143,14 +151,18 @@ export const ReceiptWorkspace = ({
     : dashboardBaseHref;
 
   useEffect(() => {
-    setSelectedModelId(defaultModelId);
-  }, [defaultModelId]);
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
 
-  useEffect(() => {
+    const nextPreviewUrl = URL.createObjectURL(file);
+    setPreviewUrl(nextPreviewUrl);
+
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      URL.revokeObjectURL(nextPreviewUrl);
     };
-  }, [previewUrl]);
+  }, [file]);
 
   const resetWorkspaceState = useCallback(() => {
     setResult(null);
