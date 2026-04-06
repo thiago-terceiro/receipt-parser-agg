@@ -3,10 +3,10 @@
 import { LaptopMinimal, Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Theme, useTheme } from "@/context/ThemeProvider";
 import { cn } from "@/lib/utils";
 
-import { type Theme, useTheme } from "./theme-provider";
-import { useTranslations } from "./locale-provider";
+import { useTranslations } from "./locale-utils";
 
 export const ThemeToggle = () => {
   const { theme, resolvedTheme, isLoaded, setTheme } = useTheme();
@@ -23,7 +23,9 @@ export const ThemeToggle = () => {
   ];
 
   const resolvedThemeLabel =
-    resolvedTheme === "dark" ? translations.theme.dark : translations.theme.light;
+    resolvedTheme === "dark"
+      ? translations.theme.dark
+      : translations.theme.light;
   const explicitThemeLabel =
     theme === "system"
       ? translations.theme.system

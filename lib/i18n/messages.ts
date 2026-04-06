@@ -156,17 +156,26 @@ export type Messages = {
   categories: Record<GroceryCategory, string>;
 };
 
-type TranslationValues = Record<string, string | number | boolean | null | undefined>;
+type TranslationValues = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
 
 type TranslationFn = (key: string, values?: TranslationValues) => string;
 
 const buildCategoryLabels = (t: TranslationFn) => {
   return Object.fromEntries(
-    groceryCategories.map((category) => [category, t(`categories.${category}`)]),
+    groceryCategories.map((category) => [
+      category,
+      t(`categories.${category}`),
+    ]),
   ) as Record<GroceryCategory, string>;
 };
 
-export const createMessagesObject = (t: TranslationFn, _locale: AppLocale): Messages => {
+export const createMessagesObject = (
+  t: TranslationFn,
+  _locale: AppLocale,
+): Messages => {
   return {
     metadata: {
       title: t("metadata.title"),
@@ -266,7 +275,8 @@ export const createMessagesObject = (t: TranslationFn, _locale: AppLocale): Mess
         category: t("receipt.editor.category"),
         selectCategory: t("receipt.editor.selectCategory"),
         quantity: t("receipt.editor.quantity"),
-        unitPriceFixed: (price) => t("receipt.editor.unitPriceFixed", { price }),
+        unitPriceFixed: (price) =>
+          t("receipt.editor.unitPriceFixed", { price }),
         reset: t("receipt.editor.reset"),
         apply: t("receipt.editor.apply"),
       },
@@ -285,7 +295,8 @@ export const createMessagesObject = (t: TranslationFn, _locale: AppLocale): Mess
         invalidCategory: t("receipt.errors.invalidCategory"),
         invalidQuantity: t("receipt.errors.invalidQuantity"),
       },
-      saveSuccess: (count, monthLabel) => t("receipt.saveSuccess", { count, monthLabel }),
+      saveSuccess: (count, monthLabel) =>
+        t("receipt.saveSuccess", { count, monthLabel }),
     },
     groceries: {
       signInTitle: t("groceries.signInTitle"),
@@ -312,7 +323,8 @@ export const createMessagesObject = (t: TranslationFn, _locale: AppLocale): Mess
       recentExtractionsDescription: t("groceries.recentExtractionsDescription"),
       untitledReceipt: t("groceries.untitledReceipt"),
       emptyTitle: t("groceries.emptyTitle"),
-      emptyDescription: (monthLabel) => t("groceries.emptyDescription", { monthLabel }),
+      emptyDescription: (monthLabel) =>
+        t("groceries.emptyDescription", { monthLabel }),
       extractReceipt: t("groceries.extractReceipt"),
       repeatedGroups: (count) => t("groceries.repeatedGroups", { count }),
       mobileDescription: t("groceries.mobileDescription"),
@@ -335,7 +347,8 @@ export const localeMessages = {
   en: {
     metadata: {
       title: "Receipt AI",
-      description: "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
+      description:
+        "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
     },
     locales: {
       en: "English",
@@ -353,7 +366,8 @@ export const localeMessages = {
       light: "Light",
       dark: "Dark",
       currentPreference: "Current preference",
-      currentPreferenceSystem: "Current preference: system ({resolvedThemeLabel}).",
+      currentPreferenceSystem:
+        "Current preference: system ({resolvedThemeLabel}).",
       currentPreferenceExplicit: "Current preference: {themeLabel}.",
     },
     auth: {
@@ -378,13 +392,15 @@ export const localeMessages = {
     },
     receipt: {
       eyebrow: "Receipt AI",
-      heroTitle: "Upload a receipt and extract line items without running the model locally.",
+      heroTitle:
+        "Upload a receipt and extract line items without running the model locally.",
       heroDescription:
         "This frontend is designed for Vercel. The browser uploads the image to a server route, and the server route calls Hugging Face with the model configured in the server environment.",
       fileReady: "Receipt image ready",
       dropImage: "Drop a receipt image here",
       replaceHelp: "Replace it by dropping another image or browsing files.",
-      browseHelp: "PNG, JPG, or WEBP works best. Click to browse if you prefer.",
+      browseHelp:
+        "PNG, JPG, or WEBP works best. Click to browse if you prefer.",
       removeSelectedImage: "Remove selected image",
       dragAndDrop: "Drag and drop",
       clickToBrowse: "or click anywhere in this panel to browse",
@@ -499,7 +515,8 @@ export const localeMessages = {
         amount: "Amount",
         total: "Total",
       },
-      receiptEntries: "{count, plural, one {# receipt entry} other {# receipt entries}}",
+      receiptEntries:
+        "{count, plural, one {# receipt entry} other {# receipt entries}}",
     },
     categories: {
       produce: "Produce",
@@ -518,7 +535,8 @@ export const localeMessages = {
   es: {
     metadata: {
       title: "Receipt AI",
-      description: "Interfaz de extracción de recibos con Hugging Face Inference en Vercel.",
+      description:
+        "Interfaz de extracción de recibos con Hugging Face Inference en Vercel.",
     },
     locales: {
       en: "Inglés",
@@ -536,14 +554,16 @@ export const localeMessages = {
       light: "Claro",
       dark: "Oscuro",
       currentPreference: "Preferencia actual",
-      currentPreferenceSystem: "Preferencia actual: sistema ({resolvedThemeLabel}).",
+      currentPreferenceSystem:
+        "Preferencia actual: sistema ({resolvedThemeLabel}).",
       currentPreferenceExplicit: "Preferencia actual: {themeLabel}.",
     },
     auth: {
       sectionLabel: "Controles de autenticación",
       title: "Inicio de sesión con Google",
       connected: "Cuenta de Google conectada.",
-      startSession: "Usa Google para iniciar una sesión en este espacio de trabajo.",
+      startSession:
+        "Usa Google para iniciar una sesión en este espacio de trabajo.",
       setupHint:
         "Define AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET para habilitar el inicio de sesión con Google.",
       signOut: "Cerrar sesión",
@@ -561,13 +581,15 @@ export const localeMessages = {
     },
     receipt: {
       eyebrow: "Receipt AI",
-      heroTitle: "Sube un recibo y extrae las líneas sin ejecutar el modelo localmente.",
+      heroTitle:
+        "Sube un recibo y extrae las líneas sin ejecutar el modelo localmente.",
       heroDescription:
         "Este frontend está diseñado para Vercel. El navegador sube la imagen a una ruta del servidor y esa ruta llama a Hugging Face con el modelo configurado en el entorno del servidor.",
       fileReady: "Imagen del recibo lista",
       dropImage: "Suelta una imagen del recibo aquí",
       replaceHelp: "Reemplázala soltando otra imagen o buscando archivos.",
-      browseHelp: "PNG, JPG o WEBP funcionan mejor. Haz clic para buscar si lo prefieres.",
+      browseHelp:
+        "PNG, JPG o WEBP funcionan mejor. Haz clic para buscar si lo prefieres.",
       removeSelectedImage: "Quitar imagen seleccionada",
       dragAndDrop: "Arrastrar y soltar",
       clickToBrowse: "o haz clic en cualquier parte de este panel para buscar",
@@ -702,7 +724,8 @@ export const localeMessages = {
   "pt-BR": {
     metadata: {
       title: "Receipt AI",
-      description: "Interface de extração de recibos com Hugging Face Inference na Vercel.",
+      description:
+        "Interface de extração de recibos com Hugging Face Inference na Vercel.",
     },
     locales: {
       en: "Inglês",
@@ -720,7 +743,8 @@ export const localeMessages = {
       light: "Claro",
       dark: "Escuro",
       currentPreference: "Preferência atual",
-      currentPreferenceSystem: "Preferência atual: sistema ({resolvedThemeLabel}).",
+      currentPreferenceSystem:
+        "Preferência atual: sistema ({resolvedThemeLabel}).",
       currentPreferenceExplicit: "Preferência atual: {themeLabel}.",
     },
     auth: {
@@ -745,13 +769,15 @@ export const localeMessages = {
     },
     receipt: {
       eyebrow: "Receipt AI",
-      heroTitle: "Envie um recibo e extraia os itens sem rodar o modelo localmente.",
+      heroTitle:
+        "Envie um recibo e extraia os itens sem rodar o modelo localmente.",
       heroDescription:
         "Este frontend foi pensado para a Vercel. O navegador envia a imagem para uma rota do servidor, e a rota do servidor chama o Hugging Face com o modelo configurado no ambiente.",
       fileReady: "Imagem do recibo pronta",
       dropImage: "Solte uma imagem do recibo aqui",
       replaceHelp: "Substitua soltando outra imagem ou procurando arquivos.",
-      browseHelp: "PNG, JPG ou WEBP funcionam melhor. Clique para procurar se preferir.",
+      browseHelp:
+        "PNG, JPG ou WEBP funcionam melhor. Clique para procurar se preferir.",
       removeSelectedImage: "Remover imagem selecionada",
       dragAndDrop: "Arrastar e soltar",
       clickToBrowse: "ou clique em qualquer lugar deste painel para procurar",

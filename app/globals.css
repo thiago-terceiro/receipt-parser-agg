@@ -59,11 +59,19 @@
   --surface-selected: rgba(255, 250, 243, 0.98);
   --accent-dark: #7f311d;
   --focus-surface: rgba(181, 82, 51, 0.12);
-  --progress-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 236, 224, 0.95));
+  --progress-surface: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.82),
+    rgba(246, 236, 224, 0.95)
+  );
   --progress-track: rgba(181, 82, 51, 0.08);
   --accent-gradient: linear-gradient(90deg, var(--accent-dark), #d1844c);
   --page-background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.65),
+      transparent 28%
+    ),
     linear-gradient(135deg, #ead5bc 0%, #f7f0e7 36%, #e2d1bb 100%);
   --dropzone-background:
     linear-gradient(180deg, rgba(181, 82, 51, 0.06), rgba(255, 255, 255, 0.55)),
@@ -115,11 +123,19 @@
   --surface-selected: rgba(73, 53, 40, 0.88);
   --accent-dark: #f0bb90;
   --focus-surface: rgba(214, 139, 85, 0.16);
-  --progress-surface: linear-gradient(180deg, rgba(67, 50, 40, 0.72), rgba(32, 24, 19, 0.94));
+  --progress-surface: linear-gradient(
+    180deg,
+    rgba(67, 50, 40, 0.72),
+    rgba(32, 24, 19, 0.94)
+  );
   --progress-track: rgba(214, 139, 85, 0.18);
   --accent-gradient: linear-gradient(90deg, #d68b55, #f0bb90);
   --page-background:
-    radial-gradient(circle at top left, rgba(255, 244, 233, 0.08), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(255, 244, 233, 0.08),
+      transparent 28%
+    ),
     linear-gradient(135deg, #120d0a 0%, #1b140f 36%, #271c15 100%);
   --dropzone-background:
     linear-gradient(180deg, rgba(214, 139, 85, 0.08), rgba(64, 48, 39, 0.58)),

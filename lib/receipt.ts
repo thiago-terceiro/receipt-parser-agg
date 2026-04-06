@@ -1,64 +1,64 @@
 import { jsonrepair } from "jsonrepair";
 
 export const groceryCategories = [
-    "produce",
-    "dairy",
-    "bakery",
-    "meat",
-    "pantry",
-    "frozen",
-    "beverages",
-    "snacks",
-    "household",
-    "personal-care",
-    "other",
+  "produce",
+  "dairy",
+  "bakery",
+  "meat",
+  "pantry",
+  "frozen",
+  "beverages",
+  "snacks",
+  "household",
+  "personal-care",
+  "other",
 ] as const;
 
 export const receiptItemsJsonSchema = {
-    name: "ReceiptItems",
-    strict: true,
-    schema: {
-        type: "object",
-        properties: {
-            items: {
-                type: "array",
-                items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                        name: { type: "string" },
-                        category: {
-                            type: "string",
-                            enum: [...groceryCategories],
-                        },
-                        quantity: { type: "number" },
-                        unitPrice: { type: "number" },
-                        lineTotal: { type: "number" },
-                    },
-                    required: ["name", "category", "quantity", "unitPrice", "lineTotal"],
-                },
+  name: "ReceiptItems",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            name: { type: "string" },
+            category: {
+              type: "string",
+              enum: [...groceryCategories],
             },
+            quantity: { type: "number" },
+            unitPrice: { type: "number" },
+            lineTotal: { type: "number" },
+          },
+          required: ["name", "category", "quantity", "unitPrice", "lineTotal"],
         },
-        additionalProperties: false,
-        required: ["items"],
+      },
     },
+    additionalProperties: false,
+    required: ["items"],
+  },
 } as const;
 
 export type GroceryCategory = (typeof groceryCategories)[number];
 
 export type ReceiptItem = {
-    item: string;
-    normalizedItem: string;
-    category: GroceryCategory;
-    quantity: number;
-    unitPrice: number;
-    lineTotal: number;
+  item: string;
+  normalizedItem: string;
+  category: GroceryCategory;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
 };
 
 export type AvailableModel = {
-    id: string;
-    label: string;
-    providers: string[];
+  id: string;
+  label: string;
+  providers: string[];
 };
 
 export type ModelCatalogSource = "router" | "hub-api" | "fallback";
@@ -70,103 +70,115 @@ const maxModelIdLength = 128;
 const groceryCategorySet = new Set<GroceryCategory>(groceryCategories);
 
 export const sanitizeModelId = (value: unknown): string | null => {
-    if (typeof value !== "string") {
-        return null;
-    }
+  if (typeof value !== "string") {
+    return null;
+  }
 
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.length > maxModelIdLength) {
-        return null;
-    }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxModelIdLength) {
+    return null;
+  }
 
-    if (/\s/.test(trimmed)) {
-        return null;
-    }
+  if (/\s/.test(trimmed)) {
+    return null;
+  }
 
-    if (!/^[A-Za-z0-9._/-]+$/.test(trimmed)) {
-        return null;
-    }
+  if (!/^[A-Za-z0-9._/-]+$/.test(trimmed)) {
+    return null;
+  }
 
-    if (trimmed.startsWith("/") || trimmed.endsWith("/") || trimmed.includes("//")) {
-        return null;
-    }
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.endsWith("/") ||
+    trimmed.includes("//")
+  ) {
+    return null;
+  }
 
-    return trimmed;
+  return trimmed;
 };
 
 export const defaultModelId =
-    sanitizeModelId(process.env.HF_MODEL_ID) ?? fallbackModelId;
+  sanitizeModelId(process.env.HF_MODEL_ID) ?? fallbackModelId;
 
 export const defaultProvider = process.env.HF_PROVIDER?.trim() || "auto";
 
 export const fallbackAvailableModels: AvailableModel[] = [
-    {
-        id: defaultModelId,
-        label: `${defaultModelId} (env default)`,
-        providers: defaultProvider === "auto" ? [] : [defaultProvider],
-    },
+  {
+    id: defaultModelId,
+    label: `${defaultModelId} (env default)`,
+    providers: defaultProvider === "auto" ? [] : [defaultProvider],
+  },
 ];
 
 const getModelEntry = (model: AvailableModel) => [model.id, model] as const;
 
 const parseReceiptItem = (entry: unknown, index: number): ReceiptItem => {
-    if (!entry || typeof entry !== "object") {
-        throw new Error(`Receipt item at index ${index} must be an object.`);
-    }
+  if (!entry || typeof entry !== "object") {
+    throw new Error(`Receipt item at index ${index} must be an object.`);
+  }
 
-    const item = (entry as { name?: unknown }).name;
-    const category = (entry as { category?: unknown }).category;
-    const quantity = (entry as { quantity?: unknown }).quantity;
-    const unitPrice = (entry as { unitPrice?: unknown }).unitPrice;
-    const lineTotal = (entry as { lineTotal?: unknown; price?: unknown }).lineTotal ??
-        (entry as { price?: unknown }).price;
+  const item = (entry as { name?: unknown }).name;
+  const category = (entry as { category?: unknown }).category;
+  const quantity = (entry as { quantity?: unknown }).quantity;
+  const unitPrice = (entry as { unitPrice?: unknown }).unitPrice;
+  const lineTotal =
+    (entry as { lineTotal?: unknown; price?: unknown }).lineTotal ??
+    (entry as { price?: unknown }).price;
 
-    if (typeof item !== "string" || !item.trim()) {
-        throw new Error(`Receipt item at index ${index} is missing a valid item name.`);
-    }
+  if (typeof item !== "string" || !item.trim()) {
+    throw new Error(
+      `Receipt item at index ${index} is missing a valid item name.`,
+    );
+  }
 
-    const parsedCategory = sanitizeCategory(category);
-    if (!parsedCategory) {
-        throw new Error(`Receipt item at index ${index} is missing a valid category.`);
-    }
+  const parsedCategory = sanitizeCategory(category);
+  if (!parsedCategory) {
+    throw new Error(
+      `Receipt item at index ${index} is missing a valid category.`,
+    );
+  }
 
-    const parsedQuantity = sanitizePositiveNumber(quantity) ?? 1;
-    const parsedLineTotal = sanitizePositiveNumber(lineTotal);
-    const parsedUnitPrice = sanitizePositiveNumber(unitPrice);
+  const parsedQuantity = sanitizePositiveNumber(quantity) ?? 1;
+  const parsedLineTotal = sanitizePositiveNumber(lineTotal);
+  const parsedUnitPrice = sanitizePositiveNumber(unitPrice);
 
-    if (parsedLineTotal === null && parsedUnitPrice === null) {
-        throw new Error(
-            `Receipt item at index ${index} is missing a numeric line total or unit price.`,
-        );
-    }
+  if (parsedLineTotal === null && parsedUnitPrice === null) {
+    throw new Error(
+      `Receipt item at index ${index} is missing a numeric line total or unit price.`,
+    );
+  }
 
-    const resolvedLineTotal = parsedLineTotal ?? Number((parsedUnitPrice! * parsedQuantity).toFixed(2));
-    const resolvedUnitPrice = parsedUnitPrice ?? Number((resolvedLineTotal / parsedQuantity).toFixed(2));
+  const resolvedLineTotal =
+    parsedLineTotal ?? Number((parsedUnitPrice! * parsedQuantity).toFixed(2));
+  const resolvedUnitPrice =
+    parsedUnitPrice ?? Number((resolvedLineTotal / parsedQuantity).toFixed(2));
 
-    return {
-        item: item.trim(),
-        normalizedItem: normalizeItemName(item),
-        category: parsedCategory,
-        quantity: parsedQuantity,
-        unitPrice: resolvedUnitPrice,
-        lineTotal: resolvedLineTotal,
-    } satisfies ReceiptItem;
+  return {
+    item: item.trim(),
+    normalizedItem: normalizeItemName(item),
+    category: parsedCategory,
+    quantity: parsedQuantity,
+    unitPrice: resolvedUnitPrice,
+    lineTotal: resolvedLineTotal,
+  } satisfies ReceiptItem;
 };
 
 export const dropdownAvailableModels: AvailableModel[] = Array.from(
-    new Map(
-        [
-            ...fallbackAvailableModels,
-            {
-                id: additionalDropdownModelId,
-                label: "Qwen3-VL-8B-Instruct",
-                providers: [],
-            },
-        ].map(getModelEntry),
-    ).values(),
+  new Map(
+    [
+      ...fallbackAvailableModels,
+      {
+        id: additionalDropdownModelId,
+        label: "Qwen3-VL-8B-Instruct",
+        providers: [],
+      },
+    ].map(getModelEntry),
+  ).values(),
 );
 
-export const buildReceiptPrompt = () => `Extract all grocery items from this receipt.
+export const buildReceiptPrompt =
+  () => `Extract all grocery items from this receipt.
 
 Return a JSON object in this format:
 {
@@ -193,114 +205,121 @@ Rules:
 - category must be one of the allowed categories.`;
 
 export const resolveRequestedModelId = (options: {
-    manualModelId?: unknown;
-    selectedModelId?: unknown;
-    useEnvModelId?: boolean;
+  manualModelId?: unknown;
+  selectedModelId?: unknown;
+  useEnvModelId?: boolean;
 }): string => {
-    if (options.useEnvModelId) {
-        return defaultModelId;
-    }
+  if (options.useEnvModelId) {
+    return defaultModelId;
+  }
 
-    const manualModelId = sanitizeModelId(options.manualModelId);
-    if (manualModelId) {
-        return manualModelId;
-    }
+  const manualModelId = sanitizeModelId(options.manualModelId);
+  if (manualModelId) {
+    return manualModelId;
+  }
 
-    return sanitizeModelId(options.selectedModelId) ?? defaultModelId;
+  return sanitizeModelId(options.selectedModelId) ?? defaultModelId;
 };
 
 export const buildDataUrl = (bytes: ArrayBuffer, mimeType: string): string => {
-    const base64 = Buffer.from(bytes).toString("base64");
-    return `data:${mimeType};base64,${base64}`;
+  const base64 = Buffer.from(bytes).toString("base64");
+  return `data:${mimeType};base64,${base64}`;
 };
 
 const sanitizePositiveNumber = (value: unknown): number | null => {
-    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-        return null;
-    }
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
 
-    return Number(value.toFixed(2));
+  return Number(value.toFixed(2));
 };
 
 export const normalizeItemName = (value: string): string => {
-    return value
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 export const formatCategoryLabel = (
-    category: GroceryCategory,
-    labels?: Partial<Record<GroceryCategory, string>>,
+  category: GroceryCategory,
+  labels?: Partial<Record<GroceryCategory, string>>,
 ): string => {
-    const translatedLabel = labels?.[category];
-    if (translatedLabel) {
-        return translatedLabel;
-    }
+  const translatedLabel = labels?.[category];
+  if (translatedLabel) {
+    return translatedLabel;
+  }
 
-    return category
-        .split("-")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
+  return category
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 };
 
 export const sanitizeCategory = (value: unknown): GroceryCategory | null => {
-    if (typeof value !== "string") {
-        return null;
-    }
+  if (typeof value !== "string") {
+    return null;
+  }
 
-    const normalized = value.trim().toLowerCase().replace(/\s+/g, "-") as GroceryCategory;
-    return groceryCategorySet.has(normalized) ? normalized : null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-") as GroceryCategory;
+  return groceryCategorySet.has(normalized) ? normalized : null;
 };
 
 const parseReceiptJson = (rawResponse: string): unknown => {
-    const trimmed = rawResponse.trim();
-    if (!trimmed) {
-        throw new Error("Model response was empty.");
-    }
+  const trimmed = rawResponse.trim();
+  if (!trimmed) {
+    throw new Error("Model response was empty.");
+  }
 
-    // Extract JSON from code fences if present.
-    const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-    const jsonStr = fencedMatch?.[1] ?? trimmed;
+  // Extract JSON from code fences if present.
+  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonStr = fencedMatch?.[1] ?? trimmed;
 
-    // Find JSON boundaries.
-    const jsonStart = jsonStr.search(/[{\[]/);
-    if (jsonStart === -1) {
-        throw new Error("No JSON found in response.");
-    }
+  // Find JSON boundaries.
+  const jsonStart = jsonStr.search(/[{\[]/);
+  if (jsonStart === -1) {
+    throw new Error("No JSON found in response.");
+  }
 
-    // Extract from first { or [ to last } or ].
-    const jsonEnd = Math.max(jsonStr.lastIndexOf("}"), jsonStr.lastIndexOf("]"));
-    if (jsonEnd === -1) {
-        throw new Error("Incomplete JSON in response.");
-    }
+  // Extract from first { or [ to last } or ].
+  const jsonEnd = Math.max(jsonStr.lastIndexOf("}"), jsonStr.lastIndexOf("]"));
+  if (jsonEnd === -1) {
+    throw new Error("Incomplete JSON in response.");
+  }
 
-    const extracted = jsonStr.slice(jsonStart, jsonEnd + 1).trim();
+  const extracted = jsonStr.slice(jsonStart, jsonEnd + 1).trim();
 
+  try {
+    return JSON.parse(extracted) as unknown;
+  } catch (initialError) {
     try {
-        return JSON.parse(extracted) as unknown;
-    } catch (initialError) {
-        try {
-            return JSON.parse(jsonrepair(extracted)) as unknown;
-        } catch {
-            const message =
-                initialError instanceof Error ? initialError.message : "Unknown JSON parsing error.";
-            throw new Error(`Unable to parse model JSON response: ${message}`);
-        }
+      return JSON.parse(jsonrepair(extracted)) as unknown;
+    } catch {
+      const message =
+        initialError instanceof Error
+          ? initialError.message
+          : "Unknown JSON parsing error.";
+      throw new Error(`Unable to parse model JSON response: ${message}`);
     }
+  }
 };
 
 export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
-    const parsed = parseReceiptJson(rawResponse);
-    const items = Array.isArray(parsed)
-        ? parsed
-        : (parsed as { items?: unknown }).items;
+  const parsed = parseReceiptJson(rawResponse);
+  const items = Array.isArray(parsed)
+    ? parsed
+    : (parsed as { items?: unknown }).items;
 
-    if (!Array.isArray(items)) {
-        throw new Error("Model response must be a JSON object with an items array.");
-    }
+  if (!Array.isArray(items)) {
+    throw new Error(
+      "Model response must be a JSON object with an items array.",
+    );
+  }
 
-    return items.map(parseReceiptItem);
+  return items.map(parseReceiptItem);
 };

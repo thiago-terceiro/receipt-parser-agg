@@ -1,7 +1,8 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   useCallback,
   useEffect,
@@ -13,13 +14,7 @@ import {
   type FormEvent,
 } from "react";
 
-import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
-
-import { useLocale, useTranslations } from "@/components/locale-provider";
-import {
-  useReceiptWorkspaceState,
-  type ExtractionResponse,
-} from "@/components/receipt-workspace-state-provider";
+import { useLocale, useTranslations } from "@/components/locale-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,14 +41,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ExtractionResponse,
+  useReceiptWorkspaceState,
+} from "@/context/ReceiptWorkspaceStateProvider";
 import { formatMonthLabel } from "@/lib/groceries";
 import { localizePath } from "@/lib/i18n/config";
+
 import {
   formatCategoryLabel,
   groceryCategories,
   sanitizeCategory,
-  type AvailableModel
-} from "../lib/receipt";
+  type AvailableModel,
+} from "../../lib/receipt";
 
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
@@ -117,7 +117,9 @@ export const ReceiptWorkspace = ({
   const [draftQuantity, setDraftQuantity] = useState<string>("");
   const [draftError, setDraftError] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
-  const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(null);
+  const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
@@ -140,7 +142,9 @@ export const ReceiptWorkspace = ({
     [displayedItems],
   );
   const correctedCount = Object.keys(editedItems).length;
-  const editingItem = editorState ? displayedItems[editorState.index] ?? null : null;
+  const editingItem = editorState
+    ? (displayedItems[editorState.index] ?? null)
+    : null;
   const dashboardHref = savedReceipt
     ? savedReceipt.month
       ? `${dashboardBaseHref}?month=${savedReceipt.month}&saved=${savedReceipt.receiptId}`
@@ -179,93 +183,120 @@ export const ReceiptWorkspace = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [resetWorkspaceState]);
 
-  const applySelectedFile = useCallback((nextFile: File | null) => {
-    if (!nextFile) {
-      clearSelectedFile();
-      return;
-    }
+  const applySelectedFile = useCallback(
+    (nextFile: File | null) => {
+      if (!nextFile) {
+        clearSelectedFile();
+        return;
+      }
 
-    if (!nextFile.type.startsWith("image/")) {
-      setError(translations.receipt.errors.invalidImage);
-      return;
-    }
+      if (!nextFile.type.startsWith("image/")) {
+        setError(translations.receipt.errors.invalidImage);
+        return;
+      }
 
-    setFile(nextFile);
-    resetWorkspaceState();
-    setPreviewUrl(URL.createObjectURL(nextFile));
-  }, [clearSelectedFile, resetWorkspaceState, translations.receipt.errors.invalidImage]);
+      setFile(nextFile);
+      resetWorkspaceState();
+      setPreviewUrl(URL.createObjectURL(nextFile));
+    },
+    [
+      clearSelectedFile,
+      resetWorkspaceState,
+      translations.receipt.errors.invalidImage,
+    ],
+  );
 
-  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
-    applySelectedFile(nextFile);
-  }, [applySelectedFile]);
+  const handleFileChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextFile = event.target.files?.[0] ?? null;
+      applySelectedFile(nextFile);
+    },
+    [applySelectedFile],
+  );
 
   const handleDropzoneClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
-  const handleDropzoneDragOver = useCallback((event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    setIsDraggingFile(true);
-  }, []);
+  const handleDropzoneDragOver = useCallback(
+    (event: DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setIsDraggingFile(true);
+    },
+    [],
+  );
 
-  const handleDropzoneDragLeave = useCallback((event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      return;
-    }
-    setIsDraggingFile(false);
-  }, []);
-
-  const handleDropzoneDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    setIsDraggingFile(false);
-    const nextFile = event.dataTransfer.files?.[0] ?? null;
-    applySelectedFile(nextFile);
-  }, [applySelectedFile]);
-
-  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!file) {
-      setError(translations.receipt.errors.noFile);
-      return;
-    }
-
-    setIsLoading(true);
-    resetWorkspaceState();
-
-    const formData = new FormData();
-    formData.append("file", file);
-    if (selectedModelId) formData.append("modelId", selectedModelId);
-
-    try {
-      const response = await fetch("/api/extract", { method: "POST", body: formData });
-      const payload = await parseJsonResponse<ExtractionResponse | { error?: string }>(response);
-      if (!response.ok) {
-        throw new Error(
-          "error" in payload && payload.error
-            ? payload.error
-            : translations.receipt.errors.extractionFailed,
-        );
+  const handleDropzoneDragLeave = useCallback(
+    (event: DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        return;
       }
-      setResult(payload as ExtractionResponse);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : translations.receipt.errors.unexpectedRequest,
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    file,
-    resetWorkspaceState,
-    selectedModelId,
-    translations.receipt.errors.extractionFailed,
-    translations.receipt.errors.noFile,
-    translations.receipt.errors.unexpectedRequest,
-  ]);
+      setIsDraggingFile(false);
+    },
+    [],
+  );
+
+  const handleDropzoneDrop = useCallback(
+    (event: DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setIsDraggingFile(false);
+      const nextFile = event.dataTransfer.files?.[0] ?? null;
+      applySelectedFile(nextFile);
+    },
+    [applySelectedFile],
+  );
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!file) {
+        setError(translations.receipt.errors.noFile);
+        return;
+      }
+
+      setIsLoading(true);
+      resetWorkspaceState();
+
+      const formData = new FormData();
+      formData.append("file", file);
+      if (selectedModelId) formData.append("modelId", selectedModelId);
+
+      try {
+        const response = await fetch("/api/extract", {
+          method: "POST",
+          body: formData,
+        });
+        const payload = await parseJsonResponse<
+          ExtractionResponse | { error?: string }
+        >(response);
+        if (!response.ok) {
+          throw new Error(
+            "error" in payload && payload.error
+              ? payload.error
+              : translations.receipt.errors.extractionFailed,
+          );
+        }
+        setResult(payload as ExtractionResponse);
+      } catch (requestError) {
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : translations.receipt.errors.unexpectedRequest,
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      file,
+      resetWorkspaceState,
+      selectedModelId,
+      translations.receipt.errors.extractionFailed,
+      translations.receipt.errors.noFile,
+      translations.receipt.errors.unexpectedRequest,
+    ],
+  );
 
   const handleSaveGroceries = useCallback(async () => {
     if (!result || displayedItems.length === 0) {
@@ -298,7 +329,9 @@ export const ReceiptWorkspace = ({
       }>(response);
 
       if (!response.ok) {
-        throw new Error(payload.error || translations.receipt.errors.saveFailed);
+        throw new Error(
+          payload.error || translations.receipt.errors.saveFailed,
+        );
       }
 
       const receiptId = payload.receiptId ?? String(Date.now());
@@ -307,10 +340,7 @@ export const ReceiptWorkspace = ({
 
       const savedMonthLabel = savedMonth
         ? formatMonthLabel(savedMonth, locale)
-        : formatMonthLabel(
-            new Date().toISOString().slice(0, 7),
-            locale,
-          );
+        : formatMonthLabel(new Date().toISOString().slice(0, 7), locale);
       setSaveMessage(
         translations.receipt.saveSuccess(
           payload.savedCount ?? displayedItems.length,
@@ -341,19 +371,22 @@ export const ReceiptWorkspace = ({
     setEditorState(null);
   }, []);
 
-  const openEditor = useCallback((index: number) => {
-    const item = displayedItems[index];
-    if (!item) {
-      return;
-    }
+  const openEditor = useCallback(
+    (index: number) => {
+      const item = displayedItems[index];
+      if (!item) {
+        return;
+      }
 
-    setEditorState({
-      index,
-      category: item.category,
-      quantity: String(item.quantity),
-      error: null,
-    });
-  }, [displayedItems]);
+      setEditorState({
+        index,
+        category: item.category,
+        quantity: String(item.quantity),
+        error: null,
+      });
+    },
+    [displayedItems],
+  );
 
   const applyCorrection = useCallback(() => {
     if (!editorState) {
@@ -468,11 +501,17 @@ export const ReceiptWorkspace = ({
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="grid size-12 place-items-center rounded-full bg-[var(--surface-plain-soft)] text-[var(--accent-dark)] shadow-sm">
-                  {file ? <FileImage className="size-5" /> : <Upload className="size-5" />}
+                  {file ? (
+                    <FileImage className="size-5" />
+                  ) : (
+                    <Upload className="size-5" />
+                  )}
                 </div>
                 <div className="grid gap-1">
                   <span className="text-[1.15rem] font-bold">
-                    {file ? translations.receipt.fileReady : translations.receipt.dropImage}
+                    {file
+                      ? translations.receipt.fileReady
+                      : translations.receipt.dropImage}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {file
@@ -486,7 +525,9 @@ export const ReceiptWorkspace = ({
             {file ? (
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {file.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {(file.size / 1024 / 1024).toFixed(2)} MB
                   </p>
@@ -541,8 +582,14 @@ export const ReceiptWorkspace = ({
           </p>
 
           <div className="grid grid-cols-2 gap-3 max-[500px]:grid-cols-1">
-            <Button type="submit" disabled={!file || isLoading} className="w-full">
-              {isLoading ? translations.receipt.extracting : translations.receipt.extractReceipt}
+            <Button
+              type="submit"
+              disabled={!file || isLoading}
+              className="w-full"
+            >
+              {isLoading
+                ? translations.receipt.extracting
+                : translations.receipt.extractReceipt}
             </Button>
             <Button
               variant="secondary"
@@ -573,7 +620,9 @@ export const ReceiptWorkspace = ({
       <section className="mt-6 grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
         <Card className="gap-0 rounded-[24px] border-[var(--border)] py-0 shadow-[var(--shadow)] backdrop-blur-[16px]">
           <div className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
-            <h2 className="m-0 text-[1.4rem]">{translations.receipt.preview}</h2>
+            <h2 className="m-0 text-[1.4rem]">
+              {translations.receipt.preview}
+            </h2>
             <span className="text-sm text-muted-foreground">
               {file ? file.name : translations.receipt.noFileSelected}
             </span>
@@ -595,9 +644,13 @@ export const ReceiptWorkspace = ({
 
         <Card className="gap-0 rounded-[24px] border-[var(--border)] py-0 shadow-[var(--shadow)] backdrop-blur-[16px]">
           <div className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
-            <h2 className="m-0 text-[1.4rem]">{translations.receipt.extractedItems}</h2>
+            <h2 className="m-0 text-[1.4rem]">
+              {translations.receipt.extractedItems}
+            </h2>
             <span className="text-sm text-muted-foreground">
-              {result ? result.modelId : translations.receipt.waitingForExtraction}
+              {result
+                ? result.modelId
+                : translations.receipt.waitingForExtraction}
             </span>
           </div>
           <CardContent className="p-6">
@@ -608,16 +661,25 @@ export const ReceiptWorkspace = ({
                     {translations.receipt.servedBy(result.backend)}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
+                    <Badge
+                      variant="outline"
+                      className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
+                    >
                       {translations.receipt.lines(displayedItems.length)}
                     </Badge>
-                    <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1">
+                    <Badge
+                      variant="outline"
+                      className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
+                    >
                       {translations.receipt.total(
                         currencyFormatter.format(displayedTotal),
                       )}
                     </Badge>
                     {correctedCount > 0 ? (
-                      <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]">
+                      <Badge
+                        variant="outline"
+                        className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]"
+                      >
                         {translations.receipt.corrected(correctedCount)}
                       </Badge>
                     ) : null}
@@ -630,25 +692,43 @@ export const ReceiptWorkspace = ({
                   <TableHeader>
                     <TableRow>
                       <TableHead>{translations.receipt.table.item}</TableHead>
-                      <TableHead>{translations.receipt.table.category}</TableHead>
+                      <TableHead>
+                        {translations.receipt.table.category}
+                      </TableHead>
                       <TableHead className="text-right">
                         {translations.receipt.table.quantity}
                       </TableHead>
-                      <TableHead className="text-right">{translations.receipt.table.unit}</TableHead>
-                      <TableHead className="text-right">{translations.receipt.table.total}</TableHead>
-                      <TableHead className="text-right">{translations.receipt.table.adjust}</TableHead>
+                      <TableHead className="text-right">
+                        {translations.receipt.table.unit}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {translations.receipt.table.total}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {translations.receipt.table.adjust}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedItems.map((entry, index) => (
-                      <TableRow key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}>
+                      <TableRow
+                        key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
+                      >
                         <TableCell>{entry.item}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1">
-                            {formatCategoryLabel(entry.category, translations.categories)}
+                          <Badge
+                            variant="outline"
+                            className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                          >
+                            {formatCategoryLabel(
+                              entry.category,
+                              translations.categories,
+                            )}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">{entry.quantity}</TableCell>
+                        <TableCell className="text-right">
+                          {entry.quantity}
+                        </TableCell>
                         <TableCell className="text-right">
                           {currencyFormatter.format(entry.unitPrice)}
                         </TableCell>
@@ -658,7 +738,10 @@ export const ReceiptWorkspace = ({
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             {editedItems[index] ? (
-                              <Badge variant="outline" className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]">
+                              <Badge
+                                variant="outline"
+                                className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
+                              >
                                 {translations.receipt.alerts.corrected}
                               </Badge>
                             ) : null}
@@ -695,9 +778,15 @@ export const ReceiptWorkspace = ({
                       onClick={handleSaveGroceries}
                       disabled={!isAuthenticated || isSaving}
                     >
-                      {isSaving ? translations.receipt.saving : translations.receipt.saveGroceries}
+                      {isSaving
+                        ? translations.receipt.saving
+                        : translations.receipt.saveGroceries}
                     </Button>
-                    <Button asChild variant="secondary" className="border-[var(--border)] bg-[var(--surface-plain)]">
+                    <Button
+                      asChild
+                      variant="secondary"
+                      className="border-[var(--border)] bg-[var(--surface-plain)]"
+                    >
                       <Link href={dashboardHref}>
                         <LayoutDashboard className="size-4" />
                         <span>
@@ -716,10 +805,14 @@ export const ReceiptWorkspace = ({
                     className="justify-start px-0"
                     onClick={toggleRawResponse}
                   >
-                    {showRawResponse ? "Hide raw response" : "Show raw response"}
+                    {showRawResponse
+                      ? "Hide raw response"
+                      : "Show raw response"}
                   </Button>
                   {showRawResponse ? (
-                    <pre className="raw-response max-h-56 overflow-auto">{result.rawResponse}</pre>
+                    <pre className="raw-response max-h-56 overflow-auto">
+                      {result.rawResponse}
+                    </pre>
                   ) : null}
                 </div>
               </>
@@ -732,16 +825,19 @@ export const ReceiptWorkspace = ({
         </Card>
       </section>
 
-      <Dialog open={editorState !== null} onOpenChange={(open) => !open && closeEditor()}>
+      <Dialog
+        open={editorState !== null}
+        onOpenChange={(open) => !open && closeEditor()}
+      >
         <DialogContent>
           {editingItem ? (
-              <>
-                <DialogHeader>
-                  <DialogTitle>{translations.receipt.editor.title}</DialogTitle>
-                  <DialogDescription>
-                    {translations.receipt.editor.description}
-                  </DialogDescription>
-                </DialogHeader>
+            <>
+              <DialogHeader>
+                <DialogTitle>{translations.receipt.editor.title}</DialogTitle>
+                <DialogDescription>
+                  {translations.receipt.editor.description}
+                </DialogDescription>
+              </DialogHeader>
 
               <div className="mt-4 grid gap-4">
                 <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
@@ -761,17 +857,24 @@ export const ReceiptWorkspace = ({
                     value={editorState?.category ?? ""}
                     onValueChange={(category) => {
                       setEditorState((current) =>
-                        current ? { ...current, category, error: null } : current,
+                        current
+                          ? { ...current, category, error: null }
+                          : current,
                       );
                     }}
                   >
                     <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
-                      <SelectValue placeholder={translations.receipt.editor.selectCategory} />
+                      <SelectValue
+                        placeholder={translations.receipt.editor.selectCategory}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {groceryCategories.map((category) => (
                         <SelectItem key={category} value={category}>
-                          {formatCategoryLabel(category, translations.categories)}
+                          {formatCategoryLabel(
+                            category,
+                            translations.categories,
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -791,7 +894,9 @@ export const ReceiptWorkspace = ({
                     onChange={(event) => {
                       const quantity = event.target.value;
                       setEditorState((current) =>
-                        current ? { ...current, quantity, error: null } : current,
+                        current
+                          ? { ...current, quantity, error: null }
+                          : current,
                       );
                     }}
                     className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
@@ -812,7 +917,11 @@ export const ReceiptWorkspace = ({
 
                 <div className="flex flex-wrap justify-end gap-2">
                   {editorState && editedItems[editorState.index] ? (
-                    <Button type="button" variant="ghost" onClick={resetCorrection}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={resetCorrection}
+                    >
                       {translations.receipt.editor.reset}
                     </Button>
                   ) : null}

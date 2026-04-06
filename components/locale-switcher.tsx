@@ -4,10 +4,18 @@ import { Languages } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import {
+  appLocales,
+  buildLocalizedUrl,
+  type AppLocale,
+} from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
-import { appLocales, buildLocalizedUrl, type AppLocale } from "@/lib/i18n/config";
 
-import { persistLocalePreference, useLocale, useTranslations } from "./locale-provider";
+import {
+  persistLocalePreference,
+  useLocale,
+  useTranslations,
+} from "./locale-utils";
 
 export const LocaleSwitcher = () => {
   const locale = useLocale();
@@ -18,7 +26,9 @@ export const LocaleSwitcher = () => {
 
   const switchLocale = (nextLocale: AppLocale) => {
     persistLocalePreference(nextLocale);
-    router.replace(buildLocalizedUrl(pathname, nextLocale, searchParams.toString()));
+    router.replace(
+      buildLocalizedUrl(pathname, nextLocale, searchParams.toString()),
+    );
   };
 
   return (

@@ -1,0 +1,5 @@
+.next
+node_modules
+lint-current.log
+lint-output.txt
+tsconfig.tsbuildinfo

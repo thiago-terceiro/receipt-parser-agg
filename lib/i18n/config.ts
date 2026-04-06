@@ -28,11 +28,15 @@ export const getHtmlLang = (locale: AppLocale) => {
   return locale === "pt-BR" ? "pt-BR" : locale;
 };
 
-export const isLocaleSegment = (value: string | null | undefined): value is LocaleSegment => {
+export const isLocaleSegment = (
+  value: string | null | undefined,
+): value is LocaleSegment => {
   return Boolean(value && value.toLowerCase() in segmentToLocaleMap);
 };
 
-export const getLocaleFromSegment = (value: string | null | undefined): AppLocale => {
+export const getLocaleFromSegment = (
+  value: string | null | undefined,
+): AppLocale => {
   if (!value) {
     return defaultLocale;
   }
@@ -45,7 +49,9 @@ export const getLocaleFromSegment = (value: string | null | undefined): AppLocal
   return defaultLocale;
 };
 
-export const getLocaleFromPreference = (value: string | null | undefined): AppLocale | null => {
+export const getLocaleFromPreference = (
+  value: string | null | undefined,
+): AppLocale | null => {
   if (!value) {
     return null;
   }

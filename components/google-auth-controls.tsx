@@ -4,14 +4,16 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useCallback } from "react";
 
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { useLocale, useTranslations } from "@/components/locale-utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { localizePath } from "@/lib/i18n/config";
 
-import { useLocale, useTranslations } from "@/components/locale-provider";
-
 const GoogleMark = () => (
-  <span className="inline-grid h-[22px] w-[22px] place-items-center" aria-hidden="true">
+  <span
+    className="inline-grid h-[22px] w-[22px] place-items-center"
+    aria-hidden="true"
+  >
     <svg viewBox="0 0 18 18" width="18" height="18" role="presentation">
       <path
         fill="#4285F4"
@@ -33,7 +35,10 @@ const GoogleMark = () => (
   </span>
 );
 
-const getInitials = (name: string | null | undefined, email: string | null | undefined) => {
+const getInitials = (
+  name: string | null | undefined,
+  email: string | null | undefined,
+) => {
   const source = name?.trim() || email?.trim() || "Receipt AI";
   return source
     .split(/\s+/)
@@ -46,7 +51,9 @@ type GoogleAuthControlsProps = {
   canUseGoogleAuth: boolean;
 };
 
-export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps) => {
+export const GoogleAuthControls = ({
+  canUseGoogleAuth,
+}: GoogleAuthControlsProps) => {
   const { data: session, status } = useSession();
   const locale = useLocale();
   const translations = useTranslations();
@@ -79,47 +86,47 @@ export const GoogleAuthControls = ({ canUseGoogleAuth }: GoogleAuthControlsProps
       <div className="gap-1.5 flex flex-col">
         <p className="ml-2 text-[1rem] font-bold">{translations.auth.title}</p>
         {isAuthenticated ? (
-            <div
-              className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-2.5"
-              aria-live="polite"
-            >
-              {session.user?.image ? (
-                <img
-                  className="size-[42px] rounded-full border border-[var(--border)] object-cover"
-                  src={session.user.image}
-                  alt={session.user.name ?? translations.auth.userAlt}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div
-                  className="grid size-[42px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent-dark)] to-[var(--accent)] text-sm font-bold text-[#fffaf3]"
-                  aria-hidden="true"
-                >
-                  {getInitials(session.user?.name, session.user?.email)}
-                </div>
-              )}
-              <div className="grid min-w-0 gap-0.5">
-                <p className="m-0 truncate text-[1rem] font-bold">
-                  {session.user?.name ?? translations.auth.signedInFallback}
-                </p>
-                <p className="m-0 truncate text-[0.9rem] text-muted-foreground">
-                  {session.user?.email ?? translations.auth.emailFallback}
-                </p>
-              </div>
-            </div>
-          ) : null}
-       <Button
-            variant="secondary"
-            type="button"
-            disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
-            onClick={handleAuthClick}
-            className="h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto mt-1"
+          <div
+            className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-2.5"
+            aria-live="polite"
           >
-            <GoogleMark />
-            <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
-          </Button>
+            {session.user?.image ? (
+              <img
+                className="size-[42px] rounded-full border border-[var(--border)] object-cover"
+                src={session.user.image}
+                alt={session.user.name ?? translations.auth.userAlt}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div
+                className="grid size-[42px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent-dark)] to-[var(--accent)] text-sm font-bold text-[#fffaf3]"
+                aria-hidden="true"
+              >
+                {getInitials(session.user?.name, session.user?.email)}
+              </div>
+            )}
+            <div className="grid min-w-0 gap-0.5">
+              <p className="m-0 truncate text-[1rem] font-bold">
+                {session.user?.name ?? translations.auth.signedInFallback}
+              </p>
+              <p className="m-0 truncate text-[0.9rem] text-muted-foreground">
+                {session.user?.email ?? translations.auth.emailFallback}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        <Button
+          variant="secondary"
+          type="button"
+          disabled={isLoading || (!isAuthenticated && !canUseGoogleAuth)}
+          onClick={handleAuthClick}
+          className="h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto mt-1"
+        >
+          <GoogleMark />
+          <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
+        </Button>
       </div>
 
       <div className="gap-4 flex flex-col">

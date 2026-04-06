@@ -1,7 +1,11 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { buildLocalizedUrl, localeCookieName, resolveRequestLocale } from "@/lib/i18n/config";
+import {
+  buildLocalizedUrl,
+  localeCookieName,
+  resolveRequestLocale,
+} from "@/lib/i18n/config";
 
 const HomePage = async () => {
   const cookieStore = await cookies();

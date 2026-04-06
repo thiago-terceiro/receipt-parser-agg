@@ -1,27 +1,24 @@
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { setRequestLocale } from "next-intl/server";
-import Link from "next/link";
 
 import { authOptions } from "@/auth";
-import { GroceriesDashboard } from "@/components/groceries/groceries-dashboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { GroceriesDashboard } from "@/contents/groceries-dashboard/GroceriesDashboard";
 import {
-    buildGroceriesMonthPayload,
-    buildMonthOptions,
-    getGroceriesStorageKeyByUserId,
-    getLegacyGroceriesStorageKeyByEmail,
-    getLegacyReceiptExtractionStorageKeyByEmail,
-    getMonthKey,
-    getReceiptExtractionStorageKeyByUserId,
-    isValidMonthKey,
-    type ExtractedReceipt,
-    type GroceryEntry,
+  buildGroceriesMonthPayload,
+  buildMonthOptions,
+  getGroceriesStorageKeyByUserId,
+  getLegacyGroceriesStorageKeyByEmail,
+  getLegacyReceiptExtractionStorageKeyByEmail,
+  getMonthKey,
+  getReceiptExtractionStorageKeyByUserId,
+  isValidMonthKey,
+  type ExtractedReceipt,
+  type GroceryEntry,
 } from "@/lib/groceries";
-import {
-    getLocaleFromSegment,
-    localizePath,
-} from "@/lib/i18n/config";
+import { getLocaleFromSegment, localizePath } from "@/lib/i18n/config";
 import { getMessages } from "@/lib/i18n/messages";
 import { redis } from "@/lib/redis";
 
@@ -73,7 +70,9 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedMonth = resolvedSearchParams?.month;
   const month =
-    typeof requestedMonth === "string" && isValidMonthKey(requestedMonth) && requestedMonth <= currentMonth
+    typeof requestedMonth === "string" &&
+    isValidMonthKey(requestedMonth) &&
+    requestedMonth <= currentMonth
       ? requestedMonth
       : currentMonth;
 
@@ -105,7 +104,9 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
       continue;
     }
 
-    extractedReceipts = items.map((item) => JSON.parse(item as string) as ExtractedReceipt);
+    extractedReceipts = items.map(
+      (item) => JSON.parse(item as string) as ExtractedReceipt,
+    );
     break;
   }
 

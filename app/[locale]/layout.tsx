@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
 
-import { LocaleEffects } from "@/components/locale-provider";
+import { LocaleEffects } from "@/components/locale-utils";
 import { routing } from "@/i18n/routing";
 import { getMessages } from "@/lib/i18n/messages";
+
+import type { Metadata } from "next";
 
 type LocaleLayoutProps = {
   children: React.ReactNode;
@@ -14,7 +15,8 @@ type LocaleLayoutProps = {
   }>;
 };
 
-export const generateStaticParams = () => routing.locales.map((locale) => ({ locale }));
+export const generateStaticParams = () =>
+  routing.locales.map((locale) => ({ locale }));
 
 export const generateMetadata = async ({
   params,

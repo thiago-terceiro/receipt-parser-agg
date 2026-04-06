@@ -48,7 +48,9 @@ export const ReceiptWorkspaceStateProvider = ({
   const [file, setFile] = useState<File | null>(null);
   const [selectedModelId, setSelectedModelId] = useState(defaultModelId);
   const [result, setResult] = useState<ExtractionResponse | null>(null);
-  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>({});
+  const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>(
+    {},
+  );
   const [showRawResponse, setShowRawResponse] = useState(false);
 
   const value = useMemo(
@@ -64,13 +66,7 @@ export const ReceiptWorkspaceStateProvider = ({
       showRawResponse,
       setShowRawResponse,
     }),
-    [
-      editedItems,
-      file,
-      result,
-      selectedModelId,
-      showRawResponse,
-    ],
+    [editedItems, file, result, selectedModelId, showRawResponse],
   );
 
   return (

@@ -1,13 +1,13 @@
-import { setRequestLocale } from "next-intl/server";
 import Link from "next/link";
+import { setRequestLocale } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { getLocaleFromSegment, localizePath } from "@/lib/i18n/config";
 import { getMessages } from "@/lib/i18n/messages";
 import { dropdownAvailableModels } from "@/lib/receipt";
 
-import { GoogleAuthControls } from "../google-auth-controls";
-import { ReceiptWorkspace } from "../receipt-workspace";
+import { GoogleAuthControls } from "../../components/google-auth-controls";
+import { ReceiptWorkspace } from "../../contents/home/ReceiptWorkspace";
 
 type HomePageProps = {
   params: Promise<{
@@ -29,7 +29,9 @@ const HomePage = async ({ params }: HomePageProps) => {
       <GoogleAuthControls canUseGoogleAuth={hasGoogleAuthConfigured} />
       <section className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch">
         <div className="grid gap-1">
-          <p className="m-0 text-[1rem] font-bold">{translations.home.dashboardTitle}</p>
+          <p className="m-0 text-[1rem] font-bold">
+            {translations.home.dashboardTitle}
+          </p>
           <p className="m-0 text-[0.9rem] leading-[1.5] text-muted-foreground">
             {translations.home.dashboardDescription}
           </p>

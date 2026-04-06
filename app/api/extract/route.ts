@@ -1,24 +1,25 @@
 import { InferenceClient } from "@huggingface/inference";
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/auth";
 import {
-    getLegacyReceiptExtractionStorageKeyByEmail,
-    getMonthKey,
-    getReceiptExtractionStorageKeyByUserId,
-    type ExtractedReceipt,
+  getLegacyReceiptExtractionStorageKeyByEmail,
+  getMonthKey,
+  getReceiptExtractionStorageKeyByUserId,
+  type ExtractedReceipt,
 } from "@/lib/groceries";
 import { redis } from "@/lib/redis";
+
 import {
-    buildDataUrl,
-    buildReceiptPrompt,
-    defaultModelId,
-    defaultProvider,
-    dropdownAvailableModels,
-    parseReceiptItems,
-    receiptItemsJsonSchema,
-    resolveRequestedModelId,
+  buildDataUrl,
+  buildReceiptPrompt,
+  defaultModelId,
+  defaultProvider,
+  dropdownAvailableModels,
+  parseReceiptItems,
+  receiptItemsJsonSchema,
+  resolveRequestedModelId,
 } from "../../../lib/receipt";
 
 export const runtime = "nodejs";
@@ -27,177 +28,188 @@ const hfToken = process.env.HF_TOKEN;
 const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
 
 const getSessionIdentity = async () => {
-    const session = await getServerSession(authOptions);
-    const userId = (session?.user as { id?: string } | undefined)?.id?.trim() || null;
-    const email = session?.user?.email?.trim().toLowerCase() || null;
+  const session = await getServerSession(authOptions);
+  const userId =
+    (session?.user as { id?: string } | undefined)?.id?.trim() || null;
+  const email = session?.user?.email?.trim().toLowerCase() || null;
 
-    if (!userId && !email) {
-        return null;
-    }
+  if (!userId && !email) {
+    return null;
+  }
 
-    return {
-        userId,
-        email,
-    };
+  return {
+    userId,
+    email,
+  };
 };
 
 type ChatMessageContent =
-    | string
-    | Array<
-        | {
-            type: "text";
-            text: string;
+  | string
+  | Array<
+      | {
+          type: "text";
+          text: string;
         }
-        | {
-            type: "image_url";
-            image_url: {
-                url: string;
-            };
+      | {
+          type: "image_url";
+          image_url: {
+            url: string;
+          };
         }
     >;
 
 class RequestValidationError extends Error {
-    constructor(
-        message: string,
-        readonly status: number,
-    ) {
-        super(message);
-        this.name = "RequestValidationError";
-    }
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "RequestValidationError";
+  }
 }
 
 const getConfiguredProvider = (): string => defaultProvider;
 
 const getUploadedImageDataUrl = async (
-    formData: FormData,
+  formData: FormData,
 ): Promise<{ fileName: string | null; imageUrl: string }> => {
-    const file = formData.get("file");
+  const file = formData.get("file");
 
-    if (!(file instanceof File)) {
-        throw new RequestValidationError(
-            "Request must include an image file under the 'file' field.",
-            400,
-        );
-    }
+  if (!(file instanceof File)) {
+    throw new RequestValidationError(
+      "Request must include an image file under the 'file' field.",
+      400,
+    );
+  }
 
-    if (!file.type.startsWith("image/")) {
-        throw new RequestValidationError("Uploaded file must be an image.", 400);
-    }
+  if (!file.type.startsWith("image/")) {
+    throw new RequestValidationError("Uploaded file must be an image.", 400);
+  }
 
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength === 0) {
-        throw new RequestValidationError("Uploaded file is empty.", 400);
-    }
+  const bytes = await file.arrayBuffer();
+  if (bytes.byteLength === 0) {
+    throw new RequestValidationError("Uploaded file is empty.", 400);
+  }
 
-    return {
-        fileName: file.name?.trim() || null,
-        imageUrl: buildDataUrl(bytes, file.type || "image/jpeg"),
-    };
+  return {
+    fileName: file.name?.trim() || null,
+    imageUrl: buildDataUrl(bytes, file.type || "image/jpeg"),
+  };
 };
 
 export const GET = async () => {
-    return NextResponse.json({
-        defaultModelId,
-        availableModels: dropdownAvailableModels,
-    });
+  return NextResponse.json({
+    defaultModelId,
+    availableModels: dropdownAvailableModels,
+  });
 };
 
 export const POST = async (request: Request) => {
-    if (!inferenceClient) {
-        return NextResponse.json(
-            { error: "HF_TOKEN is not configured on the server." },
-            { status: 500 },
-        );
+  if (!inferenceClient) {
+    return NextResponse.json(
+      { error: "HF_TOKEN is not configured on the server." },
+      { status: 500 },
+    );
+  }
+
+  const formData = await request.formData();
+  const model = resolveRequestedModelId({
+    selectedModelId: formData.get("modelId"),
+  });
+  let fileName: string | null;
+  let imageUrl: string;
+
+  try {
+    const upload = await getUploadedImageDataUrl(formData);
+    fileName = upload.fileName;
+    imageUrl = upload.imageUrl;
+  } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
 
-    const formData = await request.formData();
-    const model = resolveRequestedModelId({
-        selectedModelId: formData.get("modelId"),
-    });
-    let fileName: string | null;
-    let imageUrl: string;
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unexpected request parsing error.";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
-    try {
-        const upload = await getUploadedImageDataUrl(formData);
-        fileName = upload.fileName;
-        imageUrl = upload.imageUrl;
-    } catch (error) {
-        if (error instanceof RequestValidationError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
-        }
+  const provider = getConfiguredProvider() as never;
 
-        const message = error instanceof Error ? error.message : "Unexpected request parsing error.";
-        return NextResponse.json({ error: message }, { status: 400 });
-    }
-
-    const provider = getConfiguredProvider() as never;
-
-    try {
-        const response = await inferenceClient.chatCompletion({
-            provider,
-            model,
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "image_url",
-                            image_url: { url: imageUrl },
-                        },
-                        {
-                            type: "text",
-                            text: buildReceiptPrompt(),
-                        },
-                    ] satisfies ChatMessageContent,
-                },
-            ],
-            response_format: {
-                type: "json_object",
-                json_schema: receiptItemsJsonSchema,
+  try {
+    const response = await inferenceClient.chatCompletion({
+      provider,
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageUrl },
             },
-            max_tokens: 800,
-            temperature: 0,
-        });
+            {
+              type: "text",
+              text: buildReceiptPrompt(),
+            },
+          ] satisfies ChatMessageContent,
+        },
+      ],
+      response_format: {
+        type: "json_object",
+        json_schema: receiptItemsJsonSchema,
+      },
+      max_tokens: 800,
+      temperature: 0,
+    });
 
-        const rawResponse = response.choices?.[0]?.message?.content;
-        if (typeof rawResponse !== "string" || !rawResponse.trim()) {
-            return NextResponse.json(
-                { error: "Hugging Face returned an empty response." },
-                { status: 502 },
-            );
-        }
-        const items = parseReceiptItems(rawResponse);
-
-        const identity = await getSessionIdentity();
-        if (identity?.userId || identity?.email) {
-            const extractedAt = new Date().toISOString();
-            const month = getMonthKey(new Date(extractedAt));
-            const extraction: ExtractedReceipt = {
-                id: crypto.randomUUID(),
-                month,
-                sourceFileName: fileName,
-                modelId: model,
-                extractedAt,
-                itemCount: items.length,
-                total: Number(items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2)),
-                categories: Array.from(new Set(items.map((item) => item.category))),
-                items,
-            };
-            const key = identity.userId
-                ? getReceiptExtractionStorageKeyByUserId(identity.userId, month)
-                : getLegacyReceiptExtractionStorageKeyByEmail(identity.email!, month);
-
-            await redis.lpush(key, JSON.stringify(extraction));
-        }
-
-        return NextResponse.json({
-            backend: "vercel-hf-route",
-            modelId: model,
-            items,
-            rawResponse,
-        });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : "Unexpected extraction error.";
-        return NextResponse.json({ error: message }, { status: 502 });
+    const rawResponse = response.choices?.[0]?.message?.content;
+    console.log("Raw response from Hugging Face:", rawResponse);
+    if (typeof rawResponse !== "string" || !rawResponse.trim()) {
+      return NextResponse.json(
+        { error: "Hugging Face returned an empty response." },
+        { status: 502 },
+      );
     }
+    const items = parseReceiptItems(rawResponse);
+
+    const identity = await getSessionIdentity();
+    if (identity?.userId || identity?.email) {
+      const extractedAt = new Date().toISOString();
+      const month = getMonthKey(new Date(extractedAt));
+      const extraction: ExtractedReceipt = {
+        id: crypto.randomUUID(),
+        month,
+        sourceFileName: fileName,
+        modelId: model,
+        extractedAt,
+        itemCount: items.length,
+        total: Number(
+          items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
+        ),
+        categories: Array.from(new Set(items.map((item) => item.category))),
+        items,
+      };
+      const key = identity.userId
+        ? getReceiptExtractionStorageKeyByUserId(identity.userId, month)
+        : getLegacyReceiptExtractionStorageKeyByEmail(identity.email!, month);
+
+      await redis.lpush(key, JSON.stringify(extraction));
+    }
+
+    return NextResponse.json({
+      backend: "vercel-hf-route",
+      modelId: model,
+      items,
+      rawResponse,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unexpected extraction error.";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 };

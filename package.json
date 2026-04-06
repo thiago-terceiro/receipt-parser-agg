@@ -8,6 +8,10 @@
   },
   "scripts": {
     "dev": "next dev",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "build": "next build",
     "start": "next start"
   },
@@ -38,6 +42,13 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.1",
     "@types/react-dom": "^19.1.2",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "prettier": "^3.8.1",
     "typescript": "^5.8.3"
   }
 }

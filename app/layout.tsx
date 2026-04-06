@@ -1,9 +1,14 @@
-import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { getHtmlLang, getLocaleFromPreference, localeCookieName } from "@/lib/i18n/config";
+import { AppSessionProvider } from "@/context/AppSessionProvider";
+import {
+  getHtmlLang,
+  getLocaleFromPreference,
+  localeCookieName,
+} from "@/lib/i18n/config";
+
+import type { Metadata } from "next";
 import "./globals.css";
-import { AppSessionProvider } from "./session-provider";
 
 const themeBootScript = `(() => {
   const localeSegment = window.location.pathname.split("/")[1]?.toLowerCase();
@@ -31,7 +36,8 @@ const themeBootScript = `(() => {
 
 export const metadata: Metadata = {
   title: "Receipt AI",
-  description: "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
+  description:
+    "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
 };
 
 const RootLayout = async ({
@@ -40,7 +46,8 @@ const RootLayout = async ({
   children: React.ReactNode;
 }>) => {
   const cookieStore = await cookies();
-  const locale = getLocaleFromPreference(cookieStore.get(localeCookieName)?.value) ?? "en";
+  const locale =
+    getLocaleFromPreference(cookieStore.get(localeCookieName)?.value) ?? "en";
 
   return (
     <html lang={getHtmlLang(locale)} suppressHydrationWarning>

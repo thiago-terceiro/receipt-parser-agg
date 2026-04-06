@@ -1,13 +1,16 @@
 "use client";
 
-import { useLocale as useNextLocale, useTranslations as useNextTranslations } from "next-intl";
+import {
+  useLocale as useNextLocale,
+  useTranslations as useNextTranslations,
+} from "next-intl";
 import { useEffect, useMemo } from "react";
 
 import {
-    getHtmlLang,
-    localeCookieName,
-    localeStorageKey,
-    type AppLocale,
+  getHtmlLang,
+  localeCookieName,
+  localeStorageKey,
+  type AppLocale,
 } from "@/lib/i18n/config";
 import { createMessagesObject, type Messages } from "@/lib/i18n/messages";
 
@@ -27,7 +30,7 @@ export const LocaleEffects = ({
     persistLocalePreference(locale);
   }, [locale]);
 
-  return <>{children}</>;
+  return children;
 };
 
 export const useLocale = (): AppLocale => {
@@ -40,7 +43,10 @@ export const useTranslations = (): Messages => {
 
   return useMemo(
     () =>
-      createMessagesObject((key, values) => t(key as never, values as never), locale),
+      createMessagesObject(
+        (key, values) => t(key as never, values as never),
+        locale,
+      ),
     [locale, t],
   );
 };
