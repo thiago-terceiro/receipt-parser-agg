@@ -49,6 +49,7 @@ export type GroceryCategorySummary = {
 export type GroceriesMonthSummary = {
   total: number;
   itemCount: number;
+  uniqueItemCount: number;
   receiptCount: number;
   categoryCount: number;
 };
@@ -167,6 +168,7 @@ export const buildGroceriesMonthPayload = (
 ): GroceriesMonthPayload => {
   const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
   const receiptIds = new Set(entries.map((entry) => entry.receiptId));
+  const uniqueItemIds = new Set(entries.map((entry) => entry.normalizedItem));
 
   const categories = groceryCategories
     .map((category) => {
@@ -228,6 +230,7 @@ export const buildGroceriesMonthPayload = (
     summary: {
       total: roundCurrency(monthTotal),
       itemCount: entries.reduce((sum, entry) => sum + entry.quantity, 0),
+      uniqueItemCount: uniqueItemIds.size,
       receiptCount: receiptIds.size,
       categoryCount: categories.length,
     },

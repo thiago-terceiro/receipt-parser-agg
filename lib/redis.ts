@@ -2,20 +2,18 @@ import { Redis } from "@upstash/redis";
 
 const prefixedEnvPrefixes = ["receipt_agg_", "RECEIPT_AGG_"];
 
-const resolveEnvValue = (names: string[]) => {
-    for (const name of names) {
+const resolveEnvValue = (names: readonly string[]) => {
+    const candidates = [
+        ...names,
+        ...prefixedEnvPrefixes.flatMap((prefix) =>
+            names.map((name) => `${prefix}${name}`),
+        ),
+    ];
+
+    for (const name of candidates) {
         const value = process.env[name]?.trim();
         if (value) {
             return value;
-        }
-    }
-
-    for (const prefix of prefixedEnvPrefixes) {
-        for (const name of names) {
-            const value = process.env[`${prefix}${name}`]?.trim();
-            if (value) {
-                return value;
-            }
         }
     }
 
@@ -26,6 +24,7 @@ const redisUrl = resolveEnvValue([
     "UPSTASH_REDIS_REST_URL",
     "KV_REST_API_URL",
 ]);
+
 const redisToken = resolveEnvValue([
     "UPSTASH_REDIS_REST_TOKEN",
     "KV_REST_API_TOKEN",
@@ -39,10 +38,16 @@ if (!hasRedisConfig && (redisUrl || redisToken)) {
     );
 }
 
-export const redis = hasRedisConfig
+const redisConfig = redisUrl && redisToken
+    ? {
+        url: redisUrl,
+        token: redisToken,
+    }
+    : null;
+
+export const redis = redisConfig
     ? new Redis({
-        url: redisUrl!,
-        token: redisToken!,
+        ...redisConfig,
         automaticDeserialization: false,
     })
     : null;

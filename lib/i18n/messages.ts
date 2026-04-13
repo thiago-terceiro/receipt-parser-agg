@@ -130,6 +130,7 @@ export type Messages = {
     dayOf: (currentDay: number, totalDays: number) => string;
     stats: {
       monthTotal: string;
+      uniqueItemsTracked: string;
       itemsTracked: string;
       receiptsSaved: string;
       categoriesActive: string;
@@ -315,6 +316,7 @@ export const createMessagesObject = (
         t("groceries.dayOf", { currentDay, totalDays }),
       stats: {
         monthTotal: t("groceries.stats.monthTotal"),
+        uniqueItemsTracked: t("groceries.stats.uniqueItemsTracked"),
         itemsTracked: t("groceries.stats.itemsTracked"),
         receiptsSaved: t("groceries.stats.receiptsSaved"),
         categoriesActive: t("groceries.stats.categoriesActive"),
@@ -491,6 +493,7 @@ export const localeMessages = {
       dayOf: "Day {currentDay} of {totalDays}",
       stats: {
         monthTotal: "Month total",
+        uniqueItemsTracked: "Unique items tracked",
         itemsTracked: "Items tracked",
         receiptsSaved: "Receipts saved",
         categoriesActive: "Categories active",
@@ -680,6 +683,7 @@ export const localeMessages = {
       dayOf: "Día {currentDay} de {totalDays}",
       stats: {
         monthTotal: "Total del mes",
+        uniqueItemsTracked: "Artículos únicos registrados",
         itemsTracked: "Artículos registrados",
         receiptsSaved: "Recibos guardados",
         categoriesActive: "Categorías activas",
@@ -868,6 +872,7 @@ export const localeMessages = {
       dayOf: "Dia {currentDay} de {totalDays}",
       stats: {
         monthTotal: "Total do mês",
+        uniqueItemsTracked: "Itens únicos acompanhados",
         itemsTracked: "Itens acompanhados",
         receiptsSaved: "Recibos salvos",
         categoriesActive: "Categorias ativas",

@@ -151,6 +151,11 @@ export const GroceriesDashboard = ({
         icon: ReceiptText,
       },
       {
+        label: translations.groceries.stats.uniqueItemsTracked,
+        value: String(payload.summary.uniqueItemCount),
+        icon: Package2,
+      },
+      {
         label: translations.groceries.stats.itemsTracked,
         value: String(payload.summary.itemCount),
         icon: Package2,
@@ -170,12 +175,14 @@ export const GroceriesDashboard = ({
       currencyFormatter,
       payload.summary.categoryCount,
       payload.summary.itemCount,
+      payload.summary.uniqueItemCount,
       payload.summary.receiptCount,
       payload.summary.total,
       translations.groceries.stats.categoriesActive,
       translations.groceries.stats.itemsTracked,
       translations.groceries.stats.monthTotal,
       translations.groceries.stats.receiptsSaved,
+      translations.groceries.stats.uniqueItemsTracked,
     ],
   );
   const recentExtractedReceipts = useMemo(
@@ -352,7 +359,7 @@ export const GroceriesDashboard = ({
           <section className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.9fr)]">
             <motion.div
               layout
-              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 h-fit"
             >
               {payload.categories.map((category) => (
                 <CategorySummaryCard

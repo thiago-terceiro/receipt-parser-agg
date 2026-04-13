@@ -70,21 +70,21 @@ const CategoryDetails = ({
       </div>
 
       <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]">
-        <div className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
+        <div className="grid grid-cols-[repeat(4,1fr)] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
           <span>{translations.groceries.table.item}</span>
           <span className="text-right">{translations.groceries.table.unitPrice}</span>
           <span className="text-right">{translations.groceries.table.amount}</span>
           <span className="text-right">{translations.groceries.table.total}</span>
         </div>
 
-        <div className="grid gap-0">
+        <div className="grid   gap-0">
           {category.groups.map((group) => (
             <div
               key={group.normalizedItem}
-              className="grid grid-cols-[minmax(0,1.4fr)_120px_120px_120px] gap-4 border-b border-[var(--border)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
+              className="grid grid-cols-[repeat(4,1fr)] gap-4 border-b border-[var(--border)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
             >
               <div className="min-w-0">
-                <p className="m-0 truncate text-[1rem] font-semibold text-foreground">
+                <p className="m-0 text-[1rem] font-semibold text-foreground">
                   {group.item}
                 </p>
                 <p className="m-0 mt-1 text-sm text-muted-foreground">
@@ -202,7 +202,12 @@ type StatsGridProps = {
 
 export const StatsGrid = ({ stats }: StatsGridProps) => {
   return (
-    <div className="grid grid-cols-4 gap-4 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
+    <div
+      className={cn(
+        "grid gap-4 max-[900px]:grid-cols-2 max-[560px]:grid-cols-1",
+        stats.length >= 5 ? "grid-cols-5 max-[1200px]:grid-cols-3" : "grid-cols-4",
+      )}
+    >
       {stats.map((stat) => (
         <div
           key={stat.label}
