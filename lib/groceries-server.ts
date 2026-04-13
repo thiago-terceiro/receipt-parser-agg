@@ -7,66 +7,54 @@ import type { SessionIdentity } from "@/lib/session";
 
 const normalizeStorageToken = (value: string) => value.trim().toLowerCase();
 
-const getGroceriesStorageKeyByUserId = (
+type StorageNamespace = "groceries" | "receipt-extractions";
+
+const getStorageKeyByUserId = (
+    namespace: StorageNamespace,
     userId: string,
     month: string,
 ) => {
-    return `groceries:uid:${normalizeStorageToken(userId)}:${month}`;
+    return `${namespace}:uid:${normalizeStorageToken(userId)}:${month}`;
 };
 
-const getLegacyGroceriesStorageKeyByEmail = (
+const getLegacyStorageKeyByEmail = (
+    namespace: StorageNamespace,
     email: string,
     month: string,
 ) => {
-    return `groceries:${normalizeStorageToken(email)}:${month}`;
-};
-
-const getReceiptExtractionStorageKeyByUserId = (
-    userId: string,
-    month: string,
-) => {
-    return `receipt-extractions:uid:${normalizeStorageToken(userId)}:${month}`;
-};
-
-const getLegacyReceiptExtractionStorageKeyByEmail = (
-    email: string,
-    month: string,
-) => {
-    return `receipt-extractions:${normalizeStorageToken(email)}:${month}`;
+    return `${namespace}:${normalizeStorageToken(email)}:${month}`;
 };
 
 const buildLookupKeys = (
     identity: SessionIdentity | null,
+    namespace: StorageNamespace,
     month: string,
-    userIdBuilder: (userId: string, month: string) => string,
-    emailBuilder: (email: string, month: string) => string,
 ) => {
     if (!identity) {
         return [];
     }
 
     return [
-        identity.userId ? userIdBuilder(identity.userId, month) : null,
-        identity.email ? emailBuilder(identity.email, month) : null,
+        identity.userId ? getStorageKeyByUserId(namespace, identity.userId, month) : null,
+        identity.email ? getLegacyStorageKeyByEmail(namespace, identity.email, month) : null,
     ].filter((value): value is string => Boolean(value));
 };
 
 const resolveWriteKey = (
     identity: SessionIdentity | null,
+    namespace: StorageNamespace,
     month: string,
-    userIdBuilder: (userId: string, month: string) => string,
-    emailBuilder: (email: string, month: string) => string,
 ) => {
     if (!identity) {
         return null;
     }
 
     if (identity.userId) {
-        return userIdBuilder(identity.userId, month);
+        return getStorageKeyByUserId(namespace, identity.userId, month);
     }
 
     if (identity.email) {
-        return emailBuilder(identity.email, month);
+        return getLegacyStorageKeyByEmail(namespace, identity.email, month);
     }
 
     return null;
@@ -106,32 +94,26 @@ const loadFirstMatchingRedisList = async <T>(keysToTry: string[]) => {
     return [] as T[];
 };
 
+const loadStorageEntries = async <T>(
+    namespace: StorageNamespace,
+    identity: SessionIdentity | null,
+    month: string,
+) => {
+    return loadFirstMatchingRedisList<T>(buildLookupKeys(identity, namespace, month));
+};
+
 export const loadGroceriesEntries = async (
     identity: SessionIdentity | null,
     month: string,
 ) => {
-    return loadFirstMatchingRedisList<GroceryEntry>(
-        buildLookupKeys(
-            identity,
-            month,
-            getGroceriesStorageKeyByUserId,
-            getLegacyGroceriesStorageKeyByEmail,
-        ),
-    );
+    return loadStorageEntries<GroceryEntry>("groceries", identity, month);
 };
 
 export const loadExtractedReceipts = async (
     identity: SessionIdentity | null,
     month: string,
 ) => {
-    return loadFirstMatchingRedisList<ExtractedReceipt>(
-        buildLookupKeys(
-            identity,
-            month,
-            getReceiptExtractionStorageKeyByUserId,
-            getLegacyReceiptExtractionStorageKeyByEmail,
-        ),
-    );
+    return loadStorageEntries<ExtractedReceipt>("receipt-extractions", identity, month);
 };
 
 export const loadGroceriesMonthData = async (
@@ -153,22 +135,12 @@ export const getGroceriesWriteKey = (
     identity: SessionIdentity | null,
     month: string,
 ) => {
-    return resolveWriteKey(
-        identity,
-        month,
-        getGroceriesStorageKeyByUserId,
-        getLegacyGroceriesStorageKeyByEmail,
-    );
+    return resolveWriteKey(identity, "groceries", month);
 };
 
 export const getReceiptExtractionWriteKey = (
     identity: SessionIdentity | null,
     month: string,
 ) => {
-    return resolveWriteKey(
-        identity,
-        month,
-        getReceiptExtractionStorageKeyByUserId,
-        getLegacyReceiptExtractionStorageKeyByEmail,
-    );
+    return resolveWriteKey(identity, "receipt-extractions", month);
 };
