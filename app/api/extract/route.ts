@@ -1,15 +1,13 @@
 import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/auth";
 import {
-  getLegacyReceiptExtractionStorageKeyByEmail,
   getMonthKey,
-  getReceiptExtractionStorageKeyByUserId,
   type ExtractedReceipt,
 } from "@/lib/groceries";
+import { getReceiptExtractionWriteKey } from "@/lib/groceries-server";
 import { redis } from "@/lib/redis";
+import { getSessionIdentity } from "@/lib/session";
 
 import {
   buildDataUrl,
@@ -27,36 +25,20 @@ export const runtime = "nodejs";
 const hfToken = process.env.HF_TOKEN;
 const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
 
-const getSessionIdentity = async () => {
-  const session = await getServerSession(authOptions);
-  const userId =
-    (session?.user as { id?: string } | undefined)?.id?.trim() || null;
-  const email = session?.user?.email?.trim().toLowerCase() || null;
-
-  if (!userId && !email) {
-    return null;
-  }
-
-  return {
-    userId,
-    email,
-  };
-};
-
 type ChatMessageContent =
   | string
   | Array<
-      | {
-          type: "text";
-          text: string;
-        }
-      | {
-          type: "image_url";
-          image_url: {
-            url: string;
-          };
-        }
-    >;
+    | {
+      type: "text";
+      text: string;
+    }
+    | {
+      type: "image_url";
+      image_url: {
+        url: string;
+      };
+    }
+  >;
 
 class RequestValidationError extends Error {
   constructor(
@@ -178,9 +160,18 @@ export const POST = async (request: Request) => {
     const items = parseReceiptItems(rawResponse);
 
     const identity = await getSessionIdentity();
-    if (identity?.userId || identity?.email) {
+    if (redis && (identity?.userId || identity?.email)) {
       const extractedAt = new Date().toISOString();
       const month = getMonthKey(new Date(extractedAt));
+      const key = getReceiptExtractionWriteKey(identity, month);
+
+      if (!key) {
+        return NextResponse.json(
+          { error: "Unable to resolve receipt extraction storage key." },
+          { status: 401 },
+        );
+      }
+
       const extraction: ExtractedReceipt = {
         id: crypto.randomUUID(),
         month,
@@ -194,9 +185,6 @@ export const POST = async (request: Request) => {
         categories: Array.from(new Set(items.map((item) => item.category))),
         items,
       };
-      const key = identity.userId
-        ? getReceiptExtractionStorageKeyByUserId(identity.userId, month)
-        : getLegacyReceiptExtractionStorageKeyByEmail(identity.email!, month);
 
       await redis.lpush(key, JSON.stringify(extraction));
     }

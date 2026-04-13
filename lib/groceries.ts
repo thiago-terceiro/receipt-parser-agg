@@ -70,8 +70,6 @@ export const getMonthKey = (date: Date): string => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 };
 
-const normalizeStorageToken = (value: string) => value.trim().toLowerCase();
-
 export const isValidMonthKey = (value: string) => {
   if (!/^\d{4}-\d{2}$/.test(value)) {
     return false;
@@ -149,32 +147,15 @@ export const buildMonthOptions = (
     }));
 };
 
-export const getGroceriesStorageKeyByUserId = (
-  userId: string,
-  month: string,
+export const resolveRequestedMonth = (
+  requestedMonth: string | null | undefined,
+  currentMonth = getMonthKey(new Date()),
 ) => {
-  return `groceries:uid:${normalizeStorageToken(userId)}:${month}`;
-};
-
-export const getLegacyGroceriesStorageKeyByEmail = (
-  email: string,
-  month: string,
-) => {
-  return `groceries:${normalizeStorageToken(email)}:${month}`;
-};
-
-export const getReceiptExtractionStorageKeyByUserId = (
-  userId: string,
-  month: string,
-) => {
-  return `receipt-extractions:uid:${normalizeStorageToken(userId)}:${month}`;
-};
-
-export const getLegacyReceiptExtractionStorageKeyByEmail = (
-  email: string,
-  month: string,
-) => {
-  return `receipt-extractions:${normalizeStorageToken(email)}:${month}`;
+  return typeof requestedMonth === "string" &&
+    isValidMonthKey(requestedMonth) &&
+    requestedMonth <= currentMonth
+    ? requestedMonth
+    : currentMonth;
 };
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));

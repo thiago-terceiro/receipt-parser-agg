@@ -1,42 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/auth";
 import {
   buildGroceriesMonthPayload,
-  getGroceriesStorageKeyByUserId,
-  getLegacyGroceriesStorageKeyByEmail,
   getMonthKey,
-  isValidMonthKey,
+  resolveRequestedMonth,
   type GroceryEntry,
 } from "@/lib/groceries";
+import { getGroceriesWriteKey, loadGroceriesEntries } from "@/lib/groceries-server";
 import { parseReceiptItems } from "@/lib/receipt";
 import { redis } from "@/lib/redis";
-
-const getSessionIdentity = async () => {
-  const session = await getServerSession(authOptions);
-  const userId =
-    (session?.user as { id?: string } | undefined)?.id?.trim() || null;
-  const email = session?.user?.email?.trim().toLowerCase();
-
-  if (!userId && !email) {
-    return null;
-  }
-
-  return {
-    userId,
-    email: email || null,
-  };
-};
-
-const getRequestedMonth = (request: Request) => {
-  const { searchParams } = new URL(request.url);
-  const requestedMonth = searchParams.get("month") ?? getMonthKey(new Date());
-
-  return isValidMonthKey(requestedMonth)
-    ? requestedMonth
-    : getMonthKey(new Date());
-};
+import { getSessionIdentity } from "@/lib/session";
 
 type CreateExpensesPayload = {
   items?: unknown;
@@ -52,6 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Sign in to save groceries." },
       { status: 401 },
+    );
+  }
+
+  if (!redis) {
+    return NextResponse.json(
+      { error: "Groceries storage is not configured on the server." },
+      { status: 503 },
     );
   }
 
@@ -71,17 +51,24 @@ export async function POST(request: Request) {
 
   const purchaseDate =
     typeof data.purchaseDate === "string" &&
-    !Number.isNaN(Date.parse(data.purchaseDate))
+      !Number.isNaN(Date.parse(data.purchaseDate))
       ? new Date(data.purchaseDate)
       : new Date();
   const purchaseDateIso = purchaseDate.toISOString();
   const month = getMonthKey(purchaseDate);
-  const key = getGroceriesStorageKeyByUserId(identity.userId, month);
+  const key = getGroceriesWriteKey(identity, month);
   const receiptId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const sourceFileName =
     typeof data.sourceFileName === "string" ? data.sourceFileName : null;
   const modelId = typeof data.modelId === "string" ? data.modelId : null;
+
+  if (!key) {
+    return NextResponse.json(
+      { error: "Unable to resolve groceries storage key." },
+      { status: 401 },
+    );
+  }
 
   const entries: GroceryEntry[] = parsedItems.map((item) => ({
     ...item,
@@ -112,26 +99,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const month = getRequestedMonth(request);
-  const keysToTry = [
-    identity.userId
-      ? getGroceriesStorageKeyByUserId(identity.userId, month)
-      : null,
-    identity.email
-      ? getLegacyGroceriesStorageKeyByEmail(identity.email, month)
-      : null,
-  ].filter((value): value is string => Boolean(value));
-
-  let entries: GroceryEntry[] = [];
-  for (const key of keysToTry) {
-    const items = await redis.lrange(key, 0, -1);
-    if (items.length === 0) {
-      continue;
-    }
-
-    entries = items.map((item) => JSON.parse(item as string) as GroceryEntry);
-    break;
+  if (!redis) {
+    return NextResponse.json(
+      { error: "Groceries storage is not configured on the server." },
+      { status: 503 },
+    );
   }
+
+  const requestedMonth = new URL(request.url).searchParams.get("month");
+  const month = resolveRequestedMonth(requestedMonth);
+  const entries = await loadGroceriesEntries(identity, month);
 
   return NextResponse.json(buildGroceriesMonthPayload(month, entries));
 }
