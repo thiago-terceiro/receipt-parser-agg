@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, FileImage, LayoutDashboard, Upload, X } from "lucide-react";
-import Link from "next/link";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -12,6 +12,7 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
@@ -219,7 +220,7 @@ export const ReceiptWorkspace = ({
   }, []);
 
   const handleDropzoneDragOver = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       setIsDraggingFile(true);
     },
@@ -227,7 +228,7 @@ export const ReceiptWorkspace = ({
   );
 
   const handleDropzoneDragLeave = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
         return;
@@ -238,13 +239,25 @@ export const ReceiptWorkspace = ({
   );
 
   const handleDropzoneDrop = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
+    (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       setIsDraggingFile(false);
       const nextFile = event.dataTransfer.files?.[0] ?? null;
       applySelectedFile(nextFile);
     },
     [applySelectedFile],
+  );
+
+  const handleDropzoneKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      handleDropzoneClick();
+    },
+    [handleDropzoneClick],
   );
 
   const handleSubmit = useCallback(
@@ -485,9 +498,11 @@ export const ReceiptWorkspace = ({
             className="sr-only"
           />
 
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={handleDropzoneClick}
+            onKeyDown={handleDropzoneKeyDown}
             onDragOver={handleDropzoneDragOver}
             onDragLeave={handleDropzoneDragLeave}
             onDrop={handleDropzoneDrop}
@@ -553,7 +568,7 @@ export const ReceiptWorkspace = ({
                 <span>{translations.receipt.clickToBrowse}</span>
               </div>
             )}
-          </button>
+          </div>
 
           <div className="grid gap-2">
             <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
