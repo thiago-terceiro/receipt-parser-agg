@@ -1,10 +1,37 @@
-import type { GroceryCategorySummary } from "@/lib/groceries";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { GroceriesDashboard } from "@/contents/groceries-dashboard/GroceriesDashboard";
+import type { GroceryCategorySummary } from "@/lib/groceries";
 import { makeMonthPayload, monthOptions } from "@/test/fixtures";
 import { mockNavigationState } from "@/test/mock-state";
+
+const activeBoard = {
+    archivedAt: null,
+    createdAt: "2026-04-01T00:00:00.000Z",
+    id: "4f6939ce-d5f2-4c08-aecc-a0f0569bb10d",
+    joinedAt: "2026-04-01T00:00:00.000Z",
+    name: "Home board",
+    ownerUserId: "user-1",
+    role: "owner" as const,
+    updatedAt: "2026-04-01T00:00:00.000Z",
+};
+
+const members = [
+    {
+        boardId: activeBoard.id,
+        createdAt: "2026-04-01T00:00:00.000Z",
+        displayName: "Owner",
+        email: "owner@example.com",
+        id: "member-1",
+        imageUrl: null,
+        joinedAt: "2026-04-01T00:00:00.000Z",
+        role: "owner" as const,
+        status: "active" as const,
+        updatedAt: "2026-04-01T00:00:00.000Z",
+        userId: "user-1",
+    },
+];
 
 type MockSummaryProps = {
     onMonthChange: (month: string) => void;
@@ -49,12 +76,19 @@ jest.mock("@/contents/groceries-dashboard/GroceriesDashboardCategoriesSection", 
     ),
 }));
 
+jest.mock("@/contents/groceries-dashboard/GroceriesDashboardBoardsPanel", () => ({
+    GroceriesDashboardBoardsPanel: () => <div>board panel</div>,
+}));
+
 describe("GroceriesDashboard", () => {
     it("pushes a new route when the month changes", async () => {
         render(
             <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
                 payload={makeMonthPayload()}
                 currentMonth="2026-04"
+                members={members}
                 monthOptions={monthOptions}
             />,
         );
@@ -62,7 +96,7 @@ describe("GroceriesDashboard", () => {
         await userEvent.click(screen.getByRole("button", { name: "change month" }));
 
         expect(mockNavigationState.router.push).toHaveBeenCalledWith(
-            "/en/groceries?month=2026-03",
+            "/en/groceries?board=4f6939ce-d5f2-4c08-aecc-a0f0569bb10d&month=2026-03",
         );
         expect(screen.getByText("recent:1")).toBeInTheDocument();
     });
@@ -70,8 +104,11 @@ describe("GroceriesDashboard", () => {
     it("renders the empty state when there are no categories", () => {
         render(
             <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
                 payload={makeMonthPayload({ categories: [] })}
                 currentMonth="2026-04"
+                members={members}
                 monthOptions={monthOptions}
             />,
         );
@@ -84,8 +121,11 @@ describe("GroceriesDashboard", () => {
 
         render(
             <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
                 payload={makeMonthPayload()}
                 currentMonth="2026-04"
+                members={members}
                 monthOptions={monthOptions}
             />,
         );

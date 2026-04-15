@@ -29,6 +29,7 @@ type DashboardStat = {
 };
 
 type GroceriesDashboardSummarySectionProps = {
+  boardId?: string;
   payload: GroceriesMonthPayload;
   currentMonth: string;
   monthOptions: MonthOption[];
@@ -38,6 +39,26 @@ type GroceriesDashboardSummarySectionProps = {
   statCards: DashboardStat[];
   translations: DashboardTranslations;
   onMonthChange: (month: string) => void;
+};
+
+const buildDashboardHref = (
+  groceriesPath: string,
+  boardId: string | undefined,
+  month: string,
+  currentMonth: string,
+) => {
+  const searchParams = new URLSearchParams();
+
+  if (boardId) {
+    searchParams.set("board", boardId);
+  }
+
+  if (month !== currentMonth) {
+    searchParams.set("month", month);
+  }
+
+  const query = searchParams.toString();
+  return query ? `${groceriesPath}?${query}` : groceriesPath;
 };
 
 const getMonthProgress = (month: string) => {
@@ -86,6 +107,7 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
 };
 
 export const GroceriesDashboardSummarySection = ({
+  boardId,
   payload,
   currentMonth,
   monthOptions,
@@ -131,11 +153,12 @@ export const GroceriesDashboardSummarySection = ({
             className="border-[var(--border)] bg-[var(--surface-plain)]"
           >
             <Link
-              href={
-                previousMonth === currentMonth
-                  ? groceriesPath
-                  : `${groceriesPath}?month=${previousMonth}`
-              }
+              href={buildDashboardHref(
+                groceriesPath,
+                boardId,
+                previousMonth,
+                currentMonth,
+              )}
             >
               {translations.groceries.previousMonth}
             </Link>
@@ -167,11 +190,12 @@ export const GroceriesDashboardSummarySection = ({
               className="border-[var(--border)] bg-[var(--surface-plain)]"
             >
               <Link
-                href={
-                  nextMonth === currentMonth
-                    ? groceriesPath
-                    : `${groceriesPath}?month=${nextMonth}`
-                }
+                href={buildDashboardHref(
+                  groceriesPath,
+                  boardId,
+                  nextMonth,
+                  currentMonth,
+                )}
               >
                 {translations.groceries.nextMonth}
               </Link>

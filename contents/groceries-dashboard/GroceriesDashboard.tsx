@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
+import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import {
   type GroceriesMonthPayload,
   type GroceryCategorySummary,
@@ -13,18 +14,25 @@ import {
 import { localizePath } from "@/lib/i18n/config";
 import { formatCategoryLabel } from "@/lib/receipt";
 
+import { GroceriesDashboardBoardsPanel } from "./GroceriesDashboardBoardsPanel";
 import { GroceriesDashboardCategoriesSection } from "./GroceriesDashboardCategoriesSection";
 import { GroceriesDashboardEmptyState } from "./GroceriesDashboardEmptyState";
 import { GroceriesDashboardRecentReceiptsSection } from "./GroceriesDashboardRecentReceiptsSection";
 import { GroceriesDashboardSummarySection } from "./GroceriesDashboardSummarySection";
 
 export const GroceriesDashboard = ({
+  activeBoard,
+  boards,
   payload,
   currentMonth,
+  members,
   monthOptions,
 }: {
+  activeBoard: BoardSummary;
+  boards: BoardSummary[];
   payload: GroceriesMonthPayload;
   currentMonth: string;
+  members: BoardMemberSummary[];
   monthOptions: MonthOption[];
 }) => {
   const locale = useLocale();
@@ -153,18 +161,34 @@ export const GroceriesDashboard = ({
 
   const handleMonthChange = useCallback(
     (month: string) => {
+      const searchParams = new URLSearchParams();
+
+      searchParams.set("board", activeBoard.id);
+      if (month !== currentMonth) {
+        searchParams.set("month", month);
+      }
+
       router.push(
-        month === currentMonth
-          ? groceriesPath
-          : `${groceriesPath}?month=${month}`,
+        `${groceriesPath}?${searchParams.toString()}`,
       );
     },
-    [currentMonth, groceriesPath, router],
+    [activeBoard.id, currentMonth, groceriesPath, router],
   );
 
   return (
     <div className="grid gap-6">
+      <GroceriesDashboardBoardsPanel
+        activeBoard={activeBoard}
+        boards={boards}
+        currentMonth={currentMonth}
+        locale={locale}
+        members={members}
+        selectedMonth={payload.month}
+        translations={translations}
+      />
+
       <GroceriesDashboardSummarySection
+        boardId={activeBoard.id}
         payload={payload}
         currentMonth={currentMonth}
         monthOptions={monthOptions}

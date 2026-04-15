@@ -153,6 +153,38 @@ export type Messages = {
       total: string;
     };
     receiptEntries: (count: number) => string;
+    boards: {
+      sectionLabel: string;
+      selectBoard: string;
+      createBoard: string;
+      createBoardTitle: string;
+      createBoardDescription: string;
+      createBoardPlaceholder: string;
+      createBoardSubmit: string;
+      members: string;
+      membersTitle: string;
+      membersDescription: string;
+      membersCount: (count: number) => string;
+      noMembers: string;
+      invite: string;
+      inviteTitle: string;
+      inviteDescription: string;
+      inviteEmailLabel: string;
+      inviteEmailPlaceholder: string;
+      createInvite: string;
+      inviteLinkLabel: string;
+      copyInviteLink: string;
+      inviteCreated: string;
+      inviteCopied: string;
+      roleOwner: string;
+      roleEditor: string;
+      switchFailed: string;
+      nameRequired: string;
+      createFailed: string;
+      inviteFailed: string;
+      copyFailed: string;
+      boardCreated: (name: string) => string;
+    };
   };
   categories: Record<GroceryCategory, string>;
 };
@@ -340,6 +372,38 @@ export const createMessagesObject = (
         total: t("groceries.table.total"),
       },
       receiptEntries: (count) => t("groceries.receiptEntries", { count }),
+      boards: {
+        sectionLabel: t("groceries.boards.sectionLabel"),
+        selectBoard: t("groceries.boards.selectBoard"),
+        createBoard: t("groceries.boards.createBoard"),
+        createBoardTitle: t("groceries.boards.createBoardTitle"),
+        createBoardDescription: t("groceries.boards.createBoardDescription"),
+        createBoardPlaceholder: t("groceries.boards.createBoardPlaceholder"),
+        createBoardSubmit: t("groceries.boards.createBoardSubmit"),
+        members: t("groceries.boards.members"),
+        membersTitle: t("groceries.boards.membersTitle"),
+        membersDescription: t("groceries.boards.membersDescription"),
+        membersCount: (count) => t("groceries.boards.membersCount", { count }),
+        noMembers: t("groceries.boards.noMembers"),
+        invite: t("groceries.boards.invite"),
+        inviteTitle: t("groceries.boards.inviteTitle"),
+        inviteDescription: t("groceries.boards.inviteDescription"),
+        inviteEmailLabel: t("groceries.boards.inviteEmailLabel"),
+        inviteEmailPlaceholder: t("groceries.boards.inviteEmailPlaceholder"),
+        createInvite: t("groceries.boards.createInvite"),
+        inviteLinkLabel: t("groceries.boards.inviteLinkLabel"),
+        copyInviteLink: t("groceries.boards.copyInviteLink"),
+        inviteCreated: t("groceries.boards.inviteCreated"),
+        inviteCopied: t("groceries.boards.inviteCopied"),
+        roleOwner: t("groceries.boards.roleOwner"),
+        roleEditor: t("groceries.boards.roleEditor"),
+        switchFailed: t("groceries.boards.switchFailed"),
+        nameRequired: t("groceries.boards.nameRequired"),
+        createFailed: t("groceries.boards.createFailed"),
+        inviteFailed: t("groceries.boards.inviteFailed"),
+        copyFailed: t("groceries.boards.copyFailed"),
+        boardCreated: (name) => t("groceries.boards.boardCreated", { name }),
+      },
     },
     categories: buildCategoryLabels(t),
   };
@@ -520,6 +584,41 @@ export const localeMessages = {
       },
       receiptEntries:
         "{count, plural, one {# receipt entry} other {# receipt entries}}",
+      boards: {
+        sectionLabel: "Shared boards",
+        selectBoard: "Select board",
+        createBoard: "New board",
+        createBoardTitle: "Create a shared board",
+        createBoardDescription:
+          "Boards let multiple people add groceries into the same dashboard.",
+        createBoardPlaceholder: "Weekend groceries",
+        createBoardSubmit: "Create board",
+        members: "Members",
+        membersTitle: "Board members",
+        membersDescription:
+          "Everyone listed here can open this dashboard. Owners can also issue invite links.",
+        membersCount: "{count, plural, one {# member} other {# members}}",
+        noMembers: "No members found for this board yet.",
+        invite: "Invite",
+        inviteTitle: "Invite a collaborator",
+        inviteDescription:
+          "Generate a secure invite link for someone who should add groceries to this board.",
+        inviteEmailLabel: "Invite email (optional)",
+        inviteEmailPlaceholder: "friend@example.com",
+        createInvite: "Create invite link",
+        inviteLinkLabel: "Invite link",
+        copyInviteLink: "Copy link",
+        inviteCreated: "Invite link generated.",
+        inviteCopied: "Invite link copied.",
+        roleOwner: "Owner",
+        roleEditor: "Editor",
+        switchFailed: "Unable to switch boards.",
+        nameRequired: "Enter a board name before creating it.",
+        createFailed: "Unable to create the board.",
+        inviteFailed: "Unable to create the invite.",
+        copyFailed: "Unable to copy the invite link.",
+        boardCreated: "Board {name} created.",
+      },
     },
     categories: {
       produce: "Produce",
@@ -710,6 +809,41 @@ export const localeMessages = {
       },
       receiptEntries:
         "{count, plural, one {# entrada de recibo} other {# entradas de recibo}}",
+      boards: {
+        sectionLabel: "Tableros compartidos",
+        selectBoard: "Seleccionar tablero",
+        createBoard: "Nuevo tablero",
+        createBoardTitle: "Crear un tablero compartido",
+        createBoardDescription:
+          "Los tableros permiten que varias personas agreguen compras en el mismo panel.",
+        createBoardPlaceholder: "Compras del fin de semana",
+        createBoardSubmit: "Crear tablero",
+        members: "Miembros",
+        membersTitle: "Miembros del tablero",
+        membersDescription:
+          "Todas las personas listadas aquí pueden abrir este panel. Los dueños también pueden crear enlaces de invitación.",
+        membersCount: "{count, plural, one {# miembro} other {# miembros}}",
+        noMembers: "Todavía no hay miembros en este tablero.",
+        invite: "Invitar",
+        inviteTitle: "Invitar a un colaborador",
+        inviteDescription:
+          "Genera un enlace de invitación seguro para alguien que deba agregar compras a este tablero.",
+        inviteEmailLabel: "Correo para la invitación (opcional)",
+        inviteEmailPlaceholder: "amigo@example.com",
+        createInvite: "Crear enlace de invitación",
+        inviteLinkLabel: "Enlace de invitación",
+        copyInviteLink: "Copiar enlace",
+        inviteCreated: "Enlace de invitación generado.",
+        inviteCopied: "Enlace de invitación copiado.",
+        roleOwner: "Dueño",
+        roleEditor: "Editor",
+        switchFailed: "No se pudo cambiar de tablero.",
+        nameRequired: "Escribe un nombre para el tablero antes de crearlo.",
+        createFailed: "No se pudo crear el tablero.",
+        inviteFailed: "No se pudo crear la invitación.",
+        copyFailed: "No se pudo copiar el enlace de invitación.",
+        boardCreated: "Se creó el tablero {name}.",
+      },
     },
     categories: {
       produce: "Frutas y verduras",
@@ -899,6 +1033,41 @@ export const localeMessages = {
       },
       receiptEntries:
         "{count, plural, one {# entrada de recibo} other {# entradas de recibo}}",
+      boards: {
+        sectionLabel: "Quadros compartilhados",
+        selectBoard: "Selecionar quadro",
+        createBoard: "Novo quadro",
+        createBoardTitle: "Criar um quadro compartilhado",
+        createBoardDescription:
+          "Os quadros permitem que várias pessoas adicionem compras no mesmo painel.",
+        createBoardPlaceholder: "Compras do fim de semana",
+        createBoardSubmit: "Criar quadro",
+        members: "Membros",
+        membersTitle: "Membros do quadro",
+        membersDescription:
+          "Todas as pessoas listadas aqui podem abrir este painel. Donos também podem gerar links de convite.",
+        membersCount: "{count, plural, one {# membro} other {# membros}}",
+        noMembers: "Ainda não há membros neste quadro.",
+        invite: "Convidar",
+        inviteTitle: "Convidar um colaborador",
+        inviteDescription:
+          "Gere um link de convite seguro para alguém que deve adicionar compras neste quadro.",
+        inviteEmailLabel: "Email do convite (opcional)",
+        inviteEmailPlaceholder: "amigo@example.com",
+        createInvite: "Criar link de convite",
+        inviteLinkLabel: "Link do convite",
+        copyInviteLink: "Copiar link",
+        inviteCreated: "Link de convite gerado.",
+        inviteCopied: "Link de convite copiado.",
+        roleOwner: "Dono",
+        roleEditor: "Editor",
+        switchFailed: "Não foi possível trocar de quadro.",
+        nameRequired: "Digite um nome para o quadro antes de criá-lo.",
+        createFailed: "Não foi possível criar o quadro.",
+        inviteFailed: "Não foi possível criar o convite.",
+        copyFailed: "Não foi possível copiar o link do convite.",
+        boardCreated: "Quadro {name} criado.",
+      },
     },
     categories: {
       produce: "Hortifruti",

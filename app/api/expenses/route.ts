@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { requireBoardIdentity } from "@/lib/boards-server";
 import {
   buildGroceriesMonthPayload,
   getMonthKey,
   resolveRequestedMonth,
   type GroceryEntry,
 } from "@/lib/groceries";
-import { getGroceriesWriteKey, loadGroceriesEntries } from "@/lib/groceries-server";
+import {
+  loadGroceriesEntries,
+  persistGroceriesEntries,
+} from "@/lib/groceries-server";
 import { parseReceiptItems } from "@/lib/receipt";
-import { redis } from "@/lib/redis";
-import { getSessionIdentity } from "@/lib/session";
 
 type CreateExpensesPayload = {
+  boardId?: unknown;
   items?: unknown;
   rawResponse?: unknown;
   purchaseDate?: unknown;
@@ -20,18 +23,16 @@ type CreateExpensesPayload = {
 };
 
 export async function POST(request: Request) {
-  const identity = await getSessionIdentity();
-  if (!identity?.userId) {
-    return NextResponse.json(
-      { error: "Sign in to save groceries." },
-      { status: 401 },
-    );
-  }
+  let identity;
 
-  if (!redis) {
+  try {
+    identity = await requireBoardIdentity();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Sign in to save groceries.";
+
     return NextResponse.json(
-      { error: "Groceries storage is not configured on the server." },
-      { status: 503 },
+      { error: message },
+      { status: message === "Boards are not configured on the server." ? 503 : 401 },
     );
   }
 
@@ -56,19 +57,11 @@ export async function POST(request: Request) {
       : new Date();
   const purchaseDateIso = purchaseDate.toISOString();
   const month = getMonthKey(purchaseDate);
-  const key = getGroceriesWriteKey(identity, month);
   const receiptId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const sourceFileName =
     typeof data.sourceFileName === "string" ? data.sourceFileName : null;
   const modelId = typeof data.modelId === "string" ? data.modelId : null;
-
-  if (!key) {
-    return NextResponse.json(
-      { error: "Unable to resolve groceries storage key." },
-      { status: 401 },
-    );
-  }
 
   const entries: GroceryEntry[] = parsedItems.map((item) => ({
     ...item,
@@ -80,35 +73,49 @@ export async function POST(request: Request) {
     createdAt,
   }));
 
-  await redis.lpush(key, ...entries.map((entry) => JSON.stringify(entry)));
+  try {
+    const result = await persistGroceriesEntries(identity, data.boardId, entries);
 
-  return NextResponse.json({
-    ok: true,
-    month,
-    receiptId,
-    savedCount: entries.length,
-  });
+    return NextResponse.json({
+      ok: true,
+      boardId: result.activeBoard.id,
+      month,
+      receiptId,
+      savedCount: result.savedCount,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to save groceries.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function GET(request: Request) {
-  const identity = await getSessionIdentity();
-  if (!identity) {
+  let identity;
+
+  try {
+    identity = await requireBoardIdentity();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Sign in to view groceries.";
+
     return NextResponse.json(
-      { error: "Sign in to view groceries." },
-      { status: 401 },
+      { error: message },
+      { status: message === "Boards are not configured on the server." ? 503 : 401 },
     );
   }
 
-  if (!redis) {
-    return NextResponse.json(
-      { error: "Groceries storage is not configured on the server." },
-      { status: 503 },
-    );
-  }
-
-  const requestedMonth = new URL(request.url).searchParams.get("month");
+  const searchParams = new URL(request.url).searchParams;
+  const requestedMonth = searchParams.get("month");
+  const boardId = searchParams.get("boardId");
   const month = resolveRequestedMonth(requestedMonth);
-  const entries = await loadGroceriesEntries(identity, month);
 
-  return NextResponse.json(buildGroceriesMonthPayload(month, entries));
+  try {
+    const entries = await loadGroceriesEntries(identity, month, boardId);
+
+    return NextResponse.json(buildGroceriesMonthPayload(month, entries));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load groceries.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

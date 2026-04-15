@@ -5,9 +5,9 @@ import {
   getMonthKey,
   type ExtractedReceipt,
 } from "@/lib/groceries";
-import { getReceiptExtractionWriteKey } from "@/lib/groceries-server";
-import { redis } from "@/lib/redis";
+import { persistExtractedReceipt } from "@/lib/groceries-server";
 import { getSessionIdentity } from "@/lib/session";
+import { hasSupabaseServerConfig } from "@/lib/supabase-server";
 
 import {
   buildDataUrl,
@@ -95,6 +95,7 @@ export const POST = async (request: Request) => {
   }
 
   const formData = await request.formData();
+  const requestedBoardId = formData.get("boardId");
   const model = resolveRequestedModelId({
     selectedModelId: formData.get("modelId"),
   });
@@ -160,17 +161,9 @@ export const POST = async (request: Request) => {
     const items = parseReceiptItems(rawResponse);
 
     const identity = await getSessionIdentity();
-    if (redis && (identity?.userId || identity?.email)) {
+    if (hasSupabaseServerConfig && identity?.userId) {
       const extractedAt = new Date().toISOString();
       const month = getMonthKey(new Date(extractedAt));
-      const key = getReceiptExtractionWriteKey(identity, month);
-
-      if (!key) {
-        return NextResponse.json(
-          { error: "Unable to resolve receipt extraction storage key." },
-          { status: 401 },
-        );
-      }
 
       const extraction: ExtractedReceipt = {
         id: crypto.randomUUID(),
@@ -186,7 +179,11 @@ export const POST = async (request: Request) => {
         items,
       };
 
-      await redis.lpush(key, JSON.stringify(extraction));
+      try {
+        await persistExtractedReceipt(identity, requestedBoardId, extraction);
+      } catch (error) {
+        console.warn("Unable to persist extracted receipt history.", error);
+      }
     }
 
     return NextResponse.json({
