@@ -1,150 +1,149 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GoogleAuthControls } from "@/components/google-auth-controls";
+import { useTranslations } from "@/components/locale-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { localizePath, type AppLocale } from "@/lib/i18n/config";
-import type { Messages } from "@/lib/i18n/messages";
 
 type InviteAcceptanceCardProps = {
-  canUseGoogleAuth: boolean;
-  locale: AppLocale;
-  token: string | null;
-  translations: Messages;
+    canUseGoogleAuth: boolean;
+    locale: AppLocale;
+    token: string | null;
 };
 
 export const InviteAcceptanceCard = ({
-  canUseGoogleAuth,
-  locale,
-  token,
-  translations,
+    canUseGoogleAuth,
+    locale,
+    token,
 }: InviteAcceptanceCardProps) => {
-  const router = useRouter();
-  const { status } = useSession();
-  const [error, setError] = useState<string | null>(null);
-  const [isAccepting, setIsAccepting] = useState(false);
+    const router = useRouter();
+    const { status } = useSession();
+    const translations = useTranslations();
+    const [error, setError] = useState<string | null>(null);
+    const [isAccepting, setIsAccepting] = useState(false);
 
-  useEffect(() => {
-    if (!token || status !== "authenticated" || isAccepting) {
-      return;
-    }
+    useEffect(() => {
+        if (!token || status !== "authenticated" || isAccepting) {
+            return;
+        }
 
-    let ignore = false;
+        let ignore = false;
 
-    const acceptInvite = async () => {
-      setIsAccepting(true);
-      setError(null);
+        const acceptInvite = async () => {
+            setIsAccepting(true);
+            setError(null);
 
-      try {
-        const response = await fetch("/api/invites/accept", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ token }),
-        });
-        const payload = (await response.json()) as {
-          error?: string;
-          invite?: { board_id?: string };
+            try {
+                const response = await fetch("/api/invites/accept", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ token }),
+                });
+                const payload = (await response.json()) as {
+                    error?: string;
+                    invite?: { board_id?: string };
+                };
+
+                if (!response.ok || !payload.invite?.board_id) {
+                    throw new Error(payload.error || "Unable to accept the invite.");
+                }
+
+                if (!ignore) {
+                    router.replace(
+                        `${localizePath("/groceries", locale)}?board=${payload.invite.board_id}`,
+                    );
+                    router.refresh();
+                }
+            } catch (requestError) {
+                if (!ignore) {
+                    setError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : "Unable to accept the invite.",
+                    );
+                }
+            } finally {
+                if (!ignore) {
+                    setIsAccepting(false);
+                }
+            }
         };
 
-        if (!response.ok || !payload.invite?.board_id) {
-          throw new Error(payload.error || "Unable to accept the invite.");
-        }
+        void acceptInvite();
 
-        if (!ignore) {
-          router.replace(
-            `${localizePath("/groceries", locale)}?board=${payload.invite.board_id}`,
-          );
-          router.refresh();
-        }
-      } catch (requestError) {
-        if (!ignore) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Unable to accept the invite.",
-          );
-        }
-      } finally {
-        if (!ignore) {
-          setIsAccepting(false);
-        }
-      }
-    };
+        return () => {
+            ignore = true;
+        };
+    }, [isAccepting, locale, router, status, token]);
 
-    void acceptInvite();
+    if (!token) {
+        return (
+            <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
+                <CardHeader>
+                    <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
+                    <CardDescription>
+                        No invite token was provided in the URL.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        );
+    }
 
-    return () => {
-      ignore = true;
-    };
-  }, [isAccepting, locale, router, status, token]);
+    if (status !== "authenticated") {
+        return (
+            <div className="grid gap-4">
+                <GoogleAuthControls canUseGoogleAuth={canUseGoogleAuth} />
+                <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
+                    <CardHeader>
+                        <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
+                        <CardDescription>
+                            Sign in with Google to accept this board invite.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild variant="secondary">
+                            <a href={localizePath("/", locale)}>{translations.groceries.backToHome}</a>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
-  if (!token) {
     return (
-      <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
-        <CardHeader>
-          <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
-          <CardDescription>
-            No invite token was provided in the URL.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
-  if (status !== "authenticated") {
-    return (
-      <div className="grid gap-4">
-        <GoogleAuthControls canUseGoogleAuth={canUseGoogleAuth} />
         <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
-          <CardHeader>
-            <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
-            <CardDescription>
-              Sign in with Google to accept this board invite.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="secondary">
-              <a href={localizePath("/", locale)}>{translations.groceries.backToHome}</a>
-            </Button>
-          </CardContent>
+            <CardHeader>
+                <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
+                <CardDescription>
+                    {isAccepting
+                        ? "Validating the invite and attaching this account to the board..."
+                        : "The invite is ready to be accepted."}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+                {error ? (
+                    <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                ) : null}
+                {!error ? (
+                    <Alert>
+                        <AlertDescription>
+                            {isAccepting
+                                ? "Processing invite..."
+                                : "Invite accepted. Redirecting to the shared board..."}
+                        </AlertDescription>
+                    </Alert>
+                ) : null}
+            </CardContent>
         </Card>
-      </div>
     );
-  }
-
-  return (
-    <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
-      <CardHeader>
-        <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
-        <CardDescription>
-          {isAccepting
-            ? "Validating the invite and attaching this account to the board..."
-            : "The invite is ready to be accepted."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        {!error ? (
-          <Alert>
-            <AlertDescription>
-              {isAccepting
-                ? "Processing invite..."
-                : "Invite accepted. Redirecting to the shared board..."}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
 };
