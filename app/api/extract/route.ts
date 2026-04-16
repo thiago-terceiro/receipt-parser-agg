@@ -12,9 +12,11 @@ import { hasSupabaseServerConfig } from "@/lib/supabase-server";
 import {
   buildDataUrl,
   buildReceiptPrompt,
+  defaultMaxOutputTokens,
   defaultModelId,
   defaultProvider,
   dropdownAvailableModels,
+  getModelCapabilityHint,
   parseReceiptItems,
   receiptItemsJsonSchema,
   resolveRequestedModelId,
@@ -51,6 +53,27 @@ class RequestValidationError extends Error {
 }
 
 const getConfiguredProvider = (): string => defaultProvider;
+
+const buildExtractionError = (message: string, modelId: string): string => {
+  const hint = getModelCapabilityHint(modelId);
+  return hint ? `${message} ${hint}` : message;
+};
+
+const logExtractionDiagnostics = (details: {
+  model: string;
+  provider: string;
+  finishReason: string | null | undefined;
+  maxOutputTokens: number;
+  rawResponse: string | null;
+}) => {
+  console.info("Receipt extraction diagnostics", {
+    model: details.model,
+    provider: details.provider,
+    finishReason: details.finishReason ?? null,
+    maxOutputTokens: details.maxOutputTokens,
+    rawResponseLength: details.rawResponse?.length ?? 0,
+  });
+};
 
 const getUploadedImageDataUrl = async (
   formData: FormData,
@@ -122,6 +145,11 @@ export const POST = async (request: Request) => {
   }
 
   const provider = getConfiguredProvider() as never;
+  const modelCapabilityHint = getModelCapabilityHint(model);
+
+  if (modelCapabilityHint) {
+    console.warn(modelCapabilityHint);
+  }
 
   try {
     const response = await inferenceClient.chatCompletion({
@@ -146,15 +174,42 @@ export const POST = async (request: Request) => {
         type: "json_object",
         json_schema: receiptItemsJsonSchema,
       },
-      max_tokens: 800,
+      max_tokens: defaultMaxOutputTokens,
       temperature: 0,
     });
 
+    const finishReason = response.choices?.[0]?.finish_reason;
     const rawResponse = response.choices?.[0]?.message?.content;
+
+    logExtractionDiagnostics({
+      model,
+      provider,
+      finishReason,
+      maxOutputTokens: defaultMaxOutputTokens,
+      rawResponse: typeof rawResponse === "string" ? rawResponse : null,
+    });
+
+    if (finishReason === "length") {
+      return NextResponse.json(
+        {
+          error: buildExtractionError(
+            `Model output hit the ${defaultMaxOutputTokens}-token limit. Increase HF_MAX_OUTPUT_TOKENS.`,
+            model,
+          ),
+        },
+        { status: 502 },
+      );
+    }
+
     console.log("Raw response from Hugging Face:", rawResponse);
     if (typeof rawResponse !== "string" || !rawResponse.trim()) {
       return NextResponse.json(
-        { error: "Hugging Face returned an empty response." },
+        {
+          error: buildExtractionError(
+            "Hugging Face returned an empty response.",
+            model,
+          ),
+        },
         { status: 502 },
       );
     }
@@ -195,6 +250,9 @@ export const POST = async (request: Request) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected extraction error.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: buildExtractionError(message, model) },
+      { status: 502 },
+    );
   }
 };

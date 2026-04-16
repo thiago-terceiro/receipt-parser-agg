@@ -66,6 +66,8 @@ export type ModelCatalogSource = "router" | "hub-api" | "fallback";
 const fallbackModelId = "Qwen/Qwen2.5-VL-7B-Instruct";
 const additionalDropdownModelId = "Qwen/Qwen3-VL-8B-Instruct";
 const maxModelIdLength = 128;
+const fallbackMaxOutputTokens = 1600;
+const maxOutputTokensUpperBound = 4096;
 
 const groceryCategorySet = new Set<GroceryCategory>(groceryCategories);
 
@@ -103,6 +105,28 @@ export const defaultModelId =
 
 export const defaultProvider = process.env.HF_PROVIDER?.trim() || "auto";
 
+export const parseMaxOutputTokens = (
+  value: unknown,
+  fallback = fallbackMaxOutputTokens,
+): number => {
+  const parsedValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value.trim(), 10)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return fallback;
+  }
+
+  return Math.min(parsedValue, maxOutputTokensUpperBound);
+};
+
+export const defaultMaxOutputTokens = parseMaxOutputTokens(
+  process.env.HF_MAX_OUTPUT_TOKENS,
+);
+
 export const fallbackAvailableModels: AvailableModel[] = [
   {
     id: defaultModelId,
@@ -112,6 +136,22 @@ export const fallbackAvailableModels: AvailableModel[] = [
 ];
 
 const getModelEntry = (model: AvailableModel) => [model.id, model] as const;
+
+export const isLikelyVisionModelId = (modelId: string): boolean =>
+  /(^|[/-])(vl|vision|llava|internvl|pixtral|idefics|minicpm-v)([/-]|$)/i.test(
+    modelId,
+  );
+
+export const getModelCapabilityHint = (modelId: string): string | null => {
+  if (isLikelyVisionModelId(modelId)) {
+    return null;
+  }
+
+  return (
+    `Configured model ${modelId} does not look vision-capable. ` +
+    "Use a VL or vision model for receipt images."
+  );
+};
 
 const parseReceiptItem = (entry: unknown, index: number): ReceiptItem => {
   if (!entry || typeof entry !== "object") {
@@ -289,7 +329,9 @@ const parseReceiptJson = (rawResponse: string): unknown => {
   // Extract from first { or [ to last } or ].
   const jsonEnd = Math.max(jsonStr.lastIndexOf("}"), jsonStr.lastIndexOf("]"));
   if (jsonEnd === -1) {
-    throw new Error("Incomplete JSON in response.");
+    throw new Error(
+      "Incomplete JSON in response. The model output may have been truncated; increase HF_MAX_OUTPUT_TOKENS.",
+    );
   }
 
   const extracted = jsonStr.slice(jsonStart, jsonEnd + 1).trim();

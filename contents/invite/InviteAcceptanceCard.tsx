@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -17,16 +17,26 @@ type InviteAcceptanceCardProps = {
     token: string | null;
 };
 
+const isInviteEmailMismatchError = (message: string | null) => {
+    if (!message) {
+        return false;
+    }
+
+    return message.toLowerCase().includes("does not match this invite");
+};
+
 export const InviteAcceptanceCard = ({
     canUseGoogleAuth,
     locale,
     token,
 }: InviteAcceptanceCardProps) => {
     const router = useRouter();
-    const { status } = useSession();
+    const { data: session, status } = useSession();
     const translations = useTranslations();
     const [error, setError] = useState<string | null>(null);
     const [isAccepting, setIsAccepting] = useState(false);
+    const signedInEmail = session?.user?.email ?? null;
+    const isInviteEmailMismatch = isInviteEmailMismatchError(error);
 
     useEffect(() => {
         if (!token || status !== "authenticated" || isAccepting) {
@@ -82,7 +92,7 @@ export const InviteAcceptanceCard = ({
         return () => {
             ignore = true;
         };
-    }, [isAccepting, locale, router, status, token]);
+    }, [isAccepting, locale, router, signedInEmail, status, token]);
 
     if (!token) {
         return (
@@ -109,6 +119,11 @@ export const InviteAcceptanceCard = ({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {error ? (
+                            <Alert variant="destructive" className="mb-4">
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        ) : null}
                         <Button asChild variant="secondary">
                             <a href={localizePath("/", locale)}>{translations.groceries.backToHome}</a>
                         </Button>
@@ -131,8 +146,44 @@ export const InviteAcceptanceCard = ({
             <CardContent className="grid gap-4">
                 {error ? (
                     <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
+                        <AlertDescription>
+                            {isInviteEmailMismatch
+                                ? "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited Google account, then open the invite link again."
+                                : error}
+                        </AlertDescription>
                     </Alert>
+                ) : null}
+                {error && isInviteEmailMismatch ? (
+                    <div className="grid gap-3">
+                        {signedInEmail ? (
+                            <p className="text-sm text-muted-foreground">
+                                Current signed-in email: {signedInEmail}
+                            </p>
+                        ) : null}
+                        <div className="flex flex-wrap gap-3">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => {
+                                    void signOut({
+                                        callbackUrl: `${localizePath("/invite", locale)}?token=${encodeURIComponent(token)}`,
+                                    });
+                                }}
+                            >
+                                Sign out and use another account
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    setError(null);
+                                    router.refresh();
+                                }}
+                            >
+                                Retry invite check
+                            </Button>
+                        </div>
+                    </div>
                 ) : null}
                 {!error ? (
                     <Alert>
