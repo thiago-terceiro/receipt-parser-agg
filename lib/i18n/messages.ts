@@ -2,13 +2,13 @@ import { getTranslations } from "next-intl/server";
 
 import { groceryCategories, type GroceryCategory } from "@/lib/receipt";
 
+import { metadata } from "@/app/metadata";
+
+import type { Metadata } from "next";
+
 import type { AppLocale } from "./config";
 
-export type Messages = {
-  metadata: {
-    title: string;
-    description: string;
-  };
+export type Messages = { metadata: Metadata } & {
   locales: Record<AppLocale, string>;
   common: {
     language: string;
@@ -137,6 +137,12 @@ export type Messages = {
     };
     recentExtractions: string;
     recentExtractionsDescription: string;
+    deleteReceipt: string;
+    deleteReceiptTitle: string;
+    deleteReceiptDescription: (receiptName: string) => string;
+    deleteReceiptConfirm: string;
+    deletingReceipt: string;
+    deleteReceiptFailed: string;
     untitledReceipt: string;
     emptyTitle: string;
     emptyDescription: (monthLabel: string) => string;
@@ -211,7 +217,7 @@ export const createMessagesObject = (
 ): Messages => {
   return {
     metadata: {
-      title: t("metadata.title"),
+      title: { default: t("metadata.title"), template: "%s | Receipt Aggregator AI", },
       description: t("metadata.description"),
     },
     locales: {
@@ -355,6 +361,13 @@ export const createMessagesObject = (
       },
       recentExtractions: t("groceries.recentExtractions"),
       recentExtractionsDescription: t("groceries.recentExtractionsDescription"),
+      deleteReceipt: t("groceries.deleteReceipt"),
+      deleteReceiptTitle: t("groceries.deleteReceiptTitle"),
+      deleteReceiptDescription: (receiptName) =>
+        t("groceries.deleteReceiptDescription", { receiptName }),
+      deleteReceiptConfirm: t("groceries.deleteReceiptConfirm"),
+      deletingReceipt: t("groceries.deletingReceipt"),
+      deleteReceiptFailed: t("groceries.deleteReceiptFailed"),
       untitledReceipt: t("groceries.untitledReceipt"),
       emptyTitle: t("groceries.emptyTitle"),
       emptyDescription: (monthLabel) =>
@@ -409,12 +422,19 @@ export const createMessagesObject = (
   };
 };
 
+const metadataTitle = metadata?.title &&
+  typeof metadata.title === "object" &&
+  "default" in metadata.title
+  ? metadata.title.default
+  : typeof metadata?.title === "string"
+    ? metadata.title
+    : "Receipts AI"
+
 export const localeMessages = {
   en: {
     metadata: {
-      title: "Receipt AI",
-      description:
-        "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
+      title: metadataTitle,
+      description: metadata.description,
     },
     locales: {
       en: "English",
@@ -562,9 +582,16 @@ export const localeMessages = {
         receiptsSaved: "Receipts saved",
         categoriesActive: "Categories active",
       },
-      recentExtractions: "Recent extractions",
+      recentExtractions: "Recent receipts",
       recentExtractionsDescription:
-        "Receipt captures saved at extract time. These appear immediately, even before grocery corrections are saved into the grouped totals.",
+        "Saved receipts included in this month's totals. Deleting one removes its grocery lines from the dashboard totals.",
+      deleteReceipt: "Delete receipt",
+      deleteReceiptTitle: "Delete this receipt?",
+      deleteReceiptDescription:
+        "Deleting {receiptName} removes every grocery line from this receipt out of the monthly totals.",
+      deleteReceiptConfirm: "Delete receipt",
+      deletingReceipt: "Deleting...",
+      deleteReceiptFailed: "Unable to delete the receipt.",
       untitledReceipt: "Untitled receipt",
       emptyTitle: "No groceries saved for this month yet",
       emptyDescription:
@@ -636,7 +663,7 @@ export const localeMessages = {
   },
   es: {
     metadata: {
-      title: "Receipt AI",
+      title: metadataTitle,
       description:
         "Interfaz de extracción de recibos con Hugging Face Inference en Vercel.",
     },
@@ -787,9 +814,16 @@ export const localeMessages = {
         receiptsSaved: "Recibos guardados",
         categoriesActive: "Categorías activas",
       },
-      recentExtractions: "Extracciones recientes",
+      recentExtractions: "Recibos recientes",
       recentExtractionsDescription:
-        "Capturas de recibos guardadas en el momento de la extracción. Aparecen enseguida, incluso antes de guardar las correcciones en los totales agrupados.",
+        "Recibos guardados que ya forman parte de los totales del mes. Al eliminar uno, sus líneas se quitan del panel.",
+      deleteReceipt: "Eliminar recibo",
+      deleteReceiptTitle: "¿Eliminar este recibo?",
+      deleteReceiptDescription:
+        "Al eliminar {receiptName}, todas las líneas de compra de ese recibo se quitarán de los totales mensuales.",
+      deleteReceiptConfirm: "Eliminar recibo",
+      deletingReceipt: "Eliminando...",
+      deleteReceiptFailed: "No se pudo eliminar el recibo.",
       untitledReceipt: "Recibo sin título",
       emptyTitle: "Todavía no hay compras guardadas para este mes",
       emptyDescription:
@@ -861,7 +895,7 @@ export const localeMessages = {
   },
   "pt-BR": {
     metadata: {
-      title: "Receipt AI",
+      title: metadataTitle,
       description:
         "Interface de extração de recibos com Hugging Face Inference na Vercel.",
     },
@@ -1011,9 +1045,16 @@ export const localeMessages = {
         receiptsSaved: "Recibos salvos",
         categoriesActive: "Categorias ativas",
       },
-      recentExtractions: "Extrações recentes",
+      recentExtractions: "Recibos recentes",
       recentExtractionsDescription:
-        "Capturas de recibos salvas no momento da extração. Elas aparecem na hora, mesmo antes de salvar correções nos totais agrupados.",
+        "Recibos salvos que já entram nos totais do mês. Ao excluir um deles, as linhas dessa compra saem do painel.",
+      deleteReceipt: "Excluir recibo",
+      deleteReceiptTitle: "Excluir este recibo?",
+      deleteReceiptDescription:
+        "Ao excluir {receiptName}, todas as linhas de compra desse recibo sairão dos totais mensais.",
+      deleteReceiptConfirm: "Excluir recibo",
+      deletingReceipt: "Excluindo...",
+      deleteReceiptFailed: "Não foi possível excluir o recibo.",
       untitledReceipt: "Recibo sem título",
       emptyTitle: "Ainda não há compras salvas para este mês",
       emptyDescription:

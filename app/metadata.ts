@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   },
   description:
     "A receipt extraction UI backed by AI Hugging Face Inference on Vercel.",
+
   applicationName: "Receipt Aggregator AI",
   metadataBase: new URL("https://receipt-parser-agg.vercel.app/en/"),
 };

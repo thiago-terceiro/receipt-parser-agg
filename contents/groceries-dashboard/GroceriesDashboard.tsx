@@ -201,6 +201,7 @@ export const GroceriesDashboard = ({
       />
 
       <GroceriesDashboardRecentReceiptsSection
+        boardId={activeBoard.id}
         receipts={recentExtractedReceipts}
         translations={translations}
         currencyFormatter={currencyFormatter}

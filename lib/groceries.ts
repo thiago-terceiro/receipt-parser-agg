@@ -67,6 +67,19 @@ export type MonthOption = {
   label: string;
 };
 
+const buildReceiptItemsFromEntries = (
+  entries: GroceryEntry[],
+): ReceiptItem[] => {
+  return entries.map((entry) => ({
+    item: entry.item,
+    normalizedItem: entry.normalizedItem,
+    category: entry.category,
+    quantity: entry.quantity,
+    unitPrice: entry.unitPrice,
+    lineTotal: entry.lineTotal,
+  }));
+};
+
 export const getMonthKey = (date: Date): string => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 };
@@ -161,6 +174,59 @@ export const resolveRequestedMonth = (
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
+export const buildSavedReceiptSummaries = (
+  month: string,
+  entries: GroceryEntry[],
+  extractedReceipts: ExtractedReceipt[] = [],
+): ExtractedReceipt[] => {
+  const extractedReceiptsById = new Map(
+    extractedReceipts.map((receipt) => [receipt.id, receipt] as const),
+  );
+  const entriesByReceiptId = new Map<string, GroceryEntry[]>();
+
+  for (const entry of entries) {
+    const existingEntries = entriesByReceiptId.get(entry.receiptId);
+    if (existingEntries) {
+      existingEntries.push(entry);
+      continue;
+    }
+
+    entriesByReceiptId.set(entry.receiptId, [entry]);
+  }
+
+  return Array.from(entriesByReceiptId.entries())
+    .map(([receiptId, receiptEntries]) => {
+      const sortedEntries = [...receiptEntries].sort(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) ||
+          left.id.localeCompare(right.id),
+      );
+      const extractedReceipt = extractedReceiptsById.get(receiptId);
+
+      return {
+        id: receiptId,
+        month,
+        sourceFileName:
+          extractedReceipt?.sourceFileName ?? sortedEntries[0]?.sourceFileName ?? null,
+        modelId: extractedReceipt?.modelId ?? sortedEntries[0]?.modelId ?? null,
+        extractedAt:
+          extractedReceipt?.extractedAt ??
+          sortedEntries[0]?.createdAt ??
+          sortedEntries[0]?.purchaseDate ??
+          new Date(0).toISOString(),
+        itemCount: sortedEntries.length,
+        total: roundCurrency(
+          sortedEntries.reduce((sum, entry) => sum + entry.lineTotal, 0),
+        ),
+        categories: Array.from(
+          new Set(sortedEntries.map((entry) => entry.category)),
+        ),
+        items: buildReceiptItemsFromEntries(sortedEntries),
+      } satisfies ExtractedReceipt;
+    })
+    .sort((left, right) => right.extractedAt.localeCompare(left.extractedAt));
+};
+
 export const buildGroceriesMonthPayload = (
   month: string,
   entries: GroceryEntry[],
@@ -169,6 +235,11 @@ export const buildGroceriesMonthPayload = (
   const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
   const receiptIds = new Set(entries.map((entry) => entry.receiptId));
   const uniqueItemIds = new Set(entries.map((entry) => entry.normalizedItem));
+  const recentReceipts = buildSavedReceiptSummaries(
+    month,
+    entries,
+    extractedReceipts,
+  );
 
   const categories = groceryCategories
     .map((category) => {
@@ -236,8 +307,6 @@ export const buildGroceriesMonthPayload = (
     },
     categories,
     entries,
-    extractedReceipts: [...extractedReceipts].sort((left, right) =>
-      right.extractedAt.localeCompare(left.extractedAt),
-    ),
+    extractedReceipts: recentReceipts,
   };
 };

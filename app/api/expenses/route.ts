@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireBoardIdentity } from "@/lib/boards-server";
+import { BoardRouteError, requireBoardIdentity } from "@/lib/boards-server";
 import {
   buildGroceriesMonthPayload,
   getMonthKey,
@@ -8,6 +8,7 @@ import {
   type GroceryEntry,
 } from "@/lib/groceries";
 import {
+  deleteSavedReceipt,
   loadGroceriesEntries,
   persistGroceriesEntries,
 } from "@/lib/groceries-server";
@@ -20,6 +21,11 @@ type CreateExpensesPayload = {
   purchaseDate?: unknown;
   sourceFileName?: unknown;
   modelId?: unknown;
+};
+
+type DeleteExpensesPayload = {
+  boardId?: unknown;
+  receiptId?: unknown;
 };
 
 export async function POST(request: Request) {
@@ -115,6 +121,45 @@ export async function GET(request: Request) {
     return NextResponse.json(buildGroceriesMonthPayload(month, entries));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load groceries.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  let identity;
+
+  try {
+    identity = await requireBoardIdentity();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Sign in to manage groceries.";
+
+    return NextResponse.json(
+      { error: message },
+      { status: message === "Boards are not configured on the server." ? 503 : 401 },
+    );
+  }
+
+  const data = (await request.json()) as DeleteExpensesPayload;
+
+  try {
+    const result = await deleteSavedReceipt(identity, data.boardId, data.receiptId);
+
+    return NextResponse.json({
+      ok: true,
+      boardId: result.board.id,
+      deletedEntriesCount: result.deletedEntriesCount,
+      receiptId: data.receiptId,
+    });
+  } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
+
+    const message = error instanceof Error ? error.message : "Unable to delete receipt.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

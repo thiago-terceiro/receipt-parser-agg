@@ -1,5 +1,6 @@
 import {
     type ActiveBoardSelection,
+    BoardRouteError,
     requireBoardAccess,
     resolveActiveBoardForIdentity,
 } from "@/lib/boards-server";
@@ -13,6 +14,9 @@ import type { SessionIdentity } from "@/lib/session";
 import { getSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase-server";
 
 export const normalizeStorageToken = (value: string) => value.trim().toLowerCase();
+
+const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type StorageNamespace = "groceries" | "receipt-extractions";
 
@@ -197,6 +201,19 @@ const asAuthenticatedIdentity = (identity: SessionIdentity | null) => {
     }
 
     return identity as SessionIdentity & { userId: string };
+};
+
+const normalizeReceiptId = (value: unknown) => {
+    if (typeof value !== "string") {
+        throw new BoardRouteError("Receipt id is required.", 400);
+    }
+
+    const normalized = value.trim();
+    if (!uuidPattern.test(normalized)) {
+        throw new BoardRouteError("Receipt id is invalid.", 400);
+    }
+
+    return normalized;
 };
 
 const mapEntryRecord = (record: SupabaseGroceriesEntryRecord): GroceryEntry => {
@@ -387,5 +404,50 @@ export const persistExtractedReceipt = async (
 
     return {
         activeBoard: selection.activeBoard,
+    };
+};
+
+export const deleteSavedReceipt = async (
+    identity: SessionIdentity | null,
+    requestedBoardId: unknown,
+    receiptId: unknown,
+) => {
+    const authenticatedIdentity = asAuthenticatedIdentity(identity);
+    const normalizedReceiptId = normalizeReceiptId(receiptId);
+    const { board, client } = await requireBoardAccess(
+        authenticatedIdentity,
+        requestedBoardId,
+        ["owner", "editor"],
+    );
+
+    const { data: deletedEntries, error: entriesError } = await client
+        .from("grocery_entries")
+        .delete()
+        .eq("board_id", board.id)
+        .eq("receipt_id", normalizedReceiptId)
+        .select("id");
+
+    if (entriesError) {
+        throw new Error(entriesError.message || "Unable to delete grocery entries.");
+    }
+
+    const { data: deletedReceipts, error: receiptsError } = await client
+        .from("extracted_receipts")
+        .delete()
+        .eq("board_id", board.id)
+        .eq("id", normalizedReceiptId)
+        .select("id");
+
+    if (receiptsError) {
+        throw new Error(receiptsError.message || "Unable to delete receipt history.");
+    }
+
+    if ((deletedEntries?.length ?? 0) === 0 && (deletedReceipts?.length ?? 0) === 0) {
+        throw new BoardRouteError("Receipt not found.", 404);
+    }
+
+    return {
+        board,
+        deletedEntriesCount: deletedEntries?.length ?? 0,
     };
 };

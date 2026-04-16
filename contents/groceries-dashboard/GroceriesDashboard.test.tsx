@@ -38,6 +38,7 @@ type MockSummaryProps = {
 };
 
 type MockRecentProps = {
+    boardId: string;
     receipts: unknown[];
 };
 

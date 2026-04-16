@@ -7,7 +7,6 @@ import {
   localeCookieName,
 } from "@/lib/i18n/config";
 
-import type { Metadata } from "next";
 import "./globals.css";
 
 const themeBootScript = `(() => {
@@ -33,12 +32,6 @@ const themeBootScript = `(() => {
   document.documentElement.lang = documentLanguage;
   document.documentElement.style.colorScheme = resolvedTheme;
 })();`;
-
-export const metadata: Metadata = {
-  title: "Receipt AI",
-  description:
-    "Receipt extraction UI backed by Hugging Face Inference on Vercel.",
-};
 
 const RootLayout = async ({
   children,
