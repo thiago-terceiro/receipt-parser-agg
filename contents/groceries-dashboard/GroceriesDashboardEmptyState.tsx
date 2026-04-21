@@ -2,18 +2,16 @@
 
 import Link from "next/link";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMonthLabel } from "@/lib/groceries";
-
-type DashboardTranslations = ReturnType<typeof useTranslations>;
+import type { Messages } from "@/lib/i18n/messages";
 
 type GroceriesDashboardEmptyStateProps = {
   homePath: string;
   month: string;
   locale: string;
-  translations: DashboardTranslations;
+  translations: Messages;
 };
 
 export const GroceriesDashboardEmptyState = ({

@@ -4,7 +4,6 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,9 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { GroceriesMonthPayload } from "@/lib/groceries";
+import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel } from "@/lib/receipt";
-
-type DashboardTranslations = ReturnType<typeof useTranslations>;
 
 const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
   const responseText = await response.text();
@@ -33,7 +31,7 @@ const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
 type GroceriesDashboardRecentReceiptsSectionProps = {
   boardId: string;
   receipts: GroceriesMonthPayload["extractedReceipts"];
-  translations: DashboardTranslations;
+  translations: Messages;
   currencyFormatter: Intl.NumberFormat;
   dateTimeFormatter: Intl.DateTimeFormat;
 };

@@ -1,11 +1,6 @@
-import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import {
-  buildLocalizedUrl,
-  localeCookieName,
-  resolveRequestLocale,
-} from "@/lib/i18n/config";
+import { getPreferredLocalizedUrl } from "@/app/localized-redirect";
 
 type GroceriesPageProps = {
   searchParams?: Promise<{
@@ -20,14 +15,7 @@ const GroceriesPage = async ({ searchParams }: GroceriesPageProps) => {
     params.set("month", resolvedSearchParams.month);
   }
 
-  const cookieStore = await cookies();
-  const headerStore = await headers();
-  const locale = resolveRequestLocale({
-    cookieLocale: cookieStore.get(localeCookieName)?.value ?? null,
-    acceptLanguage: headerStore.get("accept-language"),
-  });
-
-  redirect(buildLocalizedUrl("/groceries", locale, params));
+  redirect(await getPreferredLocalizedUrl("/groceries", params));
 };
 
 export default GroceriesPage;

@@ -2,21 +2,19 @@
 
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import type { GroceryCategorySummary } from "@/lib/groceries";
+import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel } from "@/lib/receipt";
 
 import { CategorySummaryCard, MemoizedCategoryDetails } from "./GroceriesDashboardParts";
-
-type DashboardTranslations = ReturnType<typeof useTranslations>;
 
 type GroceriesDashboardCategoriesSectionProps = {
   categories: GroceryCategorySummary[];
@@ -24,7 +22,7 @@ type GroceriesDashboardCategoriesSectionProps = {
   active: GroceryCategorySummary | null;
   activeCategoryLabel: string | null;
   isMobileDetailOpen: boolean;
-  translations: DashboardTranslations;
+  translations: Messages;
   currencyFormatter: Intl.NumberFormat;
   percentFormatter: Intl.NumberFormat;
   onSelectCategory: (category: GroceryCategorySummary) => void;

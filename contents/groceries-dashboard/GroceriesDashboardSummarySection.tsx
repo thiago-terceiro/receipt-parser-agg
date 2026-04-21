@@ -4,23 +4,21 @@ import { CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Button } from "@/components/ui/button";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-    formatMonthLabel,
-    shiftMonthKey,
-    type GroceriesMonthPayload,
-    type MonthOption,
+  formatMonthLabel,
+  shiftMonthKey,
+  type GroceriesMonthPayload,
+  type MonthOption,
 } from "@/lib/groceries";
-
-type DashboardTranslations = ReturnType<typeof useTranslations>;
+import type { Messages } from "@/lib/i18n/messages";
 
 type DashboardStat = {
   label: string;
@@ -37,7 +35,7 @@ type GroceriesDashboardSummarySectionProps = {
   groceriesPath: string;
   homePath: string;
   statCards: DashboardStat[];
-  translations: DashboardTranslations;
+  translations: Messages;
   onMonthChange: (month: string) => void;
 };
 

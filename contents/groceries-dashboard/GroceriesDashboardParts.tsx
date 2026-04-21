@@ -4,20 +4,18 @@ import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import { memo } from "react";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Badge } from "@/components/ui/badge";
 import {
   type GroceryCategorySummary,
 } from "@/lib/groceries";
+import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel } from "@/lib/receipt";
 import { cn } from "@/lib/utils";
-
-type DashboardTranslations = ReturnType<typeof useTranslations>;
 
 type CategoryDetailsProps = {
   category: GroceryCategorySummary;
   categoryLabel: string;
-  translations: DashboardTranslations;
+  translations: Messages;
   currencyFormatter: Intl.NumberFormat;
   percentFormatter: Intl.NumberFormat;
   className?: string;
@@ -121,7 +119,7 @@ export const MemoizedCategoryDetails = memo(CategoryDetails);
 type CategorySummaryCardProps = {
   category: GroceryCategorySummary;
   isActive: boolean;
-  translations: DashboardTranslations;
+  translations: Messages;
   currencyFormatter: Intl.NumberFormat;
   percentFormatter: Intl.NumberFormat;
   onSelect: (category: GroceryCategorySummary) => void;
