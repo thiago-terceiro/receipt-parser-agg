@@ -1,22 +1,15 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { GroceriesDashboard } from "@/contents/groceries-dashboard/GroceriesDashboard";
-import {
-  listBoardMembersForIdentity,
-  requireBoardIdentity,
-} from "@/lib/boards-server";
+import { requireBoardIdentity } from "@/lib/boards-server";
 import {
   buildGroceriesMonthPayload,
   buildMonthOptions,
   getMonthKey,
   resolveRequestedMonth,
 } from "@/lib/groceries";
-import {
-  loadGroceriesMonthData,
-  resolveGroceriesBoardSelection,
-} from "@/lib/groceries-server";
+import { loadGroceriesDashboardData } from "@/lib/groceries-server";
 import { getLocaleFromSegment } from "@/lib/i18n/config";
-import { getMessages } from "@/lib/i18n/messages";
 import { getSessionIdentity } from "@/lib/session";
 
 import { GroceriesSignInCard } from "./GroceriesSignInCard";
@@ -35,14 +28,16 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const { locale } = await params;
   const resolvedLocale = getLocaleFromSegment(locale);
   setRequestLocale(resolvedLocale);
-  const translations = await getMessages(resolvedLocale);
+  const t = await getTranslations({ locale: resolvedLocale, namespace: "groceries" });
   const identity = await getSessionIdentity();
 
   if (!identity) {
     return (
       <GroceriesSignInCard
         locale={resolvedLocale}
-        translations={translations.groceries}
+        title={t("signInTitle")}
+        description={t("signInDescription")}
+        backToHomeLabel={t("backToHome")}
       />
     );
   }
@@ -52,18 +47,10 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const requestedBoardId = resolvedSearchParams?.board;
   const month = resolveRequestedMonth(resolvedSearchParams?.month, currentMonth);
   const boardIdentity = await requireBoardIdentity();
-  const selection = await resolveGroceriesBoardSelection(
-    boardIdentity,
-    requestedBoardId,
-  );
-  const { entries, extractedReceipts } = await loadGroceriesMonthData(
+  const { selection, entries, extractedReceipts, members } = await loadGroceriesDashboardData(
     boardIdentity,
     month,
-    selection.activeBoard.id,
-  );
-  const members = await listBoardMembersForIdentity(
-    boardIdentity,
-    selection.activeBoard.id,
+    requestedBoardId,
   );
 
   const payload = buildGroceriesMonthPayload(month, entries, extractedReceipts);

@@ -5,10 +5,14 @@ import { createTestTranslations } from "@/test/mock-state";
 
 describe("GroceriesSignInCard", () => {
     it("renders the sign-in message and localized home link", () => {
+        const translations = createTestTranslations().groceries;
+
         render(
             <GroceriesSignInCard
+                backToHomeLabel={translations.backToHome}
+                description={translations.signInDescription}
                 locale="es"
-                translations={createTestTranslations().groceries}
+                title={translations.signInTitle}
             />,
         );
 

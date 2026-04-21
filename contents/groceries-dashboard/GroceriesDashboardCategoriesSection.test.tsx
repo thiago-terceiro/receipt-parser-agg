@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PropsWithChildren } from "react";
+
 
 import { GroceriesDashboardCategoriesSection } from "@/contents/groceries-dashboard/GroceriesDashboardCategoriesSection";
 import type { GroceryCategorySummary } from "@/lib/groceries";
 import { makeCategorySummary } from "@/test/fixtures";
 import { createTestTranslations } from "@/test/mock-state";
+
+import type { PropsWithChildren } from "react";
 
 type MockCategorySummaryCardProps = {
     category: GroceryCategorySummary;

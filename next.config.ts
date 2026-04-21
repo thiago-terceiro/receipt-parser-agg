@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh*.googleusercontent.com',
+        port: '',
+        pathname: '/**', // This allows all images from this host
+      },
+    ],
+  },
 };
 
 const withNextIntl = createNextIntlPlugin();

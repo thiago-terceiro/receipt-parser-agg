@@ -15,18 +15,14 @@ jest.mock("@/context/ThemeProvider", () => ({
 }));
 
 describe("ThemeToggle", () => {
-    it("renders the theme group and summary", () => {
+    it("renders the theme group without a preference summary", () => {
         render(<ThemeToggle />);
 
         expect(screen.getByRole("group")).toHaveAttribute(
             "aria-label",
             "theme.switcherLabel",
         );
-        expect(
-            screen.getByText(
-                'theme.currentPreferenceSystem {"resolvedThemeLabel":"theme.dark"}',
-            ),
-        ).toBeInTheDocument();
+        expect(screen.queryByText(/theme\.currentPreference/i)).not.toBeInTheDocument();
     });
 
     it("updates the theme when an option is clicked", async () => {

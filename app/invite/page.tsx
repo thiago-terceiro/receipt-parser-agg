@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { getPreferredLocale } from "@/app/localized-redirect";
+import { redirect } from "@/i18n/navigation";
 
-import { getPreferredLocalizedUrl } from "@/app/localized-redirect";
 
 const InviteRedirectPage = async ({
   searchParams,
@@ -8,13 +8,17 @@ const InviteRedirectPage = async ({
   searchParams?: Promise<{ token?: string }>;
 }) => {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const locale = await getPreferredLocale();
 
-  const redirectParams = new URLSearchParams();
-  if (resolvedSearchParams?.token) {
-    redirectParams.set("token", resolvedSearchParams.token);
-  }
-
-  redirect(await getPreferredLocalizedUrl("/invite", redirectParams));
+  redirect({
+    href: resolvedSearchParams?.token
+      ? {
+        pathname: "/invite",
+        query: { token: resolvedSearchParams.token },
+      }
+      : "/invite",
+    locale,
+  });
 };
 
 export default InviteRedirectPage;

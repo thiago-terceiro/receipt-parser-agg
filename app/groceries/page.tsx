@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { getPreferredLocale } from "@/app/localized-redirect";
+import { redirect } from "@/i18n/navigation";
 
-import { getPreferredLocalizedUrl } from "@/app/localized-redirect";
 
 type GroceriesPageProps = {
   searchParams?: Promise<{
@@ -10,12 +10,17 @@ type GroceriesPageProps = {
 
 const GroceriesPage = async ({ searchParams }: GroceriesPageProps) => {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const params = new URLSearchParams();
-  if (resolvedSearchParams?.month) {
-    params.set("month", resolvedSearchParams.month);
-  }
+  const locale = await getPreferredLocale();
 
-  redirect(await getPreferredLocalizedUrl("/groceries", params));
+  redirect({
+    href: resolvedSearchParams?.month
+      ? {
+        pathname: "/groceries",
+        query: { month: resolvedSearchParams.month },
+      }
+      : "/groceries",
+    locale,
+  });
 };
 
 export default GroceriesPage;

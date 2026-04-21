@@ -9,7 +9,6 @@ describe("GroceriesDashboardEmptyState", () => {
 
         render(
             <GroceriesDashboardEmptyState
-                homePath="/en"
                 month="2026-04"
                 locale="en"
                 translations={translations}

@@ -4,6 +4,19 @@ import userEvent from "@testing-library/user-event";
 import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { mockAuthState } from "@/test/mock-state";
 
+const setViewportMatch = (matches: boolean) => {
+    Object.defineProperty(window, "matchMedia", {
+        writable: true,
+        value: jest.fn().mockImplementation(() => ({
+            matches,
+            media: "(max-width: 700px)",
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            dispatchEvent: jest.fn(),
+        })),
+    });
+};
+
 jest.mock("@/components/locale-switcher", () => ({
     LocaleSwitcher: () => <div>Locale switcher</div>,
 }));
@@ -13,10 +26,16 @@ jest.mock("@/components/theme-toggle", () => ({
 }));
 
 describe("GoogleAuthControls", () => {
+    beforeEach(() => {
+        setViewportMatch(false);
+    });
+
     it("shows setup guidance when Google auth is unavailable", () => {
         render(<GoogleAuthControls canUseGoogleAuth={false} />);
 
-        expect(screen.getByText("auth.title")).toBeInTheDocument();
+        expect(
+            screen.getByRole("region", { name: "auth.sectionLabel" }),
+        ).toBeInTheDocument();
         expect(
             screen.getByRole("button", { name: "auth.continueWithGoogle" }),
         ).toBeDisabled();
@@ -60,5 +79,25 @@ describe("GoogleAuthControls", () => {
         await userEvent.click(screen.getByRole("button", { name: "auth.signOut" }));
 
         expect(mockAuthState.signOut).toHaveBeenCalledWith({ callbackUrl: "/en" });
+    });
+
+    it("shows a hamburger menu on mobile and stacks the controls inside it", async () => {
+        setViewportMatch(true);
+
+        render(<GoogleAuthControls canUseGoogleAuth />);
+
+        const user = userEvent.setup();
+        const menuButton = screen.getByRole("button", { name: "auth.sectionLabel" });
+
+        expect(
+            screen.queryByRole("button", { name: "auth.continueWithGoogle" }),
+        ).not.toBeInTheDocument();
+
+        await user.click(menuButton);
+
+        expect(screen.getByRole("heading", { name: "auth.sectionLabel" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "auth.continueWithGoogle" })).toBeInTheDocument();
+        expect(screen.getByText("Theme toggle")).toBeInTheDocument();
+        expect(screen.getByText("Locale switcher")).toBeInTheDocument();
     });
 });

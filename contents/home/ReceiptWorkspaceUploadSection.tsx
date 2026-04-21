@@ -9,7 +9,6 @@ import {
     type RefObject,
 } from "react";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +18,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import type { Messages } from "@/lib/i18n/messages";
 import type { AvailableModel } from "@/lib/receipt";
 
-type WorkspaceTranslations = ReturnType<typeof useTranslations>;
+type WorkspaceTranslations = Pick<Messages, "receipt">;
 
 type ReceiptWorkspaceUploadSectionProps = {
     availableModels: AvailableModel[];

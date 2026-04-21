@@ -1,6 +1,7 @@
 import {
     type ActiveBoardSelection,
     BoardRouteError,
+    listBoardMembersForResolvedBoard,
     requireBoardAccess,
     resolveActiveBoardForIdentity,
 } from "@/lib/boards-server";
@@ -153,6 +154,43 @@ export const loadGroceriesMonthData = async (
     };
 };
 
+export const loadGroceriesDashboardData = async (
+    identity: SessionIdentity | null,
+    month: string,
+    requestedBoardId?: unknown,
+) => {
+    const selection = await resolveBoardSelection(identity, requestedBoardId);
+
+    if (hasSupabaseServerConfig && identity?.userId) {
+        const client = getSupabaseServerClient();
+        const activeBoardId = selection.activeBoard.id;
+        const [entries, extractedReceipts, members] = await Promise.all([
+            loadSupabaseGroceriesEntriesForBoard(client, activeBoardId, month),
+            loadSupabaseExtractedReceiptsForBoard(client, activeBoardId, month),
+            listBoardMembersForResolvedBoard(client, activeBoardId),
+        ]);
+
+        return {
+            selection,
+            entries,
+            extractedReceipts,
+            members,
+        };
+    }
+
+    const [entries, extractedReceipts] = await Promise.all([
+        loadStorageEntries<GroceryEntry>("groceries", identity, month),
+        loadStorageEntries<ExtractedReceipt>("receipt-extractions", identity, month),
+    ]);
+
+    return {
+        selection,
+        entries,
+        extractedReceipts,
+        members: [],
+    };
+};
+
 export const getGroceriesWriteKey = (
     identity: SessionIdentity | null,
     month: string,
@@ -273,6 +311,19 @@ const loadSupabaseGroceriesEntries = async (
 ) => {
     const selection = await resolveBoardSelection(identity, requestedBoardId);
     const client = getSupabaseServerClient();
+
+    return loadSupabaseGroceriesEntriesForBoard(
+        client,
+        selection.activeBoard.id,
+        month,
+    );
+};
+
+const loadSupabaseGroceriesEntriesForBoard = async (
+    client: ReturnType<typeof getSupabaseServerClient>,
+    boardId: string,
+    month: string,
+) => {
     const { start } = getMonthRange(month);
     const nextMonthStart = new Date(
         Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
@@ -283,7 +334,7 @@ const loadSupabaseGroceriesEntries = async (
         .select(
             "id, receipt_id, normalized_item, item, category, quantity, unit_price, line_total, source_file_name, model_id, purchase_date, created_at",
         )
-        .eq("board_id", selection.activeBoard.id)
+        .eq("board_id", boardId)
         .gte("purchase_date", start.toISOString())
         .lt("purchase_date", nextMonthStart)
         .order("purchase_date", { ascending: false })
@@ -304,12 +355,25 @@ const loadSupabaseExtractedReceipts = async (
     const selection = await resolveBoardSelection(identity, requestedBoardId);
     const client = getSupabaseServerClient();
 
+    return loadSupabaseExtractedReceiptsForBoard(
+        client,
+        selection.activeBoard.id,
+        month,
+    );
+};
+
+const loadSupabaseExtractedReceiptsForBoard = async (
+    client: ReturnType<typeof getSupabaseServerClient>,
+    boardId: string,
+    month: string,
+) => {
+
     const { data, error } = await client
         .from("extracted_receipts")
         .select(
             "id, month, source_file_name, model_id, extracted_at, item_count, total, categories, items, created_at",
         )
-        .eq("board_id", selection.activeBoard.id)
+        .eq("board_id", boardId)
         .eq("month", month)
         .order("extracted_at", { ascending: false });
 

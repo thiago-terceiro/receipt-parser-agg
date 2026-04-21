@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { notFound } from "next/navigation";
 
 import { LocaleEffects } from "@/components/locale-utils";
 import { routing } from "@/i18n/routing";
@@ -9,7 +9,6 @@ import {
   getLocaleSegment,
   isLocaleSegment,
 } from "@/lib/i18n/config";
-import { getMessages } from "@/lib/i18n/messages";
 
 import type { Metadata } from "next";
 
@@ -37,11 +36,14 @@ export const generateMetadata = async ({
     };
   }
 
-  const translations = await getMessages(getLocaleFromSegment(locale));
+  const t = await getTranslations({
+    locale: getLocaleFromSegment(locale),
+    namespace: "metadata",
+  });
 
   return {
-    title: translations.metadata.title,
-    description: translations.metadata.description,
+    title: { default: t("title"), template: "%s | Receipt Aggregator AI" },
+    description: t("description"),
   };
 };
 
@@ -57,8 +59,12 @@ const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
   setRequestLocale(resolvedLocale);
 
   return (
-    <NextIntlClientProvider locale={resolvedLocale}>
-      <LocaleEffects locale={resolvedLocale}>{children}</LocaleEffects>
+    <NextIntlClientProvider>
+      <LocaleEffects>
+        <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
+          {children}
+        </main>
+      </LocaleEffects>
     </NextIntlClientProvider>
   );
 };

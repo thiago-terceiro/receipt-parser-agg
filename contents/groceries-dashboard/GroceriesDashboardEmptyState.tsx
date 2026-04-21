@@ -1,21 +1,20 @@
 "use client";
 
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "@/i18n/navigation";
 import { formatMonthLabel } from "@/lib/groceries";
+import type { AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 
 type GroceriesDashboardEmptyStateProps = {
-  homePath: string;
   month: string;
-  locale: string;
+  locale: AppLocale;
   translations: Messages;
 };
 
 export const GroceriesDashboardEmptyState = ({
-  homePath,
   month,
   locale,
   translations,
@@ -32,7 +31,7 @@ export const GroceriesDashboardEmptyState = ({
           </p>
           <div>
             <Button asChild>
-              <Link href={homePath}>{translations.groceries.extractReceipt}</Link>
+              <Link href="/" locale={locale}>{translations.groceries.extractReceipt}</Link>
             </Button>
           </div>
         </div>

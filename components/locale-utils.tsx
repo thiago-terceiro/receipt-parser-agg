@@ -8,26 +8,21 @@ import { useEffect, useMemo } from "react";
 
 import {
   getHtmlLang,
-  localeCookieName,
-  localeStorageKey,
   type AppLocale,
 } from "@/lib/i18n/config";
 import { createMessagesObject, type Messages } from "@/lib/i18n/messages";
 
-export const persistLocalePreference = (locale: AppLocale) => {
-  document.cookie = `${localeCookieName}=${encodeURIComponent(locale)}; path=/; max-age=31536000; SameSite=Lax`;
-  window.localStorage.setItem(localeStorageKey, locale);
+export const syncDocumentLocale = (locale: AppLocale) => {
   document.documentElement.lang = getHtmlLang(locale);
 };
 
 export const LocaleEffects = ({
   children,
-  locale,
-}: React.PropsWithChildren<{
-  locale: AppLocale;
-}>) => {
+}: React.PropsWithChildren) => {
+  const locale = useLocale();
+
   useEffect(() => {
-    persistLocalePreference(locale);
+    syncDocumentLocale(locale);
   }, [locale]);
 
   return children;

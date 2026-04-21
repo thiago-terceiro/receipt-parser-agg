@@ -6,7 +6,6 @@ import {
   ensureOwnerBoard,
   ensureProfile,
   parseRedisList,
-  type ResolvedStorageRecord,
 } from "./shared-board-migration-utils";
 
 type GroceryRedisItem = {

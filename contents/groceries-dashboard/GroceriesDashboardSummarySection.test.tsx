@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CalendarDays } from "lucide-react";
-import type { PropsWithChildren } from "react";
+
 
 import { GroceriesDashboardSummarySection } from "@/contents/groceries-dashboard/GroceriesDashboardSummarySection";
 import { makeMonthPayload, monthOptions } from "@/test/fixtures";
 import { createTestTranslations } from "@/test/mock-state";
+
+import type { PropsWithChildren } from "react";
 
 type MockSelectProps = PropsWithChildren<{
     onValueChange?: (value: string) => void;
@@ -45,8 +47,6 @@ describe("GroceriesDashboardSummarySection", () => {
                 currentMonth="2026-04"
                 monthOptions={monthOptions}
                 locale="en"
-                groceriesPath="/en/groceries"
-                homePath="/en"
                 statCards={statCards}
                 translations={translations}
                 onMonthChange={onMonthChange}
@@ -69,8 +69,6 @@ describe("GroceriesDashboardSummarySection", () => {
                 currentMonth="2026-04"
                 monthOptions={monthOptions}
                 locale="en"
-                groceriesPath="/en/groceries"
-                homePath="/en"
                 statCards={statCards}
                 translations={translations}
                 onMonthChange={jest.fn()}

@@ -4,7 +4,6 @@ export type AppLocale = (typeof appLocales)[number];
 
 export const defaultLocale: AppLocale = "en";
 export const localeCookieName = "receipt-ai-locale";
-export const localeStorageKey = "receipt-ai-locale";
 
 const localeToSegmentMap: Record<AppLocale, string> = {
   en: "en",

@@ -1,7 +1,6 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GoogleAuthControls } from "@/components/google-auth-controls";
@@ -9,7 +8,8 @@ import { useTranslations } from "@/components/locale-utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { localizePath, type AppLocale } from "@/lib/i18n/config";
+import { Link, getPathname, useRouter } from "@/i18n/navigation";
+import { type AppLocale } from "@/lib/i18n/config";
 
 type InviteAcceptanceCardProps = {
     canUseGoogleAuth: boolean;
@@ -67,10 +67,10 @@ export const InviteAcceptanceCard = ({
                 }
 
                 if (!ignore) {
-                    router.replace(
-                        `${localizePath("/groceries", locale)}?board=${payload.invite.board_id}`,
-                    );
-                    router.refresh();
+                    router.replace({
+                        pathname: "/groceries",
+                        query: { board: payload.invite.board_id },
+                    }, { locale });
                 }
             } catch (requestError) {
                 if (!ignore) {
@@ -125,7 +125,7 @@ export const InviteAcceptanceCard = ({
                             </Alert>
                         ) : null}
                         <Button asChild variant="secondary">
-                            <a href={localizePath("/", locale)}>{translations.groceries.backToHome}</a>
+                            <Link href="/" locale={locale}>{translations.groceries.backToHome}</Link>
                         </Button>
                     </CardContent>
                 </Card>
@@ -166,7 +166,13 @@ export const InviteAcceptanceCard = ({
                                 variant="secondary"
                                 onClick={() => {
                                     void signOut({
-                                        callbackUrl: `${localizePath("/invite", locale)}?token=${encodeURIComponent(token)}`,
+                                        callbackUrl: getPathname({
+                                            locale,
+                                            href: {
+                                                pathname: "/invite",
+                                                query: { token },
+                                            },
+                                        }),
                                     });
                                 }}
                             >

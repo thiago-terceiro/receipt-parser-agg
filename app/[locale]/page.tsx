@@ -1,12 +1,11 @@
-import Link from "next/link";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { Button } from "@/components/ui/button";
-import { getLocaleFromSegment, localizePath } from "@/lib/i18n/config";
-import { getMessages } from "@/lib/i18n/messages";
+import { Link } from "@/i18n/navigation";
+import { getLocaleFromSegment } from "@/lib/i18n/config";
 import { dropdownAvailableModels } from "@/lib/receipt";
 
-import { GoogleAuthControls } from "../../components/google-auth-controls";
 import { ReceiptWorkspace } from "../../contents/home/ReceiptWorkspace";
 
 type HomePageProps = {
@@ -19,7 +18,7 @@ const HomePage = async ({ params }: HomePageProps) => {
   const { locale } = await params;
   const resolvedLocale = getLocaleFromSegment(locale);
   setRequestLocale(resolvedLocale);
-  const translations = await getMessages(resolvedLocale);
+  const t = await getTranslations({ locale: resolvedLocale, namespace: "home" });
   const hasGoogleAuthConfigured = Boolean(
     process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
   );
@@ -30,10 +29,10 @@ const HomePage = async ({ params }: HomePageProps) => {
       <section className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch">
         <div className="grid gap-1">
           <p className="m-0 text-[1rem] font-bold">
-            {translations.home.dashboardTitle}
+            {t("dashboardTitle")}
           </p>
           <p className="m-0 text-[0.9rem] leading-[1.5] text-muted-foreground">
-            {translations.home.dashboardDescription}
+            {t("dashboardDescription")}
           </p>
         </div>
         <Button
@@ -41,8 +40,8 @@ const HomePage = async ({ params }: HomePageProps) => {
           variant="secondary"
           className="border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
         >
-          <Link href={localizePath("/groceries", resolvedLocale)}>
-            {translations.home.openGroceriesView}
+          <Link href="/groceries" locale={resolvedLocale}>
+            {t("openGroceriesView")}
           </Link>
         </Button>
       </section>

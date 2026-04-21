@@ -1,7 +1,8 @@
-import type { Session } from "next-auth";
 
 import type { AppLocale } from "@/lib/i18n/config";
 import { createMessagesObject } from "@/lib/i18n/messages";
+
+import type { Session } from "next-auth";
 
 const translate = (
     key: string,
@@ -24,7 +25,7 @@ export const mockIntlState = {
 };
 
 export const mockNavigationState = {
-    pathname: "/en",
+    pathname: "/",
     router: {
         push: jest.fn(),
         replace: jest.fn(),
@@ -45,7 +46,7 @@ export const mockAuthState = {
 
 export const resetMockState = () => {
     mockIntlState.locale = "en";
-    mockNavigationState.pathname = "/en";
+    mockNavigationState.pathname = "/";
     mockNavigationState.search = "";
     Object.values(mockNavigationState.router).forEach((mock) => mock.mockReset());
     mockAuthState.session = null;

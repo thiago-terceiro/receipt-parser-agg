@@ -15,7 +15,6 @@ import {
   useReceiptWorkspaceState,
 } from "@/context/ReceiptWorkspaceStateProvider";
 import { formatMonthLabel } from "@/lib/groceries";
-import { localizePath } from "@/lib/i18n/config";
 
 import {
   EditorState,
@@ -86,7 +85,6 @@ export const ReceiptWorkspace = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
-  const dashboardBaseHref = localizePath("/groceries", locale);
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
@@ -109,22 +107,15 @@ export const ReceiptWorkspace = ({
     ? (displayedItems[editorState.index] ?? null)
     : null;
   const dashboardHref = savedReceipt
-    ? (() => {
-        const searchParams = new URLSearchParams();
-
-        if (savedReceipt.boardId) {
-          searchParams.set("board", savedReceipt.boardId);
-        }
-
-        if (savedReceipt.month) {
-          searchParams.set("month", savedReceipt.month);
-        }
-
-        searchParams.set("saved", savedReceipt.receiptId);
-
-        return `${dashboardBaseHref}?${searchParams.toString()}`;
-      })()
-    : dashboardBaseHref;
+    ? {
+      pathname: "/groceries",
+      query: {
+        ...(savedReceipt.boardId ? { board: savedReceipt.boardId } : {}),
+        ...(savedReceipt.month ? { month: savedReceipt.month } : {}),
+        saved: savedReceipt.receiptId,
+      },
+    }
+    : "/groceries";
 
   useEffect(() => {
     if (!file) {
@@ -495,6 +486,7 @@ export const ReceiptWorkspace = ({
         correctedCount={correctedCount}
         currencyFormatter={currencyFormatter}
         dashboardHref={dashboardHref}
+        locale={locale}
         displayedItems={displayedItems}
         displayedTotal={displayedTotal}
         editedItems={editedItems}

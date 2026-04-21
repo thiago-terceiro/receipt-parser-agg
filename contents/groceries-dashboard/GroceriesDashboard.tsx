@@ -1,17 +1,17 @@
 "use client";
 
-import { CalendarDays, Package2, ReceiptText } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { CalendarDays, Package2, ReceiptText, Undo2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
+import { Button } from "@/components/ui/button";
+import { Link, getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import {
   type GroceriesMonthPayload,
   type GroceryCategorySummary,
   type MonthOption,
 } from "@/lib/groceries";
-import { localizePath } from "@/lib/i18n/config";
 import { formatCategoryLabel } from "@/lib/receipt";
 
 import { GroceriesDashboardBoardsPanel } from "./GroceriesDashboardBoardsPanel";
@@ -42,8 +42,6 @@ export const GroceriesDashboard = ({
     payload.categories[0]?.category ?? null,
   );
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
-  const groceriesPath = localizePath("/groceries", locale);
-  const homePath = localizePath("/", locale);
 
   const currencyFormatter = useMemo(
     () =>
@@ -161,22 +159,38 @@ export const GroceriesDashboard = ({
 
   const handleMonthChange = useCallback(
     (month: string) => {
-      const searchParams = new URLSearchParams();
-
-      searchParams.set("board", activeBoard.id);
-      if (month !== currentMonth) {
-        searchParams.set("month", month);
-      }
-
       router.push(
-        `${groceriesPath}?${searchParams.toString()}`,
+        getPathname({
+          locale,
+          href: {
+            pathname: "/groceries",
+            query: {
+              board: activeBoard.id,
+              ...(month !== currentMonth ? { month } : {}),
+            },
+          },
+        }),
       );
     },
-    [activeBoard.id, currentMonth, groceriesPath, router],
+    [activeBoard.id, currentMonth, locale, router],
   );
 
   return (
     <div className="grid gap-6">
+      <div>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.78rem] font-semibold text-muted-foreground hover:bg-[var(--surface-plain-soft)]"
+        >
+          <Link href="/" locale={locale}>
+            <Undo2 className="size-4" />
+            <span>{translations.groceries.backToHome}</span>
+          </Link>
+        </Button>
+      </div>
+
       <GroceriesDashboardBoardsPanel
         activeBoard={activeBoard}
         boards={boards}
@@ -193,8 +207,6 @@ export const GroceriesDashboard = ({
         currentMonth={currentMonth}
         monthOptions={monthOptions}
         locale={locale}
-        groceriesPath={groceriesPath}
-        homePath={homePath}
         statCards={statCards}
         translations={translations}
         onMonthChange={handleMonthChange}
@@ -210,7 +222,6 @@ export const GroceriesDashboard = ({
 
       {payload.categories.length === 0 ? (
         <GroceriesDashboardEmptyState
-          homePath={homePath}
           month={payload.month}
           locale={locale}
           translations={translations}

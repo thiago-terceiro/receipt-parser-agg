@@ -2,8 +2,8 @@ import { createHash, randomBytes } from "node:crypto";
 
 import {
     BOARD_INVITE_DURATION_DAYS,
-    DEFAULT_BOARD_NAME,
     DEFAULT_BOARD_INVITE_ROLE,
+    DEFAULT_BOARD_NAME,
     isBoardRole,
     isValidBoardId,
     normalizeBoardName,
@@ -385,6 +385,18 @@ export const listBoardMembersForIdentity = async (
     boardId: unknown,
 ) => {
     const { board, client } = await requireBoardAccess(identity, boardId);
+
+    return listBoardMembersForResolvedBoard(client, board.id);
+};
+
+export const listBoardMembersForResolvedBoard = async (
+    client: SupabaseClient,
+    boardId: string,
+) => {
+    const board = await loadBoardRecord(client, boardId);
+    if (!board) {
+        throw new BoardRouteError("Board not found.", 404);
+    }
 
     const { data: memberships, error: membershipError } = await client
         .from("board_members")

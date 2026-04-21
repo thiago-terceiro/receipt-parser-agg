@@ -1,9 +1,8 @@
 "use client";
 
 import { LayoutDashboard } from "lucide-react";
-import Link from "next/link";
+import Image from "next/image";
 
-import { useTranslations } from "@/components/locale-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,20 +15,29 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import type { ExtractionResponse } from "@/context/ReceiptWorkspaceStateProvider";
+import { Link } from "@/i18n/navigation";
+import type { AppLocale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel, type ReceiptItem } from "@/lib/receipt";
 
-type WorkspaceTranslations = ReturnType<typeof useTranslations>;
+type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
 type ReceiptWorkspaceResultsSectionProps = {
     correctedCount: number;
     currencyFormatter: Intl.NumberFormat;
-    dashboardHref: string;
+    dashboardHref:
+    | string
+    | {
+        pathname: string;
+        query: Record<string, string>;
+    };
     displayedItems: ReceiptItem[];
     displayedTotal: number;
     editedItems: Record<number, ReceiptItem>;
     file: File | null;
     isAuthenticated: boolean;
     isSaving: boolean;
+    locale: AppLocale;
     previewUrl: string | null;
     result: ExtractionResponse | null;
     saveMessage: string | null;
@@ -50,6 +58,7 @@ export const ReceiptWorkspaceResultsSection = ({
     file,
     isAuthenticated,
     isSaving,
+    locale,
     previewUrl,
     result,
     saveMessage,
@@ -70,10 +79,13 @@ export const ReceiptWorkspaceResultsSection = ({
                 </div>
                 <CardContent className="p-6">
                     {previewUrl ? (
-                        <img
+                        <Image
                             className="receipt-preview"
                             src={previewUrl}
                             alt={translations.receipt.previewAlt}
+                            width={1200}
+                            height={1600}
+                            unoptimized
                         />
                     ) : (
                         <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
@@ -215,7 +227,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                         variant="secondary"
                                         className="border-[var(--border)] bg-[var(--surface-plain)]"
                                     >
-                                        <Link href={dashboardHref}>
+                                        <Link href={dashboardHref} locale={locale}>
                                             <LayoutDashboard className="size-4" />
                                             <span>
                                                 {saveMessage

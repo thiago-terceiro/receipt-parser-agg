@@ -1,7 +1,6 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "@/i18n/navigation";
 import type { GroceriesMonthPayload } from "@/lib/groceries";
 import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel } from "@/lib/receipt";

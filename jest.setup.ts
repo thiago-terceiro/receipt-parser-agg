@@ -16,11 +16,80 @@ jest.mock("next-intl", () => {
     };
 });
 
+jest.mock("@/i18n/navigation", () => {
+    const { getLocaleSegment } = jest.requireActual("@/lib/i18n/config");
+
+    const buildHref = (
+        locale: string,
+        href:
+            | string
+            | {
+                pathname: string;
+                query?: Record<string, string | number | boolean | undefined>;
+            },
+    ) => {
+        const pathname = typeof href === "string" ? href : href.pathname;
+        const query = typeof href === "string" ? undefined : href.query;
+        const searchParams = new URLSearchParams();
+
+        Object.entries(query ?? {}).forEach(([key, value]) => {
+            if (value != null) {
+                searchParams.set(key, String(value));
+            }
+        });
+
+        const prefix = `/${getLocaleSegment(locale as never)}`;
+        const localizedPath = pathname === "/" ? prefix : `${prefix}${pathname}`;
+        const search = searchParams.toString();
+
+        return search ? `${localizedPath}?${search}` : localizedPath;
+    };
+
+    return {
+        Link: ({
+            children,
+            href,
+            locale,
+            ...props
+        }: {
+            children: React.ReactNode;
+            href:
+            | string
+            | {
+                pathname: string;
+                query?: Record<string, string | number | boolean | undefined>;
+            };
+            locale?: string;
+        }) =>
+            React.createElement(
+                "a",
+                { href: buildHref(locale ?? mockIntlState.locale, href), ...props },
+                children,
+            ),
+        getPathname: ({
+            locale,
+            href,
+        }: {
+            locale: string;
+            href:
+            | string
+            | {
+                pathname: string;
+                query?: Record<string, string | number | boolean | undefined>;
+            };
+        }) => buildHref(locale, href),
+        redirect: jest.fn(),
+        usePathname: () => mockNavigationState.pathname,
+        useRouter: () => mockNavigationState.router,
+    };
+});
+
 jest.mock("next/navigation", () => {
     return {
         usePathname: () => mockNavigationState.pathname,
         useRouter: () => mockNavigationState.router,
         useSearchParams: () => new URLSearchParams(mockNavigationState.search),
+        redirect: jest.fn(),
     };
 });
 
@@ -33,21 +102,6 @@ jest.mock("next-auth/react", () => {
             data: mockAuthState.session,
             status: mockAuthState.status,
         }),
-    };
-});
-
-jest.mock("next/link", () => {
-    return {
-        __esModule: true,
-        default: ({
-            children,
-            href,
-            ...props
-        }: {
-            children: React.ReactNode;
-            href: string;
-        }) =>
-            React.createElement("a", { href, ...props }, children),
     };
 });
 

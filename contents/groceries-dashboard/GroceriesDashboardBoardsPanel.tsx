@@ -1,7 +1,6 @@
 "use client";
 
 import { Copy, Plus, Share2, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
-import { localizePath, type AppLocale } from "@/lib/i18n/config";
+import { type AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 
 type GroceriesDashboardBoardsPanelProps = {
@@ -67,7 +67,10 @@ export const GroceriesDashboardBoardsPanel = ({
   translations,
 }: GroceriesDashboardBoardsPanelProps) => {
   const router = useRouter();
-  const groceriesPath = useMemo(() => localizePath("/groceries", locale), [locale]);
+  const groceriesPath = useMemo(
+    () => getPathname({ locale, href: "/groceries" }),
+    [locale],
+  );
   const [boardName, setBoardName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -158,7 +161,6 @@ export const GroceriesDashboardBoardsPanel = ({
       setBoardName("");
       setIsCreatingBoard(false);
       navigateToBoard(payload.board.id);
-      router.refresh();
     } catch (requestError) {
       setError(
         requestError instanceof Error

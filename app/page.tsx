@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
+import { getPreferredLocale } from "@/app/localized-redirect";
+import { redirect } from "@/i18n/navigation";
 
-import { getPreferredLocalizedUrl } from "@/app/localized-redirect";
 
 const HomeRedirectPage = async () => {
-  redirect(await getPreferredLocalizedUrl("/"));
+  redirect({ href: "/", locale: await getPreferredLocale() });
 };
 
 export default HomeRedirectPage;

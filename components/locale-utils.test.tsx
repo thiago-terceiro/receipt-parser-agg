@@ -2,36 +2,30 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 import {
     LocaleEffects,
-    persistLocalePreference,
+    syncDocumentLocale,
     useLocale,
     useTranslations,
 } from "@/components/locale-utils";
 import { mockIntlState } from "@/test/mock-state";
 
 describe("locale-utils", () => {
-    it("persists the selected locale", () => {
-        persistLocalePreference("pt-BR");
+    it("applies the selected locale to the document", () => {
+        syncDocumentLocale("pt-BR");
 
-        expect(window.localStorage.setItem).toHaveBeenCalledWith(
-            "receipt-ai-locale",
-            "pt-BR",
-        );
         expect(document.documentElement.lang).toBe("pt-BR");
-        expect(document.cookie).toContain("receipt-ai-locale=pt-BR");
     });
 
     it("applies locale side effects through LocaleEffects", async () => {
+        mockIntlState.locale = "es";
+
         render(
-            <LocaleEffects locale="es">
+            <LocaleEffects>
                 <div>content</div>
             </LocaleEffects>,
         );
 
         await waitFor(() => {
-            expect(window.localStorage.setItem).toHaveBeenCalledWith(
-                "receipt-ai-locale",
-                "es",
-            );
+            expect(document.documentElement.lang).toBe("es");
         });
         expect(screen.getByText("content")).toBeInTheDocument();
     });

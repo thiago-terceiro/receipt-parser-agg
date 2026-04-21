@@ -1,11 +1,9 @@
 import { getTranslations } from "next-intl/server";
 
+import { metadata } from "@/app/metadata";
 import { groceryCategories, type GroceryCategory } from "@/lib/receipt";
 
-import { metadata } from "@/app/metadata";
-
 import type { Metadata } from "next";
-
 import type { AppLocale } from "./config";
 
 export type Messages = { metadata: Metadata } & {
@@ -20,9 +18,6 @@ export type Messages = { metadata: Metadata } & {
     system: string;
     light: string;
     dark: string;
-    currentPreference: string;
-    currentPreferenceSystem: (resolvedThemeLabel: string) => string;
-    currentPreferenceExplicit: (themeLabel: string) => string;
   };
   auth: {
     sectionLabel: string;
@@ -235,15 +230,6 @@ export const createMessagesObject = (
       system: t("theme.system"),
       light: t("theme.light"),
       dark: t("theme.dark"),
-      currentPreference: t("theme.currentPreference"),
-      currentPreferenceSystem: (resolvedThemeLabel) =>
-        t("theme.currentPreferenceSystem", {
-          resolvedThemeLabel: resolvedThemeLabel.toLowerCase(),
-        }),
-      currentPreferenceExplicit: (themeLabel) =>
-        t("theme.currentPreferenceExplicit", {
-          themeLabel: themeLabel.toLowerCase(),
-        }),
     },
     auth: {
       sectionLabel: t("auth.sectionLabel"),
@@ -451,10 +437,6 @@ export const localeMessages = {
       system: "System",
       light: "Light",
       dark: "Dark",
-      currentPreference: "Current preference",
-      currentPreferenceSystem:
-        "Current preference: system ({resolvedThemeLabel}).",
-      currentPreferenceExplicit: "Current preference: {themeLabel}.",
     },
     auth: {
       sectionLabel: "Authentication controls",
@@ -682,10 +664,6 @@ export const localeMessages = {
       system: "Sistema",
       light: "Claro",
       dark: "Oscuro",
-      currentPreference: "Preferencia actual",
-      currentPreferenceSystem:
-        "Preferencia actual: sistema ({resolvedThemeLabel}).",
-      currentPreferenceExplicit: "Preferencia actual: {themeLabel}.",
     },
     auth: {
       sectionLabel: "Controles de autenticación",
@@ -914,10 +892,6 @@ export const localeMessages = {
       system: "Sistema",
       light: "Claro",
       dark: "Escuro",
-      currentPreference: "Preferência atual",
-      currentPreferenceSystem:
-        "Preferência atual: sistema ({resolvedThemeLabel}).",
-      currentPreferenceExplicit: "Preferência atual: {themeLabel}.",
     },
     auth: {
       sectionLabel: "Controles de autenticação",

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "./locale-utils";
 
 export const ThemeToggle = () => {
-  const { theme, resolvedTheme, isLoaded, setTheme } = useTheme();
+  const { theme, isLoaded, setTheme } = useTheme();
   const translations = useTranslations();
 
   const themeOptions: Array<{
@@ -17,30 +17,14 @@ export const ThemeToggle = () => {
     label: string;
     Icon: typeof Sun;
   }> = [
-    { value: "system", label: translations.theme.system, Icon: LaptopMinimal },
-    { value: "light", label: translations.theme.light, Icon: Sun },
-    { value: "dark", label: translations.theme.dark, Icon: Moon },
-  ];
-
-  const resolvedThemeLabel =
-    resolvedTheme === "dark"
-      ? translations.theme.dark
-      : translations.theme.light;
-  const explicitThemeLabel =
-    theme === "system"
-      ? translations.theme.system
-      : theme === "dark"
-        ? translations.theme.dark
-        : translations.theme.light;
-  const themeSummary = isLoaded
-    ? theme === "system"
-      ? translations.theme.currentPreferenceSystem(resolvedThemeLabel)
-      : translations.theme.currentPreferenceExplicit(explicitThemeLabel)
-    : translations.theme.currentPreferenceExplicit(translations.theme.system);
+      { value: "system", label: translations.theme.system, Icon: LaptopMinimal },
+      { value: "light", label: translations.theme.light, Icon: Sun },
+      { value: "dark", label: translations.theme.dark, Icon: Moon },
+    ];
 
   return (
-    <div className="grid gap-1">
-      <p className="text-[0.82rem]py-1 font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+    <div className="flex flex-col items-start">
+      <p className="text-[0.82rem] py-1 font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] pl-2">
         {translations.theme.label}
       </p>
       <div
@@ -48,7 +32,7 @@ export const ThemeToggle = () => {
         role="group"
         aria-label={translations.theme.switcherLabel}
       >
-        {themeOptions.map(({ value, label, Icon }) => {
+        {themeOptions.map(({ value, Icon }) => {
           const isActive = isLoaded ? theme === value : value === "system";
 
           return (
@@ -62,7 +46,7 @@ export const ThemeToggle = () => {
               className={cn(
                 "rounded-full px-3",
                 !isActive &&
-                  "text-muted-foreground hover:bg-[var(--surface-plain)] hover:text-foreground",
+                "text-muted-foreground hover:bg-[var(--surface-plain)] hover:text-foreground",
               )}
             >
               <Icon className="size-4" />
@@ -70,7 +54,6 @@ export const ThemeToggle = () => {
           );
         })}
       </div>
-      <span className="text-xs text-muted-foreground">{themeSummary}</span>
     </div>
   );
 };

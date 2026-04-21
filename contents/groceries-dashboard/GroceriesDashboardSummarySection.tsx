@@ -2,7 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
-import Link from "next/link";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,12 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Link } from "@/i18n/navigation";
 import {
   formatMonthLabel,
   shiftMonthKey,
   type GroceriesMonthPayload,
   type MonthOption,
 } from "@/lib/groceries";
+import type { AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 
 type DashboardStat = {
@@ -31,32 +33,30 @@ type GroceriesDashboardSummarySectionProps = {
   payload: GroceriesMonthPayload;
   currentMonth: string;
   monthOptions: MonthOption[];
-  locale: string;
-  groceriesPath: string;
-  homePath: string;
+  locale: AppLocale;
   statCards: DashboardStat[];
   translations: Messages;
   onMonthChange: (month: string) => void;
 };
 
 const buildDashboardHref = (
-  groceriesPath: string,
   boardId: string | undefined,
   month: string,
   currentMonth: string,
 ) => {
-  const searchParams = new URLSearchParams();
+  const query: Record<string, string> = {};
 
   if (boardId) {
-    searchParams.set("board", boardId);
+    query.board = boardId;
   }
 
   if (month !== currentMonth) {
-    searchParams.set("month", month);
+    query.month = month;
   }
 
-  const query = searchParams.toString();
-  return query ? `${groceriesPath}?${query}` : groceriesPath;
+  return Object.keys(query).length > 0
+    ? { pathname: "/groceries", query }
+    : "/groceries";
 };
 
 const getMonthProgress = (month: string) => {
@@ -110,8 +110,6 @@ export const GroceriesDashboardSummarySection = ({
   currentMonth,
   monthOptions,
   locale,
-  groceriesPath,
-  homePath,
   statCards,
   translations,
   onMonthChange,
@@ -121,6 +119,14 @@ export const GroceriesDashboardSummarySection = ({
   const previousMonth = shiftMonthKey(payload.month, -1);
   const nextMonth = shiftMonthKey(payload.month, 1);
   const nextMonthDisabled = nextMonth > currentMonth;
+  const previousMonthHref = useMemo(
+    () => buildDashboardHref(boardId, previousMonth, currentMonth),
+    [boardId, currentMonth, previousMonth],
+  );
+  const nextMonthHref = useMemo(
+    () => buildDashboardHref(boardId, nextMonth, currentMonth),
+    [boardId, currentMonth, nextMonth],
+  );
 
   return (
     <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[var(--surface-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
@@ -151,12 +157,8 @@ export const GroceriesDashboardSummarySection = ({
             className="border-[var(--border)] bg-[var(--surface-plain)]"
           >
             <Link
-              href={buildDashboardHref(
-                groceriesPath,
-                boardId,
-                previousMonth,
-                currentMonth,
-              )}
+              href={previousMonthHref}
+              locale={locale}
             >
               {translations.groceries.previousMonth}
             </Link>
@@ -188,12 +190,8 @@ export const GroceriesDashboardSummarySection = ({
               className="border-[var(--border)] bg-[var(--surface-plain)]"
             >
               <Link
-                href={buildDashboardHref(
-                  groceriesPath,
-                  boardId,
-                  nextMonth,
-                  currentMonth,
-                )}
+                href={nextMonthHref}
+                locale={locale}
               >
                 {translations.groceries.nextMonth}
               </Link>
@@ -204,7 +202,7 @@ export const GroceriesDashboardSummarySection = ({
             variant="secondary"
             className="border-[var(--border)] bg-[var(--surface-plain)] max-[700px]:ml-auto"
           >
-            <Link href={homePath}>{translations.groceries.backToUpload}</Link>
+            <Link href="/" locale={locale}>{translations.groceries.backToUpload}</Link>
           </Button>
         </div>
       </div>
