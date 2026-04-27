@@ -60,10 +60,12 @@ const getInitials = (
 
 type GoogleAuthControlsProps = {
   canUseGoogleAuth: boolean;
+  callbackUrl?: string;
 };
 
 export const GoogleAuthControls = ({
   canUseGoogleAuth,
+  callbackUrl,
 }: GoogleAuthControlsProps) => {
   const { data: session, status } = useSession();
   const locale = useLocale();
@@ -74,17 +76,18 @@ export const GoogleAuthControls = ({
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
   const homeHref = getPathname({ locale, href: "/" });
+  const authCallbackUrl = callbackUrl ?? homeHref;
   const buttonLabel = isAuthenticated
     ? translations.auth.signOut
     : translations.auth.continueWithGoogle;
 
   const handleAuthClick = useCallback(() => {
     if (isAuthenticated) {
-      void signOut({ callbackUrl: homeHref });
+      void signOut({ callbackUrl: authCallbackUrl });
       return;
     }
-    void signIn("google", { callbackUrl: homeHref });
-  }, [homeHref, isAuthenticated]);
+    void signIn("google", { callbackUrl: authCallbackUrl });
+  }, [authCallbackUrl, isAuthenticated]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

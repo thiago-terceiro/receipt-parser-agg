@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { useTranslations } from "@/components/locale-utils";
@@ -13,6 +13,9 @@ import { type AppLocale } from "@/lib/i18n/config";
 
 type InviteAcceptanceCardProps = {
     canUseGoogleAuth: boolean;
+    initialError?: string | null;
+    initialSignedInEmail?: string | null;
+    initialStatus?: "authenticated" | "unauthenticated";
     locale: AppLocale;
     token: string | null;
 };
@@ -27,72 +30,30 @@ const isInviteEmailMismatchError = (message: string | null) => {
 
 export const InviteAcceptanceCard = ({
     canUseGoogleAuth,
+    initialError = null,
+    initialSignedInEmail = null,
+    initialStatus,
     locale,
     token,
 }: InviteAcceptanceCardProps) => {
     const router = useRouter();
     const { data: session, status } = useSession();
     const translations = useTranslations();
-    const [error, setError] = useState<string | null>(null);
-    const [isAccepting, setIsAccepting] = useState(false);
-    const signedInEmail = session?.user?.email ?? null;
+    const [error, setError] = useState<string | null>(initialError);
+    const resolvedStatus = status === "loading" && initialStatus
+        ? initialStatus
+        : status;
+    const signedInEmail = session?.user?.email ?? initialSignedInEmail;
     const isInviteEmailMismatch = isInviteEmailMismatchError(error);
-
-    useEffect(() => {
-        if (!token || status !== "authenticated" || isAccepting) {
-            return;
-        }
-
-        let ignore = false;
-
-        const acceptInvite = async () => {
-            setIsAccepting(true);
-            setError(null);
-
-            try {
-                const response = await fetch("/api/invites/accept", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ token }),
-                });
-                const payload = (await response.json()) as {
-                    error?: string;
-                    invite?: { board_id?: string };
-                };
-
-                if (!response.ok || !payload.invite?.board_id) {
-                    throw new Error(payload.error || "Unable to accept the invite.");
-                }
-
-                if (!ignore) {
-                    router.replace({
-                        pathname: "/groceries",
-                        query: { board: payload.invite.board_id },
-                    }, { locale });
-                }
-            } catch (requestError) {
-                if (!ignore) {
-                    setError(
-                        requestError instanceof Error
-                            ? requestError.message
-                            : "Unable to accept the invite.",
-                    );
-                }
-            } finally {
-                if (!ignore) {
-                    setIsAccepting(false);
-                }
-            }
-        };
-
-        void acceptInvite();
-
-        return () => {
-            ignore = true;
-        };
-    }, [isAccepting, locale, router, signedInEmail, status, token]);
+    const inviteCallbackUrl = token
+        ? getPathname({
+            locale,
+            href: {
+                pathname: "/invite",
+                query: { token },
+            },
+        })
+        : getPathname({ locale, href: "/invite" });
 
     if (!token) {
         return (
@@ -107,10 +68,13 @@ export const InviteAcceptanceCard = ({
         );
     }
 
-    if (status !== "authenticated") {
+    if (resolvedStatus !== "authenticated") {
         return (
             <div className="grid gap-4">
-                <GoogleAuthControls canUseGoogleAuth={canUseGoogleAuth} />
+                <GoogleAuthControls
+                    canUseGoogleAuth={canUseGoogleAuth}
+                    callbackUrl={inviteCallbackUrl}
+                />
                 <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
                     <CardHeader>
                         <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
@@ -138,49 +102,49 @@ export const InviteAcceptanceCard = ({
             <CardHeader>
                 <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
                 <CardDescription>
-                    {isAccepting
-                        ? "Validating the invite and attaching this account to the board..."
-                        : "The invite is ready to be accepted."}
+                    {error
+                        ? "The invite could not be completed automatically."
+                        : "The invite is being finalized."}
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
                 {error ? (
-                    <Alert variant="destructive">
-                        <AlertDescription>
-                            {isInviteEmailMismatch
-                                ? "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited Google account, then open the invite link again."
-                                : error}
-                        </AlertDescription>
-                    </Alert>
-                ) : null}
-                {error && isInviteEmailMismatch ? (
                     <div className="grid gap-3">
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                {isInviteEmailMismatch
+                                    ? "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited Google account, then open the invite link again."
+                                    : error}
+                            </AlertDescription>
+                        </Alert>
                         {signedInEmail ? (
                             <p className="text-sm text-muted-foreground">
                                 Current signed-in email: {signedInEmail}
                             </p>
                         ) : null}
                         <div className="flex flex-wrap gap-3">
+                            {isInviteEmailMismatch ? (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        void signOut({
+                                            callbackUrl: getPathname({
+                                                locale,
+                                                href: {
+                                                    pathname: "/invite",
+                                                    query: { token },
+                                                },
+                                            }),
+                                        });
+                                    }}
+                                >
+                                    Sign out and use another account
+                                </Button>
+                            ) : null}
                             <Button
                                 type="button"
-                                variant="secondary"
-                                onClick={() => {
-                                    void signOut({
-                                        callbackUrl: getPathname({
-                                            locale,
-                                            href: {
-                                                pathname: "/invite",
-                                                query: { token },
-                                            },
-                                        }),
-                                    });
-                                }}
-                            >
-                                Sign out and use another account
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
+                                variant={isInviteEmailMismatch ? "ghost" : "secondary"}
                                 onClick={() => {
                                     setError(null);
                                     router.refresh();
@@ -194,9 +158,7 @@ export const InviteAcceptanceCard = ({
                 {!error ? (
                     <Alert>
                         <AlertDescription>
-                            {isAccepting
-                                ? "Processing invite..."
-                                : "Invite accepted. Redirecting to the shared board..."}
+                            Invite accepted. Redirecting to the shared board...
                         </AlertDescription>
                     </Alert>
                 ) : null}

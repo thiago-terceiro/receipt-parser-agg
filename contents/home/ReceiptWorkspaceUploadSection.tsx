@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FileImage, Upload, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import {
     type ChangeEvent,
     type DragEvent,
@@ -109,9 +109,6 @@ export const ReceiptWorkspaceUploadSection = ({
                 >
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="grid size-12 place-items-center rounded-full bg-[var(--surface-plain-soft)] text-[var(--accent-dark)] shadow-sm">
-                                {file ? <FileImage className="size-5" /> : <Upload className="size-5" />}
-                            </div>
                             <div className="grid gap-1">
                                 <span className="text-[1.15rem] font-bold">
                                     {file
@@ -181,10 +178,6 @@ export const ReceiptWorkspaceUploadSection = ({
                         </SelectContent>
                     </Select>
                 </div>
-
-                <p className="text-[0.9rem] leading-[1.5] text-muted-foreground">
-                    {translations.receipt.modelHelp}
-                </p>
 
                 <div className="grid grid-cols-2 gap-3 max-[500px]:grid-cols-1">
                     <Button type="submit" disabled={!file || isLoading} className="w-full">
