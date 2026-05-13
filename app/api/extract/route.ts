@@ -6,6 +6,12 @@ import {
   type ExtractedReceipt,
 } from "@/lib/groceries";
 import { persistExtractedReceipt } from "@/lib/groceries-server";
+import { getActiveTraceContext, withSpan } from "@/lib/observability";
+import {
+  observabilityAttributes,
+  observabilityEvents,
+  observabilityFields,
+} from "@/lib/observability-schema";
 import { getSessionIdentity } from "@/lib/session";
 import { hasSupabaseServerConfig } from "@/lib/supabase-server";
 
@@ -66,12 +72,17 @@ const logExtractionDiagnostics = (details: {
   maxOutputTokens: number;
   rawResponse: string | null;
 }) => {
+  const traceContext = getActiveTraceContext();
+
   console.info("Receipt extraction diagnostics", {
+    [observabilityFields.event]: observabilityEvents.receiptExtractionCompleted,
     model: details.model,
     provider: details.provider,
     finishReason: details.finishReason ?? null,
     maxOutputTokens: details.maxOutputTokens,
     rawResponseLength: details.rawResponse?.length ?? 0,
+    traceId: traceContext.traceId,
+    spanId: traceContext.spanId,
   });
 };
 
@@ -152,31 +163,46 @@ export const POST = async (request: Request) => {
   }
 
   try {
-    const response = await inferenceClient.chatCompletion({
-      provider,
-      model,
-      messages: [
-        {
-          role: "user",
-          content: [
+    const response = await withSpan(
+      "receipt.extract.huggingface_chat_completion",
+      async (span) => {
+        span.setAttributes({
+          [observabilityAttributes.receiptModel]: model,
+          [observabilityAttributes.receiptProvider]: provider,
+          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+          [observabilityAttributes.receiptSourceFilePresent]: Boolean(fileName),
+        });
+
+        return inferenceClient.chatCompletion({
+          provider,
+          model,
+          messages: [
             {
-              type: "image_url",
-              image_url: { url: imageUrl },
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: imageUrl },
+                },
+                {
+                  type: "text",
+                  text: buildReceiptPrompt(),
+                },
+              ] satisfies ChatMessageContent,
             },
-            {
-              type: "text",
-              text: buildReceiptPrompt(),
-            },
-          ] satisfies ChatMessageContent,
-        },
-      ],
-      response_format: {
-        type: "json_object",
-        json_schema: receiptItemsJsonSchema,
+          ],
+          response_format: {
+            type: "json_object",
+            json_schema: receiptItemsJsonSchema,
+          },
+          max_tokens: defaultMaxOutputTokens,
+          temperature: 0,
+        });
       },
-      max_tokens: defaultMaxOutputTokens,
-      temperature: 0,
-    });
+      {
+        [observabilityAttributes.receiptOperation]: "extract",
+      },
+    );
 
     const finishReason = response.choices?.[0]?.finish_reason;
     const rawResponse = response.choices?.[0]?.message?.content;
@@ -213,7 +239,22 @@ export const POST = async (request: Request) => {
         { status: 502 },
       );
     }
-    const items = parseReceiptItems(rawResponse);
+    const items = await withSpan(
+      "receipt.extract.parse_items",
+      async (span) => {
+        const parsedItems = parseReceiptItems(rawResponse);
+
+        span.setAttributes({
+          [observabilityAttributes.receiptItemCount]: parsedItems.length,
+          [observabilityAttributes.receiptRawResponseLength]: rawResponse.length,
+        });
+
+        return parsedItems;
+      },
+      {
+        [observabilityAttributes.receiptOperation]: "parse_items",
+      },
+    );
 
     const identity = await getSessionIdentity();
     if (hasSupabaseServerConfig && identity?.userId) {
@@ -235,7 +276,18 @@ export const POST = async (request: Request) => {
       };
 
       try {
-        await persistExtractedReceipt(identity, requestedBoardId, extraction);
+        await withSpan(
+          "receipt.extract.persist_history",
+          async (span) => {
+            span.setAttributes({
+              [observabilityAttributes.boardRequested]: Boolean(requestedBoardId),
+              [observabilityAttributes.receiptItemCount]: extraction.itemCount,
+              [observabilityAttributes.userIsAuthenticated]: true,
+            });
+
+            await persistExtractedReceipt(identity, requestedBoardId, extraction);
+          },
+        );
       } catch (error) {
         console.warn("Unable to persist extracted receipt history.", error);
       }

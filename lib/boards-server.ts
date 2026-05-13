@@ -12,6 +12,8 @@ import {
     type BoardRole,
     type BoardSummary,
 } from "@/lib/boards";
+import { withSpan } from "@/lib/observability";
+import { observabilityAttributes } from "@/lib/observability-schema";
 import type { SessionIdentity } from "@/lib/session";
 import { getSessionIdentity } from "@/lib/session";
 import {
@@ -53,6 +55,14 @@ type BoardInviteRpcRecord = {
     board_id: string;
     board_name: string;
     role: BoardRole;
+};
+
+type PendingBoardInviteRecord = {
+    id: string;
+    board_id: string;
+    email: string | null;
+    role: BoardRole;
+    invited_by_user_id: string;
 };
 
 type BoardCreateRpcRecord = BoardRecord;
@@ -109,49 +119,67 @@ export const hashInviteTokenForStorage = (token: string) => {
 const createInviteToken = () => randomBytes(32).toString("base64url");
 
 export const requireBoardIdentity = async (): Promise<AuthenticatedBoardIdentity> => {
-    if (!hasSupabaseServerConfig) {
-        throw new BoardRouteError(
-            "Boards are not configured on the server.",
-            503,
-        );
-    }
+    return withSpan("boards.require_identity", async (span) => {
+        span.setAttributes({
+            [observabilityAttributes.boardsConfigured]: hasSupabaseServerConfig,
+        });
 
-    const identity = await getSessionIdentity();
-    if (!identity?.userId) {
-        throw new BoardRouteError("Sign in to use shared boards.", 401);
-    }
+        if (!hasSupabaseServerConfig) {
+            throw new BoardRouteError(
+                "Boards are not configured on the server.",
+                503,
+            );
+        }
 
-    return {
-        ...identity,
-        userId: identity.userId,
-    };
+        const identity = await getSessionIdentity();
+        span.setAttributes({
+            [observabilityAttributes.userIsAuthenticated]: Boolean(identity?.userId),
+        });
+
+        if (!identity?.userId) {
+            throw new BoardRouteError("Sign in to use shared boards.", 401);
+        }
+
+        return {
+            ...identity,
+            userId: identity.userId,
+        };
+    });
 };
 
 export const ensureBoardProfile = async (
     client: SupabaseClient,
     identity: AuthenticatedBoardIdentity,
 ) => {
-    const upsertPayload = {
-        id: identity.userId,
-        email: identity.email,
-        display_name: identity.name,
-        image_url: identity.image,
-    };
+    return withSpan("boards.ensure_profile", async (span) => {
+        const upsertPayload = {
+            id: identity.userId,
+            email: identity.email,
+            display_name: identity.name,
+            image_url: identity.image,
+        };
 
-    const { data, error } = await client
-        .from("profiles")
-        .upsert(upsertPayload, {
-            ignoreDuplicates: false,
-            onConflict: "id",
-        })
-        .select("id, email, display_name, image_url, last_active_board_id")
-        .single();
+        const { data, error } = await client
+            .from("profiles")
+            .upsert(upsertPayload, {
+                ignoreDuplicates: false,
+                onConflict: "id",
+            })
+            .select("id, email, display_name, image_url, last_active_board_id")
+            .single();
 
-    if (error || !data) {
-        throw createSupabaseError(error, "Unable to prepare the board profile.");
-    }
+        if (error || !data) {
+            throw createSupabaseError(error, "Unable to prepare the board profile.");
+        }
 
-    return data as ProfileRecord;
+        span.setAttributes({
+            [observabilityAttributes.profileHasLastActiveBoard]: Boolean(
+                (data as ProfileRecord).last_active_board_id,
+            ),
+        });
+
+        return data as ProfileRecord;
+    });
 };
 
 const listBoardsForIdentityWithClient = async (
@@ -201,91 +229,115 @@ const listBoardsForIdentityWithClient = async (
 };
 
 export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity) => {
-    const client = getSupabaseServerClient();
-    await ensureBoardProfile(client, identity);
+    return withSpan("boards.list_for_identity", async (span) => {
+        const client = getSupabaseServerClient();
+        await ensureBoardProfile(client, identity);
+        const boards = await listBoardsForIdentityWithClient(client, identity);
 
-    return listBoardsForIdentityWithClient(client, identity);
+        span.setAttributes({
+            [observabilityAttributes.boardCount]: boards.length,
+        });
+
+        return boards;
+    });
 };
 
 export const createBoardForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     boardName: unknown,
 ) => {
-    const normalizedName = normalizeBoardName(boardName);
-    if (!normalizedName) {
-        throw new BoardRouteError(
-            "Board name is required and must be 80 characters or fewer.",
-            400,
-        );
-    }
+    return withSpan("boards.create", async (span) => {
+        const normalizedName = normalizeBoardName(boardName);
+        span.setAttributes({
+            [observabilityAttributes.boardNameProvided]: Boolean(normalizedName),
+        });
 
-    const client = getSupabaseServerClient();
-    await ensureBoardProfile(client, identity);
+        if (!normalizedName) {
+            throw new BoardRouteError(
+                "Board name is required and must be 80 characters or fewer.",
+                400,
+            );
+        }
 
-    const { data, error } = await client
-        .rpc("create_board_for_user", {
-            p_name: normalizedName,
-            p_user_id: identity.userId,
-        })
-        .single();
+        const client = getSupabaseServerClient();
+        await ensureBoardProfile(client, identity);
 
-    if (error || !data) {
-        throw createSupabaseError(error, "Unable to create the board.");
-    }
+        const { data, error } = await client
+            .rpc("create_board_for_user", {
+                p_name: normalizedName,
+                p_user_id: identity.userId,
+            })
+            .single();
 
-    return data as BoardCreateRpcRecord;
+        if (error || !data) {
+            throw createSupabaseError(error, "Unable to create the board.");
+        }
+
+        return data as BoardCreateRpcRecord;
+    });
 };
 
 export const resolveActiveBoardForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     requestedBoardId?: unknown,
 ): Promise<ActiveBoardSelection> => {
-    if (requestedBoardId != null && !isValidBoardId(requestedBoardId)) {
-        throw new BoardRouteError("Board id is invalid.", 400);
-    }
+    return withSpan("boards.resolve_active", async (span) => {
+        span.setAttributes({
+            [observabilityAttributes.boardRequested]: requestedBoardId != null,
+        });
 
-    const client = getSupabaseServerClient();
-    let profile = await ensureBoardProfile(client, identity);
-    let boards = await listBoardsForIdentityWithClient(client, identity);
-
-    if (boards.length === 0) {
-        await createBoardForIdentity(identity, DEFAULT_BOARD_NAME);
-        profile = await ensureBoardProfile(client, identity);
-        boards = await listBoardsForIdentityWithClient(client, identity);
-    }
-
-    if (boards.length === 0) {
-        throw new BoardRouteError(
-            "Unable to resolve a board for this account.",
-            500,
-        );
-    }
-
-    let activeBoard: BoardSummary | undefined;
-
-    if (requestedBoardId) {
-        activeBoard = boards.find((board) => board.id === requestedBoardId);
-        if (!activeBoard) {
-            throw new BoardRouteError("You do not have access to that board.", 403);
+        if (requestedBoardId != null && !isValidBoardId(requestedBoardId)) {
+            throw new BoardRouteError("Board id is invalid.", 400);
         }
-    }
 
-    if (!activeBoard && profile.last_active_board_id) {
-        activeBoard = boards.find(
-            (board) => board.id === profile.last_active_board_id,
-        );
-    }
+        const client = getSupabaseServerClient();
+        let profile = await ensureBoardProfile(client, identity);
+        let boards = await listBoardsForIdentityWithClient(client, identity);
 
-    activeBoard ||= boards[0];
+        if (boards.length === 0) {
+            await createBoardForIdentity(identity, DEFAULT_BOARD_NAME);
+            profile = await ensureBoardProfile(client, identity);
+            boards = await listBoardsForIdentityWithClient(client, identity);
+        }
 
-    if (profile.last_active_board_id !== activeBoard.id) {
-        await setLastActiveBoardForIdentity(identity, activeBoard.id);
-    }
+        if (boards.length === 0) {
+            throw new BoardRouteError(
+                "Unable to resolve a board for this account.",
+                500,
+            );
+        }
 
-    return {
-        activeBoard,
-        boards,
-    };
+        let activeBoard: BoardSummary | undefined;
+
+        if (requestedBoardId) {
+            activeBoard = boards.find((board) => board.id === requestedBoardId);
+            if (!activeBoard) {
+                throw new BoardRouteError("You do not have access to that board.", 403);
+            }
+        }
+
+        if (!activeBoard && profile.last_active_board_id) {
+            activeBoard = boards.find(
+                (board) => board.id === profile.last_active_board_id,
+            );
+        }
+
+        activeBoard ||= boards[0];
+
+        if (profile.last_active_board_id !== activeBoard.id) {
+            await setLastActiveBoardForIdentity(identity, activeBoard.id);
+        }
+
+        span.setAttributes({
+            [observabilityAttributes.boardCount]: boards.length,
+            [observabilityAttributes.profileHasLastActiveBoard]: Boolean(profile.last_active_board_id),
+        });
+
+        return {
+            activeBoard,
+            boards,
+        };
+    });
 };
 
 const loadMembership = async (
@@ -328,65 +380,84 @@ export const requireBoardAccess = async (
     boardId: unknown,
     allowedRoles?: BoardRole[],
 ) => {
-    if (!isValidBoardId(boardId)) {
-        throw new BoardRouteError("Board id is invalid.", 400);
-    }
+    return withSpan("boards.require_access", async (span) => {
+        span.setAttributes({
+            [observabilityAttributes.boardAllowedRoleCount]: allowedRoles?.length ?? 0,
+        });
 
-    const client = getSupabaseServerClient();
-    await ensureBoardProfile(client, identity);
+        if (!isValidBoardId(boardId)) {
+            throw new BoardRouteError("Board id is invalid.", 400);
+        }
 
-    const membership = await loadMembership(client, identity, boardId);
-    if (!membership) {
-        throw new BoardRouteError("You do not have access to that board.", 403);
-    }
+        const client = getSupabaseServerClient();
+        await ensureBoardProfile(client, identity);
 
-    if (allowedRoles && !allowedRoles.includes(membership.role)) {
-        throw new BoardRouteError(
-            "You do not have permission to perform that board action.",
-            403,
-        );
-    }
+        const membership = await loadMembership(client, identity, boardId);
+        if (!membership) {
+            throw new BoardRouteError("You do not have access to that board.", 403);
+        }
 
-    const board = await loadBoardRecord(client, boardId);
-    if (!board) {
-        throw new BoardRouteError("Board not found.", 404);
-    }
+        if (allowedRoles && !allowedRoles.includes(membership.role)) {
+            throw new BoardRouteError(
+                "You do not have permission to perform that board action.",
+                403,
+            );
+        }
 
-    return {
-        board,
-        client,
-        membership,
-    };
+        const board = await loadBoardRecord(client, boardId);
+        if (!board) {
+            throw new BoardRouteError("Board not found.", 404);
+        }
+
+        span.setAttributes({
+            [observabilityAttributes.boardUserRole]: membership.role,
+        });
+
+        return {
+            board,
+            client,
+            membership,
+        };
+    });
 };
 
 export const setLastActiveBoardForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     boardId: unknown,
 ) => {
-    const { board, client } = await requireBoardAccess(identity, boardId);
+    return withSpan("boards.set_last_active", async () => {
+        const { board, client } = await requireBoardAccess(identity, boardId);
 
-    const { error } = await client.rpc("set_last_active_board", {
-        p_board_id: board.id,
-        p_user_id: identity.userId,
+        const { error } = await client.rpc("set_last_active_board", {
+            p_board_id: board.id,
+            p_user_id: identity.userId,
+        });
+
+        if (error) {
+            throw createSupabaseError(
+                error,
+                "Unable to persist the active board selection.",
+            );
+        }
+
+        return board;
     });
-
-    if (error) {
-        throw createSupabaseError(
-            error,
-            "Unable to persist the active board selection.",
-        );
-    }
-
-    return board;
 };
 
 export const listBoardMembersForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     boardId: unknown,
 ) => {
-    const { board, client } = await requireBoardAccess(identity, boardId);
+    return withSpan("boards.members.list", async (span) => {
+        const { board, client } = await requireBoardAccess(identity, boardId);
+        const members = await listBoardMembersForResolvedBoard(client, board.id);
 
-    return listBoardMembersForResolvedBoard(client, board.id);
+        span.setAttributes({
+            [observabilityAttributes.boardMemberCount]: members.length,
+        });
+
+        return members;
+    });
 };
 
 export const listBoardMembersForResolvedBoard = async (
@@ -458,81 +529,216 @@ export const createBoardInviteForIdentity = async (
     email: unknown,
     requestedRole: unknown,
 ) => {
-    const normalizedRole = isBoardRole(requestedRole)
-        ? requestedRole
-        : DEFAULT_BOARD_INVITE_ROLE;
+    return withSpan("boards.invites.create", async (span) => {
+        const normalizedRole = isBoardRole(requestedRole)
+            ? requestedRole
+            : DEFAULT_BOARD_INVITE_ROLE;
 
-    if (normalizedRole !== "editor") {
-        throw new BoardRouteError(
-            "Only editor invites are supported right now.",
-            400,
+        span.setAttributes({
+            [observabilityAttributes.inviteHasEmailRestriction]: email != null,
+            [observabilityAttributes.inviteRole]: normalizedRole,
+        });
+
+        if (normalizedRole !== "editor") {
+            throw new BoardRouteError(
+                "Only editor invites are supported right now.",
+                400,
+            );
+        }
+
+        const normalizedEmail = email == null ? null : normalizeInviteEmail(email);
+        if (email != null && !normalizedEmail) {
+            throw new BoardRouteError("Invite email address is invalid.", 400);
+        }
+
+        const { board, client } = await requireBoardAccess(identity, boardId, ["owner"]);
+        const token = createInviteToken();
+        const tokenHash = hashInviteTokenForStorage(token);
+        const expiresAt = getInviteExpiryIso();
+
+        const { data, error } = await client
+            .from("board_invites")
+            .insert({
+                accepted_at: null,
+                accepted_by_user_id: null,
+                board_id: board.id,
+                email: normalizedEmail,
+                expires_at: expiresAt,
+                invite_token_hash: tokenHash,
+                invited_by_user_id: identity.userId,
+                role: normalizedRole,
+                status: "pending",
+            })
+            .select("id, board_id, email, role, status, expires_at, created_at")
+            .single();
+
+        if (error || !data) {
+            throw createSupabaseError(error, "Unable to create the board invite.");
+        }
+
+        span.setAttributes({
+            [observabilityAttributes.inviteCreated]: true,
+        });
+
+        return {
+            email: data.email as string | null,
+            expiresAt: data.expires_at as string,
+            id: data.id as string,
+            inviteUrl: `/invite?token=${encodeURIComponent(token)}`,
+            role: data.role as BoardRole,
+            status: data.status as string,
+            token,
+        };
+    });
+};
+
+const loadPendingBoardInviteForToken = async (
+    client: SupabaseClient,
+    tokenHash: string,
+) => {
+    const { data, error } = await client
+        .from("board_invites")
+        .select("id, board_id, email, role, invited_by_user_id")
+        .eq("invite_token_hash", tokenHash)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+    if (error) {
+        throw createSupabaseError(error, "Unable to load the board invite.");
+    }
+
+    return (data as PendingBoardInviteRecord | null) ?? null;
+};
+
+const upsertBoardMembershipFromInvite = async (
+    client: SupabaseClient,
+    invite: PendingBoardInviteRecord,
+    userId: string,
+) => {
+    const { data: existingMembership, error: existingMembershipError } = await client
+        .from("board_members")
+        .select("joined_at")
+        .eq("board_id", invite.board_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (existingMembershipError) {
+        throw createSupabaseError(
+            existingMembershipError,
+            "Unable to validate board membership.",
         );
     }
 
-    const normalizedEmail = email == null ? null : normalizeInviteEmail(email);
-    if (email != null && !normalizedEmail) {
-        throw new BoardRouteError("Invite email address is invalid.", 400);
+    const joinedAt = (existingMembership as { joined_at?: string | null } | null)?.joined_at
+        ?? new Date().toISOString();
+    const { error } = await client
+        .from("board_members")
+        .upsert({
+            board_id: invite.board_id,
+            user_id: userId,
+            role: invite.role,
+            status: "active",
+            invited_by_user_id: invite.invited_by_user_id,
+            joined_at: joinedAt,
+        }, {
+            ignoreDuplicates: false,
+            onConflict: "board_id,user_id",
+        });
+
+    if (error) {
+        throw createSupabaseError(error, "Unable to add you to the shared board.");
     }
-
-    const { board, client } = await requireBoardAccess(identity, boardId, ["owner"]);
-    const token = createInviteToken();
-    const tokenHash = hashInviteTokenForStorage(token);
-    const expiresAt = getInviteExpiryIso();
-
-    const { data, error } = await client
-        .from("board_invites")
-        .insert({
-            accepted_at: null,
-            accepted_by_user_id: null,
-            board_id: board.id,
-            email: normalizedEmail,
-            expires_at: expiresAt,
-            invite_token_hash: tokenHash,
-            invited_by_user_id: identity.userId,
-            role: normalizedRole,
-            status: "pending",
-        })
-        .select("id, board_id, email, role, status, expires_at, created_at")
-        .single();
-
-    if (error || !data) {
-        throw createSupabaseError(error, "Unable to create the board invite.");
-    }
-
-    return {
-        email: data.email as string | null,
-        expiresAt: data.expires_at as string,
-        id: data.id as string,
-        inviteUrl: `/invite?token=${encodeURIComponent(token)}`,
-        role: data.role as BoardRole,
-        status: data.status as string,
-        token,
-    };
 };
 
 export const acceptBoardInviteForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     token: unknown,
 ) => {
-    if (typeof token !== "string" || !token.trim()) {
-        throw new BoardRouteError("Invite token is required.", 400);
-    }
+    return withSpan("boards.invites.accept", async (span) => {
+        span.setAttributes({
+            [observabilityAttributes.inviteTokenPresent]: typeof token === "string" && token.trim().length > 0,
+        });
 
-    const client = getSupabaseServerClient();
-    await ensureBoardProfile(client, identity);
+        if (typeof token !== "string" || !token.trim()) {
+            throw new BoardRouteError("Invite token is required.", 400);
+        }
 
-    const tokenHash = hashInviteTokenForStorage(token.trim());
-    const { data, error } = await client
-        .rpc("accept_board_invite", {
-            p_email: identity.email,
-            p_token_hash: tokenHash,
-            p_user_id: identity.userId,
-        })
-        .single();
+        const client = getSupabaseServerClient();
+        await ensureBoardProfile(client, identity);
 
-    if (error || !data) {
-        throw createSupabaseError(error, "Unable to accept the board invite.");
-    }
+        const tokenHash = hashInviteTokenForStorage(token.trim());
+        const invite = await loadPendingBoardInviteForToken(client, tokenHash);
 
-    return data as BoardInviteRpcRecord;
+        if (!invite) {
+            throw new BoardRouteError("Invite token is invalid or expired.", 404);
+        }
+
+        if (
+            invite.email
+            && invite.email.toLowerCase() !== (identity.email ?? "").toLowerCase()
+        ) {
+            throw new BoardRouteError(
+                "The signed-in email does not match this invite.",
+                403,
+            );
+        }
+
+        await upsertBoardMembershipFromInvite(client, invite, identity.userId);
+
+        const { error: inviteUpdateError } = await client
+            .from("board_invites")
+            .update({
+                accepted_at: new Date().toISOString(),
+                accepted_by_user_id: identity.userId,
+                status: "accepted",
+            })
+            .eq("id", invite.id);
+
+        if (inviteUpdateError) {
+            throw createSupabaseError(
+                inviteUpdateError,
+                "Unable to finalize the board invite.",
+            );
+        }
+
+        const { error: profileUpdateError } = await client
+            .from("profiles")
+            .update({ last_active_board_id: invite.board_id })
+            .eq("id", identity.userId);
+
+        if (profileUpdateError) {
+            throw createSupabaseError(
+                profileUpdateError,
+                "Unable to persist the active board selection.",
+            );
+        }
+
+        const { data: board, error: boardError } = await client
+            .from("boards")
+            .select("id, name")
+            .eq("id", invite.board_id)
+            .maybeSingle();
+
+        if (boardError) {
+            throw createSupabaseError(boardError, "Unable to load the board.");
+        }
+
+        if (!board) {
+            throw new BoardRouteError("Board not found.", 404);
+        }
+
+        const data: BoardInviteRpcRecord = {
+            board_id: board.id as string,
+            board_name: board.name as string,
+            role: invite.role,
+        };
+
+        span.setAttributes({
+            [observabilityAttributes.inviteAccepted]: true,
+            [observabilityAttributes.inviteRole]: data.role,
+        });
+
+        return data;
+    });
 };

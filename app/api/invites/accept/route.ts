@@ -5,6 +5,12 @@ import {
     BoardRouteError,
     requireBoardIdentity,
 } from "@/lib/boards-server";
+import { logError, logInfo, logWarn, withSpan } from "@/lib/observability";
+import {
+    observabilityAttributes,
+    observabilityEvents,
+    observabilityFields,
+} from "@/lib/observability-schema";
 
 export const runtime = "nodejs";
 
@@ -14,20 +20,39 @@ type AcceptInvitePayload = {
 
 const toErrorResponse = (error: unknown, fallback: string) => {
     if (error instanceof BoardRouteError) {
+        logWarn("Invite accept request failed.", {
+            [observabilityFields.event]: observabilityEvents.apiInvitesAcceptRequestFailed,
+            [observabilityFields.errorMessage]: error.message,
+            [observabilityAttributes.httpStatusCode]: error.statusCode,
+        });
         return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }
 
     const message = error instanceof Error ? error.message : fallback;
+    logError("Invite accept request failed.", {
+        [observabilityFields.event]: observabilityEvents.apiInvitesAcceptRequestFailed,
+        [observabilityFields.errorMessage]: message,
+        [observabilityAttributes.httpStatusCode]: 500,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
 };
 
 export async function POST(request: Request) {
     try {
-        const identity = await requireBoardIdentity();
-        const payload = (await request.json()) as AcceptInvitePayload;
-        const invite = await acceptBoardInviteForIdentity(identity, payload.token);
+        const response = await withSpan("api.invites.accept.post", async () => {
+            const identity = await requireBoardIdentity();
+            const payload = (await request.json()) as AcceptInvitePayload;
+            const invite = await acceptBoardInviteForIdentity(identity, payload.token);
 
-        return NextResponse.json({ invite });
+            logInfo("Accepted board invite.", {
+                [observabilityFields.event]: observabilityEvents.apiInvitesAcceptSuccess,
+                [observabilityAttributes.inviteRole]: invite.role,
+            });
+
+            return NextResponse.json({ invite });
+        });
+
+        return response;
     } catch (error) {
         return toErrorResponse(error, "Unable to accept the board invite.");
     }

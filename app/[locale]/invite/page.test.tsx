@@ -22,7 +22,7 @@ describe("InvitePage", () => {
 
     it("redirects authenticated users after accepting the invite on the server", async () => {
         const redirectSignal = new Error("redirect");
-        const redirectMock = redirect as jest.Mock;
+        const redirectMock = redirect as unknown as jest.Mock;
 
         redirectMock.mockImplementation(() => {
             throw redirectSignal;

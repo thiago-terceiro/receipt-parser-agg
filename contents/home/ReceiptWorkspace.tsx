@@ -15,17 +15,23 @@ import {
   useReceiptWorkspaceState,
 } from "@/context/ReceiptWorkspaceStateProvider";
 import { formatMonthLabel } from "@/lib/groceries";
+import { logInfo, logWarn, withSpan } from "@/lib/observability";
+import {
+  observabilityAttributes,
+  observabilityEvents,
+  observabilityFields,
+} from "@/lib/observability-schema";
 
+import {
+  sanitizeCategory,
+  type AvailableModel,
+} from "../../lib/receipt";
 import {
   EditorState,
   ReceiptItemEditorDialog,
 } from "./ReceiptItemEditorDialog";
 import { ReceiptWorkspaceResultsSection } from "./ReceiptWorkspaceResultsSection";
 import { ReceiptWorkspaceUploadSection } from "./ReceiptWorkspaceUploadSection";
-import {
-  sanitizeCategory,
-  type AvailableModel,
-} from "../../lib/receipt";
 
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
@@ -240,22 +246,53 @@ export const ReceiptWorkspace = ({
       if (selectedModelId) formData.append("modelId", selectedModelId);
 
       try {
-        const response = await fetch("/api/extract", {
-          method: "POST",
-          body: formData,
+        const extraction = await withSpan(
+          "ui.receipt.extract_submit",
+          async (span) => {
+            const response = await fetch("/api/extract", {
+              method: "POST",
+              body: formData,
+            });
+            const payload = await parseJsonResponse<
+              ExtractionResponse | { error?: string }
+            >(response);
+
+            span.setAttributes({
+              [observabilityAttributes.httpStatusCode]: response.status,
+              [observabilityAttributes.receiptFileSelected]: true,
+              [observabilityAttributes.receiptModelSelected]: Boolean(selectedModelId),
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                "error" in payload && payload.error
+                  ? payload.error
+                  : translations.receipt.errors.extractionFailed,
+              );
+            }
+
+            const resolvedPayload = payload as ExtractionResponse;
+            span.setAttributes({
+              [observabilityAttributes.receiptItemCount]: resolvedPayload.items.length,
+            });
+
+            return resolvedPayload;
+          },
+        );
+
+        logInfo("Receipt extraction completed in browser.", {
+          [observabilityFields.event]: observabilityEvents.uiReceiptExtractSuccess,
+          [observabilityAttributes.receiptItemCount]: extraction.items.length,
         });
-        const payload = await parseJsonResponse<
-          ExtractionResponse | { error?: string }
-        >(response);
-        if (!response.ok) {
-          throw new Error(
-            "error" in payload && payload.error
-              ? payload.error
-              : translations.receipt.errors.extractionFailed,
-          );
-        }
-        setResult(payload as ExtractionResponse);
+        setResult(extraction);
       } catch (requestError) {
+        logWarn("Receipt extraction failed in browser.", {
+          [observabilityFields.event]: observabilityEvents.uiReceiptExtractFailed,
+          [observabilityFields.errorMessage]:
+            requestError instanceof Error
+              ? requestError.message
+              : translations.receipt.errors.unexpectedRequest,
+        });
         setError(
           requestError instanceof Error
             ? requestError.message
@@ -287,31 +324,44 @@ export const ReceiptWorkspace = ({
     setSaveMessage(null);
 
     try {
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const payload = await withSpan(
+        "ui.receipt.save_groceries",
+        async (span) => {
+          const response = await fetch("/api/expenses", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              items: displayedItems,
+              sourceFileName: file?.name ?? null,
+              modelId: result.modelId,
+            }),
+          });
+
+          const parsedPayload = await parseJsonResponse<{
+            boardId?: string;
+            error?: string;
+            savedCount?: number;
+            month?: string;
+            receiptId?: string;
+          }>(response);
+
+          span.setAttributes({
+            [observabilityAttributes.httpStatusCode]: response.status,
+            [observabilityAttributes.receiptItemCount]: displayedItems.length,
+            [observabilityAttributes.receiptHasSourceFile]: Boolean(file?.name),
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              parsedPayload.error || translations.receipt.errors.saveFailed,
+            );
+          }
+
+          return parsedPayload;
         },
-        body: JSON.stringify({
-          items: displayedItems,
-          sourceFileName: file?.name ?? null,
-          modelId: result.modelId,
-        }),
-      });
-
-      const payload = await parseJsonResponse<{
-        boardId?: string;
-        error?: string;
-        savedCount?: number;
-        month?: string;
-        receiptId?: string;
-      }>(response);
-
-      if (!response.ok) {
-        throw new Error(
-          payload.error || translations.receipt.errors.saveFailed,
-        );
-      }
+      );
 
       const receiptId = payload.receiptId ?? String(Date.now());
       const savedMonth = payload.month ?? "";
@@ -333,7 +383,18 @@ export const ReceiptWorkspace = ({
           savedMonthLabel,
         ),
       );
+      logInfo("Saved groceries from receipt in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiReceiptSaveSuccess,
+        [observabilityAttributes.receiptItemCount]: payload.savedCount ?? displayedItems.length,
+      });
     } catch (requestError) {
+      logWarn("Saving groceries from receipt failed in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiReceiptSaveFailed,
+        [observabilityFields.errorMessage]:
+          requestError instanceof Error
+            ? requestError.message
+            : translations.receipt.errors.unexpectedSave,
+      });
       setError(
         requestError instanceof Error
           ? requestError.message

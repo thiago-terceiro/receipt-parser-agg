@@ -24,6 +24,12 @@ import { getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import { type AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
+import { logInfo, logWarn, withSpan } from "@/lib/observability";
+import {
+  observabilityAttributes,
+  observabilityEvents,
+  observabilityFields,
+} from "@/lib/observability-schema";
 
 type GroceriesDashboardBoardsPanelProps = {
   activeBoard: BoardSummary;
@@ -81,6 +87,19 @@ export const GroceriesDashboardBoardsPanel = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  type CreatedBoardPayload = {
+    board: {
+      id: string;
+      name?: string;
+    };
+  };
+
+  type CreatedInvitePayload = {
+    invite: {
+      inviteUrl: string;
+    };
+  };
+
   useEffect(() => {
     setError(null);
     setInviteEmail("");
@@ -101,23 +120,39 @@ export const GroceriesDashboardBoardsPanel = ({
     setStatusMessage(null);
 
     try {
-      const response = await fetch("/api/boards/active", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ boardId }),
+      await withSpan("ui.boards.switch_active", async (span) => {
+        const response = await fetch("/api/boards/active", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ boardId }),
+        });
+        const payload = (await response.json()) as { error?: string };
+
+        span.setAttributes({
+          [observabilityAttributes.httpStatusCode]: response.status,
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            payload.error || translations.groceries.boards.switchFailed,
+          );
+        }
       });
-      const payload = (await response.json()) as { error?: string };
 
-      if (!response.ok) {
-        throw new Error(
-          payload.error || translations.groceries.boards.switchFailed,
-        );
-      }
-
+      logInfo("Switched active board in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchSuccess,
+      });
       navigateToBoard(boardId);
     } catch (requestError) {
+      logWarn("Switching active board failed in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchFailed,
+        [observabilityFields.errorMessage]:
+          requestError instanceof Error
+            ? requestError.message
+            : translations.groceries.boards.switchFailed,
+      });
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -137,31 +172,56 @@ export const GroceriesDashboardBoardsPanel = ({
     setStatusMessage(null);
 
     try {
-      const response = await fetch("/api/boards", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: boardName }),
-      });
-      const payload = (await response.json()) as {
-        board?: { id?: string; name?: string };
-        error?: string;
-      };
+      const payload = await withSpan<CreatedBoardPayload>("ui.boards.create", async (span) => {
+        const response = await fetch("/api/boards", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: boardName }),
+        });
+        const parsedPayload = (await response.json()) as {
+          board?: { id?: string; name?: string };
+          error?: string;
+        };
 
-      if (!response.ok || !payload.board?.id) {
-        throw new Error(payload.error || translations.groceries.boards.createFailed);
-      }
+        span.setAttributes({
+          [observabilityAttributes.httpStatusCode]: response.status,
+          [observabilityAttributes.boardNameProvided]: Boolean(boardName.trim()),
+        });
+
+        if (!response.ok || !parsedPayload.board?.id) {
+          throw new Error(parsedPayload.error || translations.groceries.boards.createFailed);
+        }
+
+        return {
+          board: {
+            id: parsedPayload.board.id,
+            name: parsedPayload.board.name,
+          },
+        };
+      });
+      const createdBoard = payload.board;
 
       setStatusMessage(
         translations.groceries.boards.boardCreated(
-          payload.board.name || boardName.trim(),
+          createdBoard.name || boardName.trim(),
         ),
       );
+      logInfo("Created board in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsCreateSuccess,
+      });
       setBoardName("");
       setIsCreatingBoard(false);
-      navigateToBoard(payload.board.id);
+      navigateToBoard(createdBoard.id);
     } catch (requestError) {
+      logWarn("Creating board failed in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsCreateFailed,
+        [observabilityFields.errorMessage]:
+          requestError instanceof Error
+            ? requestError.message
+            : translations.groceries.boards.createFailed,
+      });
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -179,30 +239,55 @@ export const GroceriesDashboardBoardsPanel = ({
     setInviteLink(null);
 
     try {
-      const response = await fetch(`/api/boards/${activeBoard.id}/invites`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: inviteEmail.trim() ? inviteEmail : null,
-          role: "editor",
-        }),
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        invite?: { inviteUrl?: string };
-      };
+      const payload = await withSpan<CreatedInvitePayload>("ui.boards.invites.create", async (span) => {
+        const response = await fetch(`/api/boards/${activeBoard.id}/invites`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: inviteEmail.trim() ? inviteEmail : null,
+            role: "editor",
+          }),
+        });
+        const parsedPayload = (await response.json()) as {
+          error?: string;
+          invite?: { inviteUrl?: string };
+        };
 
-      if (!response.ok || !payload.invite?.inviteUrl) {
-        throw new Error(payload.error || translations.groceries.boards.inviteFailed);
-      }
+        span.setAttributes({
+          [observabilityAttributes.httpStatusCode]: response.status,
+          [observabilityAttributes.inviteHasEmailRestriction]: Boolean(inviteEmail.trim()),
+        });
+
+        if (!response.ok || !parsedPayload.invite?.inviteUrl) {
+          throw new Error(parsedPayload.error || translations.groceries.boards.inviteFailed);
+        }
+
+        return {
+          invite: {
+            inviteUrl: parsedPayload.invite.inviteUrl,
+          },
+        };
+      });
+      const inviteUrl = payload.invite.inviteUrl;
 
       setInviteLink(
-        new URL(payload.invite.inviteUrl, window.location.origin).toString(),
+        new URL(inviteUrl, window.location.origin).toString(),
       );
       setStatusMessage(translations.groceries.boards.inviteCreated);
+      logInfo("Created board invite in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsInvitesCreateSuccess,
+        [observabilityAttributes.inviteHasEmailRestriction]: Boolean(inviteEmail.trim()),
+      });
     } catch (requestError) {
+      logWarn("Creating board invite failed in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsInvitesCreateFailed,
+        [observabilityFields.errorMessage]:
+          requestError instanceof Error
+            ? requestError.message
+            : translations.groceries.boards.inviteFailed,
+      });
       setError(
         requestError instanceof Error
           ? requestError.message

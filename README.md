@@ -2,6 +2,74 @@
 
 Parse and aggregate receipts.
 
+## Observability
+
+The frontend now supports OpenTelemetry on both the server and the browser.
+
+### Server Tracing
+
+Server-side tracing is initialized through Next.js `instrumentation.ts` and uses `@vercel/otel`.
+
+Set this environment variable if you want a non-default service name:
+
+- `OTEL_SERVICE_NAME`
+
+### Browser Tracing
+
+Browser tracing is initialized through Next.js `instrumentation-client.ts` and uses Honeycomb's web SDK.
+
+Set these environment variables to enable it:
+
+- `NEXT_PUBLIC_OTEL_BROWSER_ENABLED`
+- `NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS`
+- `NEXT_PUBLIC_OTEL_BROWSER_SERVICE_NAME`
+- `NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL`
+- `NEXT_PUBLIC_OTEL_BROWSER_SAMPLE_RATE`
+- `NEXT_PUBLIC_OTEL_BROWSER_DEBUG`
+
+Recommended rollout:
+
+1. Point `NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL` to your real OTLP collector or relay endpoint.
+2. Set `NEXT_PUBLIC_OTEL_BROWSER_ENABLED=true`.
+3. Keep `NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS=preview` first so browser telemetry only starts on preview deployments.
+4. After validating trace volume and field quality in Honeycomb, expand the environment list to `preview,production`.
+
+Example preview configuration:
+
+```env
+NEXT_PUBLIC_OTEL_BROWSER_ENABLED=true
+NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS=preview
+NEXT_PUBLIC_OTEL_BROWSER_SERVICE_NAME=receipt-ai-browser
+NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL=https://otel-collector.your-domain.com
+NEXT_PUBLIC_OTEL_BROWSER_SAMPLE_RATE=1
+NEXT_PUBLIC_OTEL_BROWSER_DEBUG=false
+```
+
+## Database Migrations
+
+The frontend Supabase project lives in `frontend/supabase`, and the CLI is already installed as a local dev dependency.
+
+Use the package scripts instead of ad hoc CLI commands so the workflow stays consistent:
+
+- `npm run migration:new -- <name>` creates a new migration file.
+- `npm run db:diff -- -f <name>` generates a migration from local schema changes.
+- `npm run db:check` runs lint plus `db push --dry-run` against the linked project.
+- `npm run db:deploy` runs the preflight checks and then performs the real push.
+- `npm run db:push:yes` is the non-interactive deploy variant for automation.
+- `npm run migration:list` and `npm run migration:repair -- <version> --status <applied|reverted>` help when local and remote history drift.
+- `npm run db:reset` resets the local database so migrations can be re-tested from scratch.
+
+If you want the workflow guided in chat, use the workspace agent at `.github/agents/supabase-migrations.agent.md` for migration creation, preflight, deploy, and drift repair tasks.
+
+Recommended flow:
+
+1. Create or generate a migration.
+2. Test it locally with `npm run db:reset` if the change is non-trivial.
+3. Run `npm run db:check` before touching the remote database.
+4. Run `npm run db:deploy` for an interactive deploy, or `npm run db:push:yes` in automation.
+
+Avoid making schema changes directly in the remote Supabase dashboard once migrations are part of the workflow. If the histories drift, inspect with `migration:list`, repair history if needed, and then return to file-based migrations.
+
 ## Internationalization
 
 The frontend now supports locale-prefixed routes for:

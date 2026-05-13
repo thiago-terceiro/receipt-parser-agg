@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/auth";
+import { withSpan } from "@/lib/observability";
+import { observabilityAttributes } from "@/lib/observability-schema";
 
 export type SessionIdentity = {
     userId: string | null;
@@ -10,21 +12,28 @@ export type SessionIdentity = {
 };
 
 export const getSessionIdentity = async (): Promise<SessionIdentity | null> => {
-    const session = await getServerSession(authOptions);
-    const userId =
-        (session?.user as { id?: string } | undefined)?.id?.trim() || null;
-    const email = session?.user?.email?.trim().toLowerCase() || null;
-    const name = session?.user?.name?.trim() || null;
-    const image = session?.user?.image?.trim() || null;
+    return withSpan("auth.get_session_identity", async (span) => {
+        const session = await getServerSession(authOptions);
+        const userId =
+            (session?.user as { id?: string } | undefined)?.id?.trim() || null;
+        const email = session?.user?.email?.trim().toLowerCase() || null;
+        const name = session?.user?.name?.trim() || null;
+        const image = session?.user?.image?.trim() || null;
 
-    if (!userId && !email) {
-        return null;
-    }
+        span.setAttributes({
+            [observabilityAttributes.authHasSession]: Boolean(session),
+            [observabilityAttributes.userIsAuthenticated]: Boolean(userId || email),
+        });
 
-    return {
-        userId,
-        email,
-        name,
-        image,
-    };
+        if (!userId && !email) {
+            return null;
+        }
+
+        return {
+            userId,
+            email,
+            name,
+            image,
+        };
+    });
 };
