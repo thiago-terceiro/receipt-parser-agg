@@ -35,6 +35,10 @@ const members = [
 
 type MockSummaryProps = {
     onMonthChange: (month: string) => void;
+    statCards: Array<{
+        label: string;
+        value: string;
+    }>;
 };
 
 type MockRecentProps = {
@@ -49,8 +53,13 @@ type MockCategoriesProps = {
 };
 
 jest.mock("@/contents/groceries-dashboard/GroceriesDashboardSummarySection", () => ({
-    GroceriesDashboardSummarySection: ({ onMonthChange }: MockSummaryProps) => (
-        <button onClick={() => onMonthChange("2026-03")}>change month</button>
+    GroceriesDashboardSummarySection: ({ onMonthChange, statCards }: MockSummaryProps) => (
+        <div>
+            <button onClick={() => onMonthChange("2026-03")}>change month</button>
+            {statCards.map((stat) => (
+                <span key={stat.label}>{`${stat.label}:${stat.value}`}</span>
+            ))}
+        </div>
     ),
 }));
 
@@ -134,5 +143,47 @@ describe("GroceriesDashboard", () => {
         expect(screen.getByText("false")).toBeInTheDocument();
         await userEvent.click(screen.getByRole("button", { name: "select category" }));
         expect(screen.getByText("true")).toBeInTheDocument();
+    });
+
+    it("formats tracked item totals as integers in the summary cards", () => {
+        render(
+            <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
+                payload={makeMonthPayload({
+                    summary: {
+                        total: 14,
+                        itemCount: 150.25999999999996,
+                        uniqueItemCount: 2,
+                        receiptCount: 2,
+                        categoryCount: 2,
+                    },
+                })}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        expect(
+            screen.getByText("groceries.stats.itemsTracked:150"),
+        ).toBeInTheDocument();
+    });
+
+    it("formats month totals with the payload currency", () => {
+        render(
+            <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
+                payload={makeMonthPayload({ currencyCode: "EUR" })}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        expect(
+            screen.getByText("groceries.stats.monthTotal:€14.00"),
+        ).toBeInTheDocument();
     });
 });

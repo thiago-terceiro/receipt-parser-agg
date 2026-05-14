@@ -14,6 +14,10 @@ import {
   ExtractionResponse,
   useReceiptWorkspaceState,
 } from "@/context/ReceiptWorkspaceStateProvider";
+import {
+  createCurrencyFormatter,
+  legacyDefaultCurrencyCode,
+} from "@/lib/currency";
 import { formatMonthLabel } from "@/lib/groceries";
 import { logInfo, logWarn, withSpan } from "@/lib/observability";
 import {
@@ -93,11 +97,11 @@ export const ReceiptWorkspace = ({
   const isAuthenticated = status === "authenticated";
   const currencyFormatter = useMemo(
     () =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "USD",
-      }),
-    [locale],
+      createCurrencyFormatter(
+        locale,
+        result?.currencyCode ?? legacyDefaultCurrencyCode,
+      ),
+    [locale, result?.currencyCode],
   );
 
   const displayedItems = useMemo(
@@ -333,6 +337,7 @@ export const ReceiptWorkspace = ({
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
+              currencyCode: result.currencyCode,
               items: displayedItems,
               sourceFileName: file?.name ?? null,
               modelId: result.modelId,

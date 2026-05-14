@@ -1,5 +1,8 @@
 import { jsonrepair } from "jsonrepair";
 
+import type { CurrencyCode } from "@/lib/currency";
+import { sanitizeCurrencyCode } from "@/lib/currency";
+
 export const groceryCategories = [
   "produce",
   "dairy",
@@ -20,6 +23,10 @@ export const receiptItemsJsonSchema = {
   schema: {
     type: "object",
     properties: {
+      currencyCode: {
+        type: "string",
+        pattern: "^[A-Z]{3}$",
+      },
       items: {
         type: "array",
         items: {
@@ -40,7 +47,7 @@ export const receiptItemsJsonSchema = {
       },
     },
     additionalProperties: false,
-    required: ["items"],
+    required: ["currencyCode", "items"],
   },
 } as const;
 
@@ -53,6 +60,11 @@ export type ReceiptItem = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+};
+
+export type ParsedReceiptExtraction = {
+  currencyCode: CurrencyCode;
+  items: ReceiptItem[];
 };
 
 export type AvailableModel = {
@@ -222,6 +234,7 @@ export const buildReceiptPrompt =
 
 Return a JSON object in this format:
 {
+  "currencyCode": "EUR",
     "items": [
         {
             "name": "item name",
@@ -240,6 +253,7 @@ Rules:
 - Only include purchased grocery or household items.
 - Exclude totals, taxes, discounts, loyalty lines, and payment rows.
 - Normalize abbreviated names into readable grocery names.
+- currencyCode must be the 3-letter ISO 4217 code shown or implied by the receipt total, such as USD, EUR, or BRL.
 - quantity must be a positive number. Use 1 when uncertain.
 - unitPrice and lineTotal must be numbers.
 - category must be one of the allowed categories.`;
@@ -351,11 +365,14 @@ const parseReceiptJson = (rawResponse: string): unknown => {
   }
 };
 
-export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
+export const parseReceiptExtraction = (
+  rawResponse: string,
+): ParsedReceiptExtraction => {
   const parsed = parseReceiptJson(rawResponse);
-  const items = Array.isArray(parsed)
-    ? parsed
-    : (parsed as { items?: unknown }).items;
+  const extraction = Array.isArray(parsed)
+    ? null
+    : (parsed as { currencyCode?: unknown; items?: unknown });
+  const items = Array.isArray(parsed) ? parsed : extraction?.items;
 
   if (!Array.isArray(items)) {
     throw new Error(
@@ -363,5 +380,19 @@ export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
     );
   }
 
-  return items.map(parseReceiptItem);
+  const currencyCode = sanitizeCurrencyCode(extraction?.currencyCode);
+  if (!currencyCode) {
+    throw new Error(
+      "Model response must include a valid currencyCode using a 3-letter ISO 4217 code.",
+    );
+  }
+
+  return {
+    currencyCode,
+    items: items.map(parseReceiptItem),
+  };
+};
+
+export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
+  return parseReceiptExtraction(rawResponse).items;
 };

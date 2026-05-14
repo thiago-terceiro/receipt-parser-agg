@@ -28,13 +28,28 @@ describe("groceries payload helpers", () => {
         );
 
         expect(payload.summary.receiptCount).toBe(1);
+        expect(payload.currencyCode).toBe("USD");
         expect(payload.extractedReceipts).toEqual([
             expect.objectContaining({
+                currencyCode: "USD",
                 id: "receipt-1",
                 itemCount: 2,
                 total: 10,
                 categories: ["dairy", "produce"],
             }),
         ]);
+    });
+
+    it("rejects mixed currencies inside the same month payload", () => {
+        expect(() =>
+            buildGroceriesMonthPayload("2026-04", [
+                makeEntry({ currencyCode: "USD" }),
+                makeEntry({
+                    id: "entry-2",
+                    receiptId: "receipt-2",
+                    currencyCode: "EUR",
+                }),
+            ]),
+        ).toThrow("Groceries saved in the same month must use a single currency.");
     });
 });

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800",
   "engines": {
     "node": ">=22.13.1"
   },
@@ -13,8 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "build": "next build",
-    "db:check": "npm run db:lint && npm run db:push:dry-run",
-    "db:deploy": "npm run db:check && npm run db:push",
+    "db:check": "pnpm run db:lint && pnpm run db:push:dry-run",
+    "db:deploy": "pnpm run db:check && pnpm run db:push",
     "db:diff": "supabase db diff",
     "db:lint": "supabase db lint --linked",
     "db:push": "supabase db push",

@@ -1,6 +1,7 @@
 import {
     getModelCapabilityHint,
     parseMaxOutputTokens,
+    parseReceiptExtraction,
     parseReceiptItems,
 } from "@/lib/receipt";
 
@@ -29,5 +30,36 @@ describe("receipt helpers", () => {
         expect(() => parseReceiptItems('{"items": [')).toThrow(
             "The model output may have been truncated; increase HF_MAX_OUTPUT_TOKENS.",
         );
+    });
+
+    test("parses a full extraction with currency code", () => {
+        expect(
+            parseReceiptExtraction(
+                JSON.stringify({
+                    currencyCode: "EUR",
+                    items: [
+                        {
+                            name: "Milk",
+                            category: "dairy",
+                            quantity: 2,
+                            unitPrice: 3.5,
+                            lineTotal: 7,
+                        },
+                    ],
+                }),
+            ),
+        ).toEqual({
+            currencyCode: "EUR",
+            items: [
+                {
+                    item: "Milk",
+                    normalizedItem: "milk",
+                    category: "dairy",
+                    quantity: 2,
+                    unitPrice: 3.5,
+                    lineTotal: 7,
+                },
+            ],
+        });
     });
 });

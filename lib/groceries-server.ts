@@ -1,4 +1,9 @@
 import {
+    getSingleCurrencyCode,
+    resolveCurrencyCode,
+    type CurrencyCode,
+} from "@/lib/currency";
+import {
     type ActiveBoardSelection,
     BoardRouteError,
     listBoardMembersForResolvedBoard,
@@ -8,6 +13,7 @@ import {
 import {
     type ExtractedReceipt,
     getMonthRange,
+    getMonthKey,
     type GroceryEntry,
 } from "@/lib/groceries";
 import { redis } from "@/lib/redis";
@@ -208,6 +214,7 @@ export const getReceiptExtractionWriteKey = (
 type SupabaseGroceriesEntryRecord = {
     id: string;
     receipt_id: string;
+    currency_code: string | null;
     normalized_item: string;
     item: string;
     category: string;
@@ -223,6 +230,7 @@ type SupabaseGroceriesEntryRecord = {
 type SupabaseExtractedReceiptRecord = {
     id: string;
     month: string;
+    currency_code: string | null;
     source_file_name: string | null;
     model_id: string | null;
     extracted_at: string;
@@ -256,6 +264,7 @@ const normalizeReceiptId = (value: unknown) => {
 
 const mapEntryRecord = (record: SupabaseGroceriesEntryRecord): GroceryEntry => {
     return {
+        currencyCode: resolveCurrencyCode(record.currency_code),
         id: record.id,
         receiptId: record.receipt_id,
         normalizedItem: record.normalized_item,
@@ -275,6 +284,7 @@ const mapExtractedReceiptRecord = (
     record: SupabaseExtractedReceiptRecord,
 ): ExtractedReceipt => {
     return {
+        currencyCode: resolveCurrencyCode(record.currency_code),
         id: record.id,
         month: record.month,
         sourceFileName: record.source_file_name,
@@ -332,7 +342,7 @@ const loadSupabaseGroceriesEntriesForBoard = async (
     const { data, error } = await client
         .from("grocery_entries")
         .select(
-            "id, receipt_id, normalized_item, item, category, quantity, unit_price, line_total, source_file_name, model_id, purchase_date, created_at",
+            "id, receipt_id, currency_code, normalized_item, item, category, quantity, unit_price, line_total, source_file_name, model_id, purchase_date, created_at",
         )
         .eq("board_id", boardId)
         .gte("purchase_date", start.toISOString())
@@ -371,7 +381,7 @@ const loadSupabaseExtractedReceiptsForBoard = async (
     const { data, error } = await client
         .from("extracted_receipts")
         .select(
-            "id, month, source_file_name, model_id, extracted_at, item_count, total, categories, items, created_at",
+            "id, month, currency_code, source_file_name, model_id, extracted_at, item_count, total, categories, items, created_at",
         )
         .eq("board_id", boardId)
         .eq("month", month)
@@ -401,12 +411,51 @@ export const persistGroceriesEntries = async (
         selection.activeBoard.id,
         ["owner", "editor"],
     );
+    const receiptCurrencyCode = getSingleCurrencyCode(
+        entries.map((entry) => entry.currencyCode),
+        "A saved receipt must use a single currency.",
+    );
+    const month = getMonthKey(new Date(entries[0].purchaseDate));
+    const { start } = getMonthRange(month);
+    const nextMonthStart = new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
+    ).toISOString();
+    const { data: existingCurrencyRows, error: existingCurrencyError } = await client
+        .from("grocery_entries")
+        .select("currency_code")
+        .eq("board_id", board.id)
+        .gte("purchase_date", start.toISOString())
+        .lt("purchase_date", nextMonthStart);
+
+    if (existingCurrencyError) {
+        throw new Error(
+            existingCurrencyError.message || "Unable to validate saved grocery currency.",
+        );
+    }
+
+    const existingCurrencyCode = getSingleCurrencyCode(
+        (existingCurrencyRows ?? []).map(
+            (row) => (row as { currency_code?: string | null }).currency_code,
+        ),
+        "This board month already contains groceries saved with mixed currencies.",
+    );
+
+    if (
+        (existingCurrencyRows?.length ?? 0) > 0 &&
+        existingCurrencyCode !== receiptCurrencyCode
+    ) {
+        throw new BoardRouteError(
+            `This board already has groceries for ${month} in ${existingCurrencyCode}. Save ${receiptCurrencyCode} receipts to a separate board or month.`,
+            409,
+        );
+    }
 
     const insertPayload = entries.map((entry) => ({
         id: entry.id,
         board_id: board.id,
         created_by_user_id: authenticatedIdentity.userId,
         receipt_id: entry.receiptId,
+        currency_code: entry.currencyCode,
         normalized_item: entry.normalizedItem,
         item: entry.item,
         category: entry.category,
@@ -452,6 +501,7 @@ export const persistExtractedReceipt = async (
         board_id: board.id,
         created_by_user_id: authenticatedIdentity.userId,
         month: extraction.month,
+        currency_code: extraction.currencyCode,
         source_file_name: extraction.sourceFileName,
         model_id: extraction.modelId,
         extracted_at: extraction.extractedAt,

@@ -6,6 +6,8 @@ Parse and aggregate receipts.
 
 The frontend now supports OpenTelemetry on both the server and the browser.
 
+For a repo-specific setup and verification guide for Honeycomb traces, see [docs/honeycomb-tracing-setup.md](docs/honeycomb-tracing-setup.md).
+
 ### Server Tracing
 
 Server-side tracing is initialized through Next.js `instrumentation.ts` and uses `@vercel/otel`.
@@ -51,22 +53,22 @@ The frontend Supabase project lives in `frontend/supabase`, and the CLI is alrea
 
 Use the package scripts instead of ad hoc CLI commands so the workflow stays consistent:
 
-- `npm run migration:new -- <name>` creates a new migration file.
-- `npm run db:diff -- -f <name>` generates a migration from local schema changes.
-- `npm run db:check` runs lint plus `db push --dry-run` against the linked project.
-- `npm run db:deploy` runs the preflight checks and then performs the real push.
-- `npm run db:push:yes` is the non-interactive deploy variant for automation.
-- `npm run migration:list` and `npm run migration:repair -- <version> --status <applied|reverted>` help when local and remote history drift.
-- `npm run db:reset` resets the local database so migrations can be re-tested from scratch.
+- `pnpm run migration:new -- <name>` creates a new migration file.
+- `pnpm run db:diff -- -f <name>` generates a migration from local schema changes.
+- `pnpm run db:check` runs lint plus `db push --dry-run` against the linked project.
+- `pnpm run db:deploy` runs the preflight checks and then performs the real push.
+- `pnpm run db:push:yes` is the non-interactive deploy variant for automation.
+- `pnpm run migration:list` and `pnpm run migration:repair -- <version> --status <applied|reverted>` help when local and remote history drift.
+- `pnpm run db:reset` resets the local database so migrations can be re-tested from scratch.
 
 If you want the workflow guided in chat, use the workspace agent at `.github/agents/supabase-migrations.agent.md` for migration creation, preflight, deploy, and drift repair tasks.
 
 Recommended flow:
 
 1. Create or generate a migration.
-2. Test it locally with `npm run db:reset` if the change is non-trivial.
-3. Run `npm run db:check` before touching the remote database.
-4. Run `npm run db:deploy` for an interactive deploy, or `npm run db:push:yes` in automation.
+2. Test it locally with `pnpm run db:reset` if the change is non-trivial.
+3. Run `pnpm run db:check` before touching the remote database.
+4. Run `pnpm run db:deploy` for an interactive deploy, or `pnpm run db:push:yes` in automation.
 
 Avoid making schema changes directly in the remote Supabase dashboard once migrations are part of the workflow. If the histories drift, inspect with `migration:list`, repair history if needed, and then return to file-based migrations.
 

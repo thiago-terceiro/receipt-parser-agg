@@ -10,10 +10,12 @@ import {
   type SetStateAction,
 } from "react";
 
+import type { CurrencyCode } from "@/lib/currency";
 import type { ReceiptItem } from "@/lib/receipt";
 
 export type ExtractionResponse = {
   backend: string;
+  currencyCode: CurrencyCode;
   modelId: string;
   items: ReceiptItem[];
   rawResponse: string;

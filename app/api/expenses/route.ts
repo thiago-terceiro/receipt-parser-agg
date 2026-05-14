@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { BoardRouteError, requireBoardIdentity } from "@/lib/boards-server";
+import { sanitizeCurrencyCode } from "@/lib/currency";
 import {
   buildGroceriesMonthPayload,
   getMonthKey,
@@ -12,10 +13,11 @@ import {
   loadGroceriesEntries,
   persistGroceriesEntries,
 } from "@/lib/groceries-server";
-import { parseReceiptItems } from "@/lib/receipt";
+import { parseReceiptExtraction } from "@/lib/receipt";
 
 type CreateExpensesPayload = {
   boardId?: unknown;
+  currencyCode?: unknown;
   items?: unknown;
   rawResponse?: unknown;
   purchaseDate?: unknown;
@@ -43,15 +45,26 @@ export async function POST(request: Request) {
   }
 
   const data = (await request.json()) as CreateExpensesPayload;
+  const parsedExtraction =
+    typeof data.rawResponse === "string"
+      ? parseReceiptExtraction(data.rawResponse)
+      : null;
   const parsedItems = Array.isArray(data.items)
     ? data.items
-    : typeof data.rawResponse === "string"
-      ? parseReceiptItems(data.rawResponse)
-      : null;
+    : parsedExtraction?.items ?? null;
+  const currencyCode =
+    parsedExtraction?.currencyCode ?? sanitizeCurrencyCode(data.currencyCode);
 
   if (!parsedItems || parsedItems.length === 0) {
     return NextResponse.json(
       { error: "Request must include at least one grocery item." },
+      { status: 400 },
+    );
+  }
+
+  if (!currencyCode) {
+    return NextResponse.json(
+      { error: "Request must include a valid 3-letter ISO 4217 currency code." },
       { status: 400 },
     );
   }
@@ -71,6 +84,7 @@ export async function POST(request: Request) {
 
   const entries: GroceryEntry[] = parsedItems.map((item) => ({
     ...item,
+    currencyCode,
     id: crypto.randomUUID(),
     receiptId,
     sourceFileName,
@@ -90,6 +104,13 @@ export async function POST(request: Request) {
       savedCount: result.savedCount,
     });
   } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Unable to save groceries.";
 
     return NextResponse.json({ error: message }, { status: 500 });

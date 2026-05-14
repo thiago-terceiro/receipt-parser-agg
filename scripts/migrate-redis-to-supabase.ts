@@ -1,3 +1,4 @@
+import { resolveCurrencyCode } from "../lib/currency";
 import {
   chunk,
   collectResolvedStorageRecords,
@@ -9,6 +10,7 @@ import {
 } from "./shared-board-migration-utils";
 
 type GroceryRedisItem = {
+  currencyCode?: string | null;
   id: string;
   receiptId: string;
   normalizedItem: string;
@@ -24,6 +26,7 @@ type GroceryRedisItem = {
 };
 
 type ReceiptRedisItem = {
+  currencyCode?: string | null;
   id: string;
   month: string;
   sourceFileName?: string | null;
@@ -79,6 +82,7 @@ const migrate = async () => {
           board_id: boardId,
           created_by_user_id: record.userId,
           receipt_id: groceryItem.receiptId,
+          currency_code: resolveCurrencyCode(groceryItem.currencyCode),
           normalized_item: groceryItem.normalizedItem,
           item: groceryItem.item,
           category: groceryItem.category,
@@ -113,6 +117,7 @@ const migrate = async () => {
         board_id: boardId,
         created_by_user_id: record.userId,
         month: receiptItem.month,
+        currency_code: resolveCurrencyCode(receiptItem.currencyCode),
         source_file_name: receiptItem.sourceFileName ?? null,
         model_id: receiptItem.modelId ?? null,
         extracted_at: receiptItem.extractedAt,

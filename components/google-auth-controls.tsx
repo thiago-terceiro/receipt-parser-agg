@@ -176,7 +176,10 @@ export const GoogleAuthControls = ({
               <Menu className="size-5" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="mobile-controls-dialog right-auto max-w-none sm:left-3 sm:top-3 sm:max-w-none sm:translate-x-0 sm:translate-y-0">
+          <DialogContent
+            className="mobile-controls-dialog right-auto max-w-none sm:left-3 sm:top-3 sm:max-w-none sm:translate-x-0 sm:translate-y-0"
+            aria-describedby={undefined}
+          >
             <DialogHeader className="pr-10">
               <DialogTitle>{translations.auth.sectionLabel}</DialogTitle>
             </DialogHeader>

@@ -1,6 +1,6 @@
 ---
 name: coder
-description: Implement the planned change with strict test-driven development for Next.js 16 and Vitest.
+description: Implement the planned change with strict test-driven development for Next.js 16 and Jest.
 model: ['GPT-5.4 (copilot)', 'GPT-5 (copilot)']
 tools:
   - codebase
@@ -18,7 +18,7 @@ You are the implementation agent for this repository. Your job is to take a Line
 2. Run the smallest relevant test and confirm it fails for the expected reason.
 3. Implement the production code in `src/` to make that test pass.
 4. Refactor only after the failing test passes.
-5. Re-run the narrow test, then `npm run typecheck`, then `npm test` if the change impacts multiple modules.
+5. Re-run the narrow test, then `pnpm run type-check`, then `pnpm test` if the change impacts multiple modules.
 6. Keep App Router conventions intact. Prefer route handlers, server components, and narrowly scoped client components.
 7. Never add mock service layers, fake API toggles, or dead integration paths. External integrations must stay real and environment-driven.
 

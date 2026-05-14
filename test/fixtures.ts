@@ -1,3 +1,4 @@
+import { legacyDefaultCurrencyCode } from "@/lib/currency";
 import type {
     ExtractedReceipt,
     GroceriesMonthPayload,
@@ -22,6 +23,7 @@ export const makeReceiptItem = (
 export const makeEntry = (
     overrides: Partial<GroceryEntry> = {},
 ): GroceryEntry => ({
+    currencyCode: legacyDefaultCurrencyCode,
     id: "entry-1",
     receiptId: "receipt-1",
     sourceFileName: "receipt.png",
@@ -57,6 +59,7 @@ export const makeCategorySummary = (
 export const makeExtractedReceipt = (
     overrides: Partial<ExtractedReceipt> = {},
 ): ExtractedReceipt => ({
+    currencyCode: legacyDefaultCurrencyCode,
     id: "receipt-1",
     month: "2026-04",
     sourceFileName: "receipt.png",
@@ -72,6 +75,7 @@ export const makeExtractedReceipt = (
 export const makeMonthPayload = (
     overrides: Partial<GroceriesMonthPayload> = {},
 ): GroceriesMonthPayload => ({
+    currencyCode: legacyDefaultCurrencyCode,
     month: "2026-04",
     summary: {
         total: 14,

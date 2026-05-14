@@ -23,7 +23,7 @@ import {
   defaultProvider,
   dropdownAvailableModels,
   getModelCapabilityHint,
-  parseReceiptItems,
+  parseReceiptExtraction,
   receiptItemsJsonSchema,
   resolveRequestedModelId,
 } from "../../../lib/receipt";
@@ -239,22 +239,23 @@ export const POST = async (request: Request) => {
         { status: 502 },
       );
     }
-    const items = await withSpan(
+    const extractionResult = await withSpan(
       "receipt.extract.parse_items",
       async (span) => {
-        const parsedItems = parseReceiptItems(rawResponse);
+        const parsedExtraction = parseReceiptExtraction(rawResponse);
 
         span.setAttributes({
-          [observabilityAttributes.receiptItemCount]: parsedItems.length,
+          [observabilityAttributes.receiptItemCount]: parsedExtraction.items.length,
           [observabilityAttributes.receiptRawResponseLength]: rawResponse.length,
         });
 
-        return parsedItems;
+        return parsedExtraction;
       },
       {
         [observabilityAttributes.receiptOperation]: "parse_items",
       },
     );
+    const { currencyCode, items } = extractionResult;
 
     const identity = await getSessionIdentity();
     if (hasSupabaseServerConfig && identity?.userId) {
@@ -264,6 +265,7 @@ export const POST = async (request: Request) => {
       const extraction: ExtractedReceipt = {
         id: crypto.randomUUID(),
         month,
+        currencyCode,
         sourceFileName: fileName,
         modelId: model,
         extractedAt,
@@ -295,6 +297,7 @@ export const POST = async (request: Request) => {
 
     return NextResponse.json({
       backend: "vercel-hf-route",
+      currencyCode,
       modelId: model,
       items,
       rawResponse,

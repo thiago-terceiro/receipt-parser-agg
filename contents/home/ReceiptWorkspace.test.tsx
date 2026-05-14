@@ -101,6 +101,7 @@ describe("ReceiptWorkspace", () => {
                 createResponse(
                     JSON.stringify({
                         backend: "hf-api",
+                        currencyCode: "EUR",
                         modelId: "test-model",
                         items: [
                             {
@@ -143,11 +144,34 @@ describe("ReceiptWorkspace", () => {
 
         expect(await screen.findByText("Milk")).toBeInTheDocument();
         expect(screen.getByText("receipt.servedBy {\"backend\":\"hf-api\"}")).toBeInTheDocument();
+        expect(
+            screen.getByText('receipt.total {"amount":"€7.00"}'),
+        ).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "Show raw response" }));
         expect(screen.getByText("raw-output")).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.saveGroceries" }));
+
+        expect((global.fetch as jest.Mock).mock.calls[1][1]).toEqual(
+            expect.objectContaining({
+                body: JSON.stringify({
+                    currencyCode: "EUR",
+                    items: [
+                        {
+                            item: "Milk",
+                            normalizedItem: "milk",
+                            category: "dairy",
+                            quantity: 2,
+                            unitPrice: 3.5,
+                            lineTotal: 7,
+                        },
+                    ],
+                    sourceFileName: "receipt.png",
+                    modelId: "test-model",
+                }),
+            }),
+        );
 
         expect(await screen.findByText(/receipt.saveSuccess/)).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "receipt.openFreshDashboard" })).toHaveAttribute(
@@ -161,6 +185,7 @@ describe("ReceiptWorkspace", () => {
             createResponse(
                 JSON.stringify({
                     backend: "hf-api",
+                    currencyCode: "EUR",
                     modelId: "test-model",
                     items: [
                         {

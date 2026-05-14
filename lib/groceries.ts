@@ -1,3 +1,8 @@
+import {
+  getSingleCurrencyCode,
+  legacyDefaultCurrencyCode,
+  type CurrencyCode,
+} from "@/lib/currency";
 import type { AppLocale } from "@/lib/i18n/config";
 import {
   formatCategoryLabel,
@@ -7,6 +12,7 @@ import {
 } from "@/lib/receipt";
 
 export type GroceryEntry = ReceiptItem & {
+  currencyCode: CurrencyCode;
   id: string;
   receiptId: string;
   sourceFileName: string | null;
@@ -16,6 +22,7 @@ export type GroceryEntry = ReceiptItem & {
 };
 
 export type ExtractedReceipt = {
+  currencyCode: CurrencyCode;
   id: string;
   month: string;
   sourceFileName: string | null;
@@ -55,6 +62,7 @@ export type GroceriesMonthSummary = {
 };
 
 export type GroceriesMonthPayload = {
+  currencyCode: CurrencyCode;
   month: string;
   summary: GroceriesMonthSummary;
   categories: GroceryCategorySummary[];
@@ -202,8 +210,16 @@ export const buildSavedReceiptSummaries = (
           left.id.localeCompare(right.id),
       );
       const extractedReceipt = extractedReceiptsById.get(receiptId);
+      const currencyCode = getSingleCurrencyCode(
+        [
+          extractedReceipt?.currencyCode,
+          ...sortedEntries.map((entry) => entry.currencyCode),
+        ],
+        "Saved receipt items must all use the same currency.",
+      );
 
       return {
+        currencyCode,
         id: receiptId,
         month,
         sourceFileName:
@@ -232,14 +248,21 @@ export const buildGroceriesMonthPayload = (
   entries: GroceryEntry[],
   extractedReceipts: ExtractedReceipt[] = [],
 ): GroceriesMonthPayload => {
-  const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
-  const receiptIds = new Set(entries.map((entry) => entry.receiptId));
-  const uniqueItemIds = new Set(entries.map((entry) => entry.normalizedItem));
+  const currencyCode =
+    entries.length > 0
+      ? getSingleCurrencyCode(
+        entries.map((entry) => entry.currencyCode),
+        "Groceries saved in the same month must use a single currency.",
+      )
+      : legacyDefaultCurrencyCode;
   const recentReceipts = buildSavedReceiptSummaries(
     month,
     entries,
     extractedReceipts,
   );
+  const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
+  const receiptIds = new Set(entries.map((entry) => entry.receiptId));
+  const uniqueItemIds = new Set(entries.map((entry) => entry.normalizedItem));
 
   const categories = groceryCategories
     .map((category) => {
@@ -297,6 +320,7 @@ export const buildGroceriesMonthPayload = (
     .sort((left, right) => right.total - left.total);
 
   return {
+    currencyCode,
     month,
     summary: {
       total: roundCurrency(monthTotal),

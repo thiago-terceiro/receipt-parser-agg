@@ -27,9 +27,15 @@ jest.mock("@/components/ui/select", () => ({
         mockSelectState.value = value ?? "";
         return <div>{children}</div>;
     },
-    SelectContent: ({ children }: PropsWithChildren) => <div>{children}</div>,
+    SelectContent: ({ children }: PropsWithChildren) => (
+        <div role="listbox" id="mock-locale-listbox">
+            {children}
+        </div>
+    ),
     SelectItem: ({ children, value }: MockSelectItemProps) => (
-        <option value={value}>{children}</option>
+        <div role="option" aria-selected={mockSelectState.value === value} data-value={value}>
+            {children}
+        </div>
     ),
     SelectTrigger: ({ children, ...props }: React.ComponentProps<"button">) => (
         <button

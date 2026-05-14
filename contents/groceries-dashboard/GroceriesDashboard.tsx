@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "@/components/locale-utils";
 import { Button } from "@/components/ui/button";
 import { Link, getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
+import { createCurrencyFormatter } from "@/lib/currency";
 import {
   type GroceriesMonthPayload,
   type GroceryCategorySummary,
@@ -44,17 +45,20 @@ export const GroceriesDashboard = ({
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
   const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "USD",
-      }),
-    [locale],
+    () => createCurrencyFormatter(locale, payload.currencyCode),
+    [locale, payload.currencyCode],
   );
   const percentFormatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
         style: "percent",
+        maximumFractionDigits: 0,
+      }),
+    [locale],
+  );
+  const integerFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
         maximumFractionDigits: 0,
       }),
     [locale],
@@ -109,27 +113,28 @@ export const GroceriesDashboard = ({
       },
       {
         label: translations.groceries.stats.uniqueItemsTracked,
-        value: String(payload.summary.uniqueItemCount),
+        value: integerFormatter.format(payload.summary.uniqueItemCount),
         icon: Package2,
       },
       {
         label: translations.groceries.stats.itemsTracked,
-        value: String(payload.summary.itemCount),
+        value: integerFormatter.format(payload.summary.itemCount),
         icon: Package2,
       },
       {
         label: translations.groceries.stats.receiptsSaved,
-        value: String(payload.summary.receiptCount),
+        value: integerFormatter.format(payload.summary.receiptCount),
         icon: ReceiptText,
       },
       {
         label: translations.groceries.stats.categoriesActive,
-        value: String(payload.summary.categoryCount),
+        value: integerFormatter.format(payload.summary.categoryCount),
         icon: CalendarDays,
       },
     ],
     [
       currencyFormatter,
+      integerFormatter,
       payload.summary.categoryCount,
       payload.summary.itemCount,
       payload.summary.uniqueItemCount,

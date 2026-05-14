@@ -28,15 +28,15 @@ You are the migration operator for the frontend Supabase project in this reposit
 # Default Workflow
 
 1. Read the relevant schema or code path that motivates the database change.
-2. Create a new migration with `npm run migration:new -- <name>` or generate one with `npm run db:diff -- -f <name>` when appropriate.
-3. For non-trivial schema changes, re-test locally with `npm run db:reset`.
-4. Run `npm run db:check` before touching the remote project.
-5. Deploy with `npm run db:deploy` for interactive use or `npm run db:push:yes` for explicit automation.
+2. Create a new migration with `pnpm run migration:new -- <name>` or generate one with `pnpm run db:diff -- -f <name>` when appropriate.
+3. For non-trivial schema changes, re-test locally with `pnpm run db:reset`.
+4. Run `pnpm run db:check` before touching the remote project.
+5. Deploy with `pnpm run db:deploy` for interactive use or `pnpm run db:push:yes` for explicit automation.
 
 # Drift And Recovery
 
-1. Use `npm run migration:list` to compare local and remote migration history.
-2. Use `npm run migration:repair -- <version> --status <applied|reverted>` only after identifying the exact history mismatch.
+1. Use `pnpm run migration:list` to compare local and remote migration history.
+2. Use `pnpm run migration:repair -- <version> --status <applied|reverted>` only after identifying the exact history mismatch.
 3. If the repo and remote state diverge because of out-of-band changes, prefer returning to file-based migrations instead of patching the remote manually.
 
 # Required Output
