@@ -1,6 +1,7 @@
 import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
 
+import { checkReceiptExtractionRateLimit } from "@/lib/extract-rate-limit";
 import {
   getMonthKey,
   type ExtractedReceipt,
@@ -125,6 +126,27 @@ export const POST = async (request: Request) => {
     return NextResponse.json(
       { error: "HF_TOKEN is not configured on the server." },
       { status: 500 },
+    );
+  }
+
+  const identity = await getSessionIdentity();
+  const rateLimit = await checkReceiptExtractionRateLimit(request, identity);
+
+  if (rateLimit && !rateLimit.success) {
+    return NextResponse.json(
+      {
+        error:
+          "Too many receipt extraction requests. Please wait a few minutes and try again.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.max(rateLimit.reset, 1)),
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-RateLimit-Reset": String(rateLimit.reset),
+        },
+      },
     );
   }
 
@@ -257,7 +279,6 @@ export const POST = async (request: Request) => {
     );
     const { currencyCode, items } = extractionResult;
 
-    const identity = await getSessionIdentity();
     if (hasSupabaseServerConfig && identity?.userId) {
       const extractedAt = new Date().toISOString();
       const month = getMonthKey(new Date(extractedAt));

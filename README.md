@@ -47,6 +47,26 @@ NEXT_PUBLIC_OTEL_BROWSER_SAMPLE_RATE=1
 NEXT_PUBLIC_OTEL_BROWSER_DEBUG=false
 ```
 
+## Receipt Extraction Rate Limiting
+
+The expensive `POST /api/extract` route now supports Redis-backed rate limiting when Upstash or Vercel Redis is configured.
+
+Set these optional environment variables to tune it:
+
+- `RECEIPT_EXTRACT_RATE_LIMIT_REQUESTS`
+- `RECEIPT_EXTRACT_RATE_LIMIT_WINDOW`
+
+Defaults:
+
+- `RECEIPT_EXTRACT_RATE_LIMIT_REQUESTS=10`
+- `RECEIPT_EXTRACT_RATE_LIMIT_WINDOW="5 m"`
+
+Behavior:
+
+- authenticated users are limited by user id
+- anonymous users are limited by forwarded client IP
+- if Redis is not configured, the limiter stays disabled and the route behaves as before
+
 ## Database Migrations
 
 The frontend Supabase project lives in `frontend/supabase`, and the CLI is already installed as a local dev dependency.
