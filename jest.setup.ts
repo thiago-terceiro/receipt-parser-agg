@@ -154,6 +154,18 @@ beforeEach(() => {
         },
     });
 
+    Object.defineProperty(window, "sessionStorage", {
+        writable: true,
+        value: {
+            clear: jest.fn(),
+            getItem: jest.fn(() => null),
+            key: jest.fn(),
+            length: 0,
+            removeItem: jest.fn(),
+            setItem: jest.fn(),
+        },
+    });
+
     Object.defineProperty(window.URL, "createObjectURL", {
         writable: true,
         value: jest.fn(() => "blob:preview-url"),

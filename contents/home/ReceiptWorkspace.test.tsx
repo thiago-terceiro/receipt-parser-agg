@@ -52,6 +52,24 @@ const createResponse = (body: string, ok = true) =>
         text: jest.fn().mockResolvedValue(body),
     }) as unknown as Response;
 
+const createSessionStorageStore = () => {
+    const storage = new Map<string, string>();
+
+    (window.sessionStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        storage.get(key) ?? null,
+    );
+    (window.sessionStorage.setItem as jest.Mock).mockImplementation(
+        (key: string, value: string) => {
+            storage.set(key, value);
+        },
+    );
+    (window.sessionStorage.removeItem as jest.Mock).mockImplementation((key: string) => {
+        storage.delete(key);
+    });
+
+    return storage;
+};
+
 describe("ReceiptWorkspace", () => {
     it("renders placeholder panels before a file is selected", () => {
         renderWithProviders(<ReceiptWorkspace availableModels={availableModels} />, {
@@ -90,6 +108,7 @@ describe("ReceiptWorkspace", () => {
     });
 
     it("extracts a receipt, toggles raw response, and saves groceries", async () => {
+        createSessionStorageStore();
         mockAuthState.status = "authenticated";
         mockAuthState.session = {
             expires: "2026-05-01T00:00:00.000Z",
@@ -177,6 +196,64 @@ describe("ReceiptWorkspace", () => {
         expect(screen.getByRole("link", { name: "receipt.openFreshDashboard" })).toHaveAttribute(
             "href",
             "/en/groceries?month=2026-04&saved=saved-1",
+        );
+    });
+
+    it("restores the last unsaved extracted receipt after remounting", async () => {
+        createSessionStorageStore();
+        global.fetch = jest.fn().mockResolvedValue(
+            createResponse(
+                JSON.stringify({
+                    backend: "hf-api",
+                    currencyCode: "EUR",
+                    modelId: "test-model",
+                    items: [
+                        {
+                            item: "Milk",
+                            normalizedItem: "milk",
+                            category: "dairy",
+                            quantity: 2,
+                            unitPrice: 3.5,
+                            lineTotal: 7,
+                        },
+                    ],
+                    rawResponse: "raw-output",
+                }),
+            ),
+        );
+
+        const firstRender = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = firstRender.container.querySelector("form") as HTMLFormElement;
+        const input = firstRender.container.querySelector("input[type='file']") as HTMLInputElement;
+        fireEvent.change(input, {
+            target: { files: [new File(["image"], "receipt.png", { type: "image/png" })] },
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        expect(await screen.findByText("Milk")).toBeInTheDocument();
+
+        await waitFor(() => {
+            expect(window.sessionStorage.setItem).toHaveBeenCalled();
+        });
+
+        firstRender.unmount();
+
+        renderWithProviders(<ReceiptWorkspace availableModels={availableModels} />, {
+            withWorkspaceProvider: true,
+        });
+
+        expect(await screen.findByText("Milk")).toBeInTheDocument();
+        expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        expect(screen.getByRole("link", { name: "receipt.openDashboard" })).toHaveAttribute(
+            "href",
+            "/en/groceries",
         );
     });
 

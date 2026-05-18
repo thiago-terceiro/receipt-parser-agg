@@ -25,13 +25,16 @@ type WorkspaceTranslations = Pick<Messages, "receipt">;
 
 type ReceiptWorkspaceUploadSectionProps = {
     availableModels: AvailableModel[];
+    canSubmit: boolean;
     error: string | null;
-    file: File | null;
     fileInputRef: RefObject<HTMLInputElement | null>;
+    hasSelectedFile: boolean;
     isDraggingFile: boolean;
     isLoading: boolean;
     saveMessage: string | null;
     selectedModelId: string;
+    selectedFileName: string | null;
+    selectedFileSize: number | null;
     translations: WorkspaceTranslations;
     onClearSelectedFile: () => void;
     onDropzoneClick: () => void;
@@ -46,13 +49,16 @@ type ReceiptWorkspaceUploadSectionProps = {
 
 export const ReceiptWorkspaceUploadSection = ({
     availableModels,
+    canSubmit,
     error,
-    file,
     fileInputRef,
+    hasSelectedFile,
     isDraggingFile,
     isLoading,
     saveMessage,
     selectedModelId,
+    selectedFileName,
+    selectedFileSize,
     translations,
     onClearSelectedFile,
     onDropzoneClick,
@@ -111,12 +117,12 @@ export const ReceiptWorkspaceUploadSection = ({
                         <div className="flex items-center gap-3">
                             <div className="grid gap-1">
                                 <span className="text-[1.15rem] font-bold">
-                                    {file
+                                    {hasSelectedFile
                                         ? translations.receipt.fileReady
                                         : translations.receipt.dropImage}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
-                                    {file
+                                    {hasSelectedFile
                                         ? translations.receipt.replaceHelp
                                         : translations.receipt.browseHelp}
                                 </span>
@@ -124,14 +130,16 @@ export const ReceiptWorkspaceUploadSection = ({
                         </div>
                     </div>
 
-                    {file ? (
+                    {hasSelectedFile ? (
                         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-foreground">
-                                    {file.name}
+                                    {selectedFileName}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    {selectedFileSize != null
+                                        ? `${(selectedFileSize / 1024 / 1024).toFixed(2)} MB`
+                                        : null}
                                 </p>
                             </div>
                             <Button
@@ -180,7 +188,7 @@ export const ReceiptWorkspaceUploadSection = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 max-[500px]:grid-cols-1">
-                    <Button type="submit" disabled={!file || isLoading} className="w-full">
+                    <Button type="submit" disabled={!canSubmit || isLoading} className="w-full">
                         {isLoading
                             ? translations.receipt.extracting
                             : translations.receipt.extractReceipt}
@@ -189,7 +197,7 @@ export const ReceiptWorkspaceUploadSection = ({
                         variant="secondary"
                         type="button"
                         onClick={onClearSelectedFile}
-                        disabled={!file || isLoading}
+                        disabled={!hasSelectedFile || isLoading}
                         className="w-full"
                     >
                         {translations.receipt.removeImage}

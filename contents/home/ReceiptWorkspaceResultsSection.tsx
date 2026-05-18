@@ -32,9 +32,9 @@ type ReceiptWorkspaceResultsSectionProps = {
         query: Record<string, string>;
     };
     displayedItems: ReceiptItem[];
+    displayedFileName: string | null;
     displayedTotal: number;
     editedItems: Record<number, ReceiptItem>;
-    file: File | null;
     isAuthenticated: boolean;
     isSaving: boolean;
     locale: AppLocale;
@@ -53,9 +53,9 @@ export const ReceiptWorkspaceResultsSection = ({
     currencyFormatter,
     dashboardHref,
     displayedItems,
+    displayedFileName,
     displayedTotal,
     editedItems,
-    file,
     isAuthenticated,
     isSaving,
     locale,
@@ -74,7 +74,7 @@ export const ReceiptWorkspaceResultsSection = ({
                 <div className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] px-6 py-5">
                     <h2 className="m-0 text-[1.4rem]">{translations.receipt.preview}</h2>
                     <span className="text-sm text-muted-foreground">
-                        {file ? file.name : translations.receipt.noFileSelected}
+                        {displayedFileName ?? translations.receipt.noFileSelected}
                     </span>
                 </div>
                 <CardContent className="p-6">

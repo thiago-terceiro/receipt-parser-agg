@@ -47,6 +47,139 @@ type SavedReceiptState = {
   receiptId: string;
 };
 
+type PersistedReceiptDraft = {
+  editedItems: Record<number, ReceiptItem>;
+  fileName: string;
+  fileSize: number;
+  previewDataUrl: string;
+  result: ExtractionResponse;
+  selectedModelId: string;
+  showRawResponse: boolean;
+};
+
+type RestoredReceiptDraft = {
+  fileName: string;
+  fileSize: number;
+  previewDataUrl: string | null;
+};
+
+const RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY =
+  "receipt-ai-receipt-workspace-draft";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isReceiptItem = (value: unknown): value is ReceiptItem => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.item === "string" &&
+    typeof value.normalizedItem === "string" &&
+    typeof value.category === "string" &&
+    typeof value.quantity === "number" &&
+    typeof value.unitPrice === "number" &&
+    typeof value.lineTotal === "number"
+  );
+};
+
+const isExtractionResponse = (value: unknown): value is ExtractionResponse => {
+  if (!isRecord(value) || !Array.isArray(value.items)) {
+    return false;
+  }
+
+  return (
+    typeof value.backend === "string" &&
+    typeof value.currencyCode === "string" &&
+    typeof value.modelId === "string" &&
+    typeof value.rawResponse === "string" &&
+    value.items.every(isReceiptItem)
+  );
+};
+
+const isEditedItemsRecord = (
+  value: unknown,
+): value is Record<number, ReceiptItem> =>
+  isRecord(value) && Object.values(value).every(isReceiptItem);
+
+const isPersistedReceiptDraft = (
+  value: unknown,
+): value is PersistedReceiptDraft => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.fileName === "string" &&
+    typeof value.fileSize === "number" &&
+    typeof value.previewDataUrl === "string" &&
+    typeof value.selectedModelId === "string" &&
+    typeof value.showRawResponse === "boolean" &&
+    isEditedItemsRecord(value.editedItems) &&
+    isExtractionResponse(value.result)
+  );
+};
+
+const readPersistedReceiptDraft = (): PersistedReceiptDraft | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const storedDraft = window.sessionStorage.getItem(
+      RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY,
+    );
+
+    if (!storedDraft) {
+      return null;
+    }
+
+    const parsedDraft: unknown = JSON.parse(storedDraft);
+
+    if (!isPersistedReceiptDraft(parsedDraft)) {
+      window.sessionStorage.removeItem(RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY);
+      return null;
+    }
+
+    return parsedDraft;
+  } catch {
+    window.sessionStorage.removeItem(RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY);
+    return null;
+  }
+};
+
+const writePersistedReceiptDraft = (draft: PersistedReceiptDraft) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY,
+      JSON.stringify(draft),
+    );
+    return;
+  } catch {
+    try {
+      window.sessionStorage.setItem(
+        RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY,
+        JSON.stringify({ ...draft, previewDataUrl: "" }),
+      );
+    } catch {
+      window.sessionStorage.removeItem(RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY);
+    }
+  }
+};
+
+const clearPersistedReceiptDraft = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(RECEIPT_WORKSPACE_DRAFT_STORAGE_KEY);
+};
+
 const parseJsonResponse = async <T,>(response: Response): Promise<T> => {
   const responseText = await response.text();
   if (!responseText.trim()) {
@@ -92,6 +225,12 @@ export const ReceiptWorkspace = ({
   const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(
     null,
   );
+  const [draftPreviewDataUrl, setDraftPreviewDataUrl] = useState<string | null>(
+    null,
+  );
+  const [restoredDraft, setRestoredDraft] = useState<RestoredReceiptDraft | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
@@ -126,6 +265,10 @@ export const ReceiptWorkspace = ({
       },
     }
     : "/groceries";
+  const displayedFileName = file?.name ?? restoredDraft?.fileName ?? null;
+  const displayedFileSize = file?.size ?? restoredDraft?.fileSize ?? null;
+  const displayedPreviewUrl = previewUrl ?? restoredDraft?.previewDataUrl ?? null;
+  const hasSelectedFile = displayedFileName !== null;
 
   useEffect(() => {
     if (!file) {
@@ -141,7 +284,104 @@ export const ReceiptWorkspace = ({
     };
   }, [file]);
 
+  useEffect(() => {
+    if (!file) {
+      setDraftPreviewDataUrl(null);
+      return;
+    }
+
+    let isCancelled = false;
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (isCancelled) {
+        return;
+      }
+
+      setDraftPreviewDataUrl(
+        typeof reader.result === "string" ? reader.result : null,
+      );
+    };
+    reader.onerror = () => {
+      if (!isCancelled) {
+        setDraftPreviewDataUrl(null);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    return () => {
+      isCancelled = true;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
+    };
+  }, [file]);
+
+  useEffect(() => {
+    if (file || result) {
+      return;
+    }
+
+    const persistedDraft = readPersistedReceiptDraft();
+
+    if (!persistedDraft) {
+      return;
+    }
+
+    setSelectedModelId(persistedDraft.selectedModelId);
+    setResult(persistedDraft.result);
+    setEditedItems(persistedDraft.editedItems);
+    setShowRawResponse(persistedDraft.showRawResponse);
+    setRestoredDraft({
+      fileName: persistedDraft.fileName,
+      fileSize: persistedDraft.fileSize,
+      previewDataUrl: persistedDraft.previewDataUrl || null,
+    });
+  }, [
+    file,
+    result,
+    setEditedItems,
+    setResult,
+    setSelectedModelId,
+    setShowRawResponse,
+  ]);
+
+  useEffect(() => {
+    if (!result || saveMessage) {
+      return;
+    }
+
+    const fileName = file?.name ?? restoredDraft?.fileName;
+    const fileSize = file?.size ?? restoredDraft?.fileSize;
+    const previewDataUrl =
+      file != null ? (draftPreviewDataUrl ?? "") : (restoredDraft?.previewDataUrl ?? "");
+
+    if (!fileName || fileSize == null) {
+      return;
+    }
+
+    writePersistedReceiptDraft({
+      editedItems,
+      fileName,
+      fileSize,
+      previewDataUrl,
+      result,
+      selectedModelId,
+      showRawResponse,
+    });
+  }, [
+    draftPreviewDataUrl,
+    editedItems,
+    file,
+    restoredDraft,
+    result,
+    saveMessage,
+    selectedModelId,
+    showRawResponse,
+  ]);
+
   const resetWorkspaceState = useCallback(() => {
+    clearPersistedReceiptDraft();
     setResult(null);
     setError(null);
     setSaveMessage(null);
@@ -149,6 +389,7 @@ export const ReceiptWorkspace = ({
     setEditorState(null);
     setShowRawResponse(false);
     setSavedReceipt(null);
+    setRestoredDraft(null);
   }, [setEditedItems, setResult, setShowRawResponse]);
 
   const clearSelectedFile = useCallback(() => {
@@ -170,6 +411,7 @@ export const ReceiptWorkspace = ({
         return;
       }
 
+      setDraftPreviewDataUrl(null);
       setFile(nextFile);
       resetWorkspaceState();
     },
@@ -339,7 +581,7 @@ export const ReceiptWorkspace = ({
             body: JSON.stringify({
               currencyCode: result.currencyCode,
               items: displayedItems,
-              sourceFileName: file?.name ?? null,
+              sourceFileName: displayedFileName,
               modelId: result.modelId,
             }),
           });
@@ -355,7 +597,7 @@ export const ReceiptWorkspace = ({
           span.setAttributes({
             [observabilityAttributes.httpStatusCode]: response.status,
             [observabilityAttributes.receiptItemCount]: displayedItems.length,
-            [observabilityAttributes.receiptHasSourceFile]: Boolean(file?.name),
+            [observabilityAttributes.receiptHasSourceFile]: Boolean(displayedFileName),
           });
 
           if (!response.ok) {
@@ -388,6 +630,7 @@ export const ReceiptWorkspace = ({
           savedMonthLabel,
         ),
       );
+      clearPersistedReceiptDraft();
       logInfo("Saved groceries from receipt in browser.", {
         [observabilityFields.event]: observabilityEvents.uiReceiptSaveSuccess,
         [observabilityAttributes.receiptItemCount]: payload.savedCount ?? displayedItems.length,
@@ -410,7 +653,7 @@ export const ReceiptWorkspace = ({
     }
   }, [
     displayedItems,
-    file?.name,
+    displayedFileName,
     locale,
     result,
     translations.receipt,
@@ -529,13 +772,16 @@ export const ReceiptWorkspace = ({
     <>
       <ReceiptWorkspaceUploadSection
         availableModels={availableModels}
+        canSubmit={file !== null}
         error={error}
-        file={file}
         fileInputRef={fileInputRef}
+        hasSelectedFile={hasSelectedFile}
         isDraggingFile={isDraggingFile}
         isLoading={isLoading}
         saveMessage={saveMessage}
         selectedModelId={selectedModelId}
+        selectedFileName={displayedFileName}
+        selectedFileSize={displayedFileSize}
         translations={translations}
         onClearSelectedFile={clearSelectedFile}
         onDropzoneClick={handleDropzoneClick}
@@ -554,12 +800,12 @@ export const ReceiptWorkspace = ({
         dashboardHref={dashboardHref}
         locale={locale}
         displayedItems={displayedItems}
+        displayedFileName={displayedFileName}
         displayedTotal={displayedTotal}
         editedItems={editedItems}
-        file={file}
         isAuthenticated={isAuthenticated}
         isSaving={isSaving}
-        previewUrl={previewUrl}
+        previewUrl={displayedPreviewUrl}
         result={result}
         saveMessage={saveMessage}
         showRawResponse={showRawResponse}
