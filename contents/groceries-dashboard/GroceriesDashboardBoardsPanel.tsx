@@ -1,24 +1,24 @@
 "use client";
 
 import { Copy, Plus, Share2, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import { getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
@@ -26,9 +26,9 @@ import { type AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { logInfo, logWarn, withSpan } from "@/lib/observability";
 import {
-  observabilityAttributes,
-  observabilityEvents,
-  observabilityFields,
+    observabilityAttributes,
+    observabilityEvents,
+    observabilityFields,
 } from "@/lib/observability-schema";
 
 type GroceriesDashboardBoardsPanelProps = {
@@ -63,7 +63,7 @@ const getRoleLabel = (translations: Messages, role: BoardSummary["role"]) => {
     : translations.groceries.boards.roleEditor;
 };
 
-export const GroceriesDashboardBoardsPanel = ({
+const GroceriesDashboardBoardsPanelContent = ({
   activeBoard,
   boards,
   currentMonth,
@@ -99,13 +99,6 @@ export const GroceriesDashboardBoardsPanel = ({
       inviteUrl: string;
     };
   };
-
-  useEffect(() => {
-    setError(null);
-    setInviteEmail("");
-    setInviteLink(null);
-    setStatusMessage(null);
-  }, [activeBoard.id]);
 
   const navigateToBoard = (boardId: string) => {
     router.push(buildBoardHref(groceriesPath, boardId, currentMonth, selectedMonth));
@@ -504,5 +497,16 @@ export const GroceriesDashboardBoardsPanel = ({
         </DialogContent>
       </Dialog>
     </section>
+  );
+};
+
+export const GroceriesDashboardBoardsPanel = (
+  props: GroceriesDashboardBoardsPanelProps,
+) => {
+  return (
+    <GroceriesDashboardBoardsPanelContent
+      key={props.activeBoard.id}
+      {...props}
+    />
   );
 };

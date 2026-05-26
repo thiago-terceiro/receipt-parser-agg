@@ -2,6 +2,12 @@
 
 Parse and aggregate receipts.
 
+## Local Verification
+
+After `pnpm install`, the frontend repo installs a pre-commit hook that runs `pnpm run ci:verify` before each commit.
+
+That command matches the frontend CI verification step and runs type-checking, linting, and Jest tests locally before the commit is recorded.
+
 ## Observability
 
 The frontend now supports OpenTelemetry on both the server and the browser.
