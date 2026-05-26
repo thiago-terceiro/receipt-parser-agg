@@ -9,6 +9,7 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["pdf-to-img"],
   turbopack: {
     root: projectRoot,
   },

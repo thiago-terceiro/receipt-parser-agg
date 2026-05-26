@@ -25,10 +25,17 @@ import {
   observabilityEvents,
   observabilityFields,
 } from "@/lib/observability-schema";
+import {
+  getReceiptPreviewKindFromDataUrl,
+  getReceiptUploadKind,
+  isPdfReceiptFileName,
+  isSupportedReceiptUpload
+} from "@/lib/receipt-upload";
 
 import {
   sanitizeCategory,
   type AvailableModel,
+  type ReceiptItem,
 } from "../../lib/receipt";
 import {
   EditorState,
@@ -268,10 +275,17 @@ export const ReceiptWorkspace = ({
   const displayedFileName = file?.name ?? restoredDraft?.fileName ?? null;
   const displayedFileSize = file?.size ?? restoredDraft?.fileSize ?? null;
   const displayedPreviewUrl = previewUrl ?? restoredDraft?.previewDataUrl ?? null;
+  const displayedPreviewKind = file
+    ? getReceiptUploadKind(file)
+    : (getReceiptPreviewKindFromDataUrl(restoredDraft?.previewDataUrl) ??
+      (isPdfReceiptFileName(displayedFileName) ? "pdf" : null));
+  const previewPlaceholderText = displayedPreviewKind === "pdf"
+    ? translations.receipt.pdfPreviewPlaceholder
+    : translations.receipt.previewPlaceholder;
   const hasSelectedFile = displayedFileName !== null;
 
   useEffect(() => {
-    if (!file) {
+    if (!file || !isSupportedReceiptUpload(file)) {
       setPreviewUrl(null);
       return;
     }
@@ -285,7 +299,7 @@ export const ReceiptWorkspace = ({
   }, [file]);
 
   useEffect(() => {
-    if (!file) {
+    if (!file || !isSupportedReceiptUpload(file)) {
       setDraftPreviewDataUrl(null);
       return;
     }
@@ -406,7 +420,7 @@ export const ReceiptWorkspace = ({
         return;
       }
 
-      if (!nextFile.type.startsWith("image/")) {
+      if (!isSupportedReceiptUpload(nextFile)) {
         setError(translations.receipt.errors.invalidImage);
         return;
       }
@@ -805,6 +819,8 @@ export const ReceiptWorkspace = ({
         editedItems={editedItems}
         isAuthenticated={isAuthenticated}
         isSaving={isSaving}
+        previewKind={displayedPreviewKind}
+        previewPlaceholderText={previewPlaceholderText}
         previewUrl={displayedPreviewUrl}
         result={result}
         saveMessage={saveMessage}

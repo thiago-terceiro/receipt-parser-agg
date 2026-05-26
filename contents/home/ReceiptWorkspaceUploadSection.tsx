@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import type { Messages } from "@/lib/i18n/messages";
 import type { AvailableModel } from "@/lib/receipt";
+import { receiptUploadAccept } from "@/lib/receipt-upload";
 
 type WorkspaceTranslations = Pick<Messages, "receipt">;
 
@@ -92,7 +93,7 @@ export const ReceiptWorkspaceUploadSection = ({
                     id="receipt-file"
                     name="receipt-file"
                     type="file"
-                    accept="image/*"
+                    accept={receiptUploadAccept}
                     ref={fileInputRef}
                     onChange={onFileChange}
                     className="sr-only"

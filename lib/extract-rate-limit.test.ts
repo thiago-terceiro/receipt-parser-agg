@@ -8,9 +8,11 @@ const loadModule = async (options?: {
     hasRedisConfig?: boolean;
     redis?: object | null;
 }) => {
+    const slidingWindowMock = jest.fn(() => "window");
+
     jest.doMock("@upstash/ratelimit", () => ({
-        Ratelimit: class {
-            static slidingWindow = jest.fn(() => "window");
+        Ratelimit: class MockRatelimit {
+            static slidingWindow = slidingWindowMock;
 
             limit = jest.fn(async () => ({
                 success: true,

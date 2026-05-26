@@ -22,6 +22,30 @@ const parsePositiveInteger = (value: string | null, fallback: number) => {
         : fallback;
 };
 
+type RateLimitDuration = Parameters<typeof Ratelimit.slidingWindow>[1];
+
+const parseRateLimitDuration = (
+    value: string | null,
+    fallback: RateLimitDuration,
+): RateLimitDuration => {
+    if (!value) {
+        return fallback;
+    }
+
+    const match = value.trim().match(/^(\d+)\s*(ms|s|m|h|d)$/i);
+    if (!match) {
+        return fallback;
+    }
+
+    const amount = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        return fallback;
+    }
+
+    const unit = match[2].toLowerCase() as Lowercase<typeof match[2]>;
+    return `${amount} ${unit}` as RateLimitDuration;
+};
+
 const extractRateLimitRequests = parsePositiveInteger(
     resolveEnvValue([
         "RECEIPT_EXTRACT_RATE_LIMIT_REQUESTS",
@@ -31,12 +55,14 @@ const extractRateLimitRequests = parsePositiveInteger(
     10,
 );
 
-const extractRateLimitWindow =
+const extractRateLimitWindow = parseRateLimitDuration(
     resolveEnvValue([
         "RECEIPT_EXTRACT_RATE_LIMIT_WINDOW",
         "RECEIPT_AGG_RECEIPT_EXTRACT_RATE_LIMIT_WINDOW",
         "receipt_agg_RECEIPT_EXTRACT_RATE_LIMIT_WINDOW",
-    ]) ?? "5 m";
+    ]),
+    "5 m",
+);
 
 const extractRateLimiter =
     hasRedisConfig && redis

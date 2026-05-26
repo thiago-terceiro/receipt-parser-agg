@@ -1,5 +1,7 @@
 # Honeycomb Traces Setup and Verification
 
+If you need a plain-language setup guide for a non-developer, start with [honeycomb-user-guide.md](honeycomb-user-guide.md).
+
 ## Scope
 
 This guide explains:

@@ -87,11 +87,31 @@ describe("ReceiptWorkspace", () => {
         );
 
         const input = container.querySelector("input[type='file']") as HTMLInputElement;
-        const invalidFile = new File(["pdf"], "receipt.pdf", { type: "application/pdf" });
+        const invalidFile = new File(["notes"], "notes.txt", { type: "text/plain" });
 
         fireEvent.change(input, { target: { files: [invalidFile] } });
 
         expect(await screen.findByText("receipt.errors.invalidImage")).toBeInTheDocument();
+    });
+
+    it("accepts pdf files", async () => {
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        const pdfFile = new File(["pdf"], "receipt.pdf", { type: "application/pdf" });
+
+        fireEvent.change(input, { target: { files: [pdfFile] } });
+
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.pdf").length).toBeGreaterThan(0);
+        });
+        expect(
+            container.querySelector('object[type="application/pdf"]'),
+        ).toBeInTheDocument();
+        expect(screen.queryByText("receipt.errors.invalidImage")).not.toBeInTheDocument();
     });
 
     it("shows an error when submitting without a file", async () => {

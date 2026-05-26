@@ -58,6 +58,7 @@ export type Messages = { metadata: Metadata } & {
     noFileSelected: string;
     previewAlt: string;
     previewPlaceholder: string;
+    pdfPreviewPlaceholder: string;
     extractedItems: string;
     waitingForExtraction: string;
     servedBy: (backend: string) => string;
@@ -270,6 +271,7 @@ export const createMessagesObject = (
       noFileSelected: t("receipt.noFileSelected"),
       previewAlt: t("receipt.previewAlt"),
       previewPlaceholder: t("receipt.previewPlaceholder"),
+      pdfPreviewPlaceholder: t("receipt.pdfPreviewPlaceholder"),
       extractedItems: t("receipt.extractedItems"),
       waitingForExtraction: t("receipt.waitingForExtraction"),
       servedBy: (backend) => t("receipt.servedBy", { backend }),
@@ -464,12 +466,12 @@ export const localeMessages = {
         "Upload a receipt and extract line items without running the model locally.",
       heroDescription:
         "This frontend is designed for Vercel. The browser uploads the image to a server route, and the server route calls Hugging Face with the model configured in the server environment.",
-      fileReady: "Receipt image ready",
-      dropImage: "Drop a receipt image here",
-      replaceHelp: "Replace it by dropping another image or browsing files.",
+      fileReady: "Receipt file ready",
+      dropImage: "Drop a receipt file here",
+      replaceHelp: "Replace it by dropping another image or PDF, or browsing files.",
       browseHelp:
-        "PNG, JPG, or WEBP works best. Click to browse if you prefer.",
-      removeSelectedImage: "Remove selected image",
+        "PNG, JPG, WEBP, or PDF works best. Click to browse if you prefer.",
+      removeSelectedImage: "Remove selected file",
       dragAndDrop: "Drag and drop",
       clickToBrowse: "or click anywhere in this panel to browse",
       modelLabel: "Model",
@@ -478,11 +480,13 @@ export const localeMessages = {
         "The server default comes from HF_MODEL_ID. The model now categorizes grocery items as part of extraction.",
       extracting: "Extracting...",
       extractReceipt: "Extract receipt",
-      removeImage: "Remove image",
+      removeImage: "Remove file",
       preview: "Preview",
       noFileSelected: "No file selected",
       previewAlt: "Receipt preview",
       previewPlaceholder: "Your receipt preview will appear here.",
+      pdfPreviewPlaceholder:
+        "PDF selected. Preview is not shown here, but extraction will use the PDF pages.",
       extractedItems: "Extracted items",
       waitingForExtraction: "Waiting for extraction",
       servedBy: "Served by {backend}",
@@ -528,8 +532,8 @@ export const localeMessages = {
         adjust: "Adjust",
       },
       errors: {
-        invalidImage: "Use an image file such as PNG, JPG, or WEBP.",
-        noFile: "Select a receipt image before extracting.",
+        invalidImage: "Use an image or PDF file such as PNG, JPG, WEBP, or PDF.",
+        noFile: "Select a receipt file before extracting.",
         extractionFailed: "Extraction failed.",
         unexpectedRequest: "Unexpected request error.",
         noResultToSave: "Extract a receipt before saving groceries.",
@@ -692,12 +696,12 @@ export const localeMessages = {
         "Sube un recibo y extrae las líneas sin ejecutar el modelo localmente.",
       heroDescription:
         "Este frontend está diseñado para Vercel. El navegador sube la imagen a una ruta del servidor y esa ruta llama a Hugging Face con el modelo configurado en el entorno del servidor.",
-      fileReady: "Imagen del recibo lista",
-      dropImage: "Suelta una imagen del recibo aquí",
-      replaceHelp: "Reemplázala soltando otra imagen o buscando archivos.",
+      fileReady: "Archivo del recibo listo",
+      dropImage: "Suelta un archivo de recibo aquí",
+      replaceHelp: "Reemplázalo soltando otra imagen o PDF, o buscando archivos.",
       browseHelp:
-        "PNG, JPG o WEBP funcionan mejor. Haz clic para buscar si lo prefieres.",
-      removeSelectedImage: "Quitar imagen seleccionada",
+        "PNG, JPG, WEBP o PDF funcionan mejor. Haz clic para buscar si lo prefieres.",
+      removeSelectedImage: "Quitar archivo seleccionado",
       dragAndDrop: "Arrastrar y soltar",
       clickToBrowse: "o haz clic en cualquier parte de este panel para buscar",
       modelLabel: "Modelo",
@@ -706,11 +710,13 @@ export const localeMessages = {
         "El valor predeterminado del servidor proviene de HF_MODEL_ID. Ahora el modelo categoriza artículos de supermercado durante la extracción.",
       extracting: "Extrayendo...",
       extractReceipt: "Extraer recibo",
-      removeImage: "Quitar imagen",
+      removeImage: "Quitar archivo",
       preview: "Vista previa",
       noFileSelected: "Ningún archivo seleccionado",
       previewAlt: "Vista previa del recibo",
       previewPlaceholder: "La vista previa del recibo aparecerá aquí.",
+      pdfPreviewPlaceholder:
+        "PDF seleccionado. La vista previa no se muestra aquí, pero la extracción usará las páginas del PDF.",
       extractedItems: "Artículos extraídos",
       waitingForExtraction: "Esperando extracción",
       servedBy: "Servido por {backend}",
@@ -756,8 +762,8 @@ export const localeMessages = {
         adjust: "Ajustar",
       },
       errors: {
-        invalidImage: "Usa un archivo de imagen como PNG, JPG o WEBP.",
-        noFile: "Selecciona una imagen del recibo antes de extraer.",
+        invalidImage: "Usa un archivo de imagen o PDF como PNG, JPG, WEBP o PDF.",
+        noFile: "Selecciona un archivo del recibo antes de extraer.",
         extractionFailed: "La extracción falló.",
         unexpectedRequest: "Error inesperado en la solicitud.",
         noResultToSave: "Extrae un recibo antes de guardar las compras.",
@@ -919,12 +925,12 @@ export const localeMessages = {
         "Envie um recibo e extraia os itens sem rodar o modelo localmente.",
       heroDescription:
         "Este frontend foi pensado para a Vercel. O navegador envia a imagem para uma rota do servidor, e a rota do servidor chama o Hugging Face com o modelo configurado no ambiente.",
-      fileReady: "Imagem do recibo pronta",
-      dropImage: "Solte uma imagem do recibo aqui",
-      replaceHelp: "Substitua soltando outra imagem ou procurando arquivos.",
+      fileReady: "Arquivo do recibo pronto",
+      dropImage: "Solte um arquivo do recibo aqui",
+      replaceHelp: "Substitua soltando outra imagem ou PDF, ou procurando arquivos.",
       browseHelp:
-        "PNG, JPG ou WEBP funcionam melhor. Clique para procurar se preferir.",
-      removeSelectedImage: "Remover imagem selecionada",
+        "PNG, JPG, WEBP ou PDF funcionam melhor. Clique para procurar se preferir.",
+      removeSelectedImage: "Remover arquivo selecionado",
       dragAndDrop: "Arrastar e soltar",
       clickToBrowse: "ou clique em qualquer lugar deste painel para procurar",
       modelLabel: "Modelo",
@@ -933,11 +939,13 @@ export const localeMessages = {
         "O padrão do servidor vem de HF_MODEL_ID. Agora o modelo categoriza itens de supermercado durante a extração.",
       extracting: "Extraindo...",
       extractReceipt: "Extrair recibo",
-      removeImage: "Remover imagem",
+      removeImage: "Remover arquivo",
       preview: "Prévia",
       noFileSelected: "Nenhum arquivo selecionado",
       previewAlt: "Prévia do recibo",
       previewPlaceholder: "A prévia do recibo aparecerá aqui.",
+      pdfPreviewPlaceholder:
+        "PDF selecionado. A prévia não aparece aqui, mas a extração usará as páginas do PDF.",
       extractedItems: "Itens extraídos",
       waitingForExtraction: "Aguardando extração",
       servedBy: "Atendido por {backend}",
@@ -983,8 +991,8 @@ export const localeMessages = {
         adjust: "Ajustar",
       },
       errors: {
-        invalidImage: "Use um arquivo de imagem como PNG, JPG ou WEBP.",
-        noFile: "Selecione uma imagem do recibo antes de extrair.",
+        invalidImage: "Use um arquivo de imagem ou PDF como PNG, JPG, WEBP ou PDF.",
+        noFile: "Selecione um arquivo do recibo antes de extrair.",
         extractionFailed: "A extração falhou.",
         unexpectedRequest: "Erro inesperado na requisição.",
         noResultToSave: "Extraia um recibo antes de salvar as compras.",

@@ -6,7 +6,9 @@ Parse and aggregate receipts.
 
 The frontend now supports OpenTelemetry on both the server and the browser.
 
-For a repo-specific setup and verification guide for Honeycomb traces, see [docs/honeycomb-tracing-setup.md](docs/honeycomb-tracing-setup.md).
+For a plain-language setup guide for non-developers, see [docs/honeycomb-user-guide.md](docs/honeycomb-user-guide.md).
+
+For the technical setup and verification guide for Honeycomb traces, see [docs/honeycomb-tracing-setup.md](docs/honeycomb-tracing-setup.md).
 
 ### Server Tracing
 

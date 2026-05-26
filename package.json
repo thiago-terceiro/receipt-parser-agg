@@ -55,6 +55,7 @@
     "next": "latest",
     "next-auth": "^4.24.13",
     "next-intl": "^4.9.0",
+    "pdf-to-img": "^6.1.0",
     "postcss": "^8.5.8",
     "radix-ui": "^1.4.3",
     "react": "latest",

@@ -19,6 +19,7 @@ import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel, type ReceiptItem } from "@/lib/receipt";
+import type { ReceiptUploadKind } from "@/lib/receipt-upload";
 
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
@@ -38,6 +39,8 @@ type ReceiptWorkspaceResultsSectionProps = {
     isAuthenticated: boolean;
     isSaving: boolean;
     locale: AppLocale;
+    previewKind: ReceiptUploadKind | null;
+    previewPlaceholderText: string;
     previewUrl: string | null;
     result: ExtractionResponse | null;
     saveMessage: string | null;
@@ -59,6 +62,8 @@ export const ReceiptWorkspaceResultsSection = ({
     isAuthenticated,
     isSaving,
     locale,
+    previewKind,
+    previewPlaceholderText,
     previewUrl,
     result,
     saveMessage,
@@ -78,7 +83,7 @@ export const ReceiptWorkspaceResultsSection = ({
                     </span>
                 </div>
                 <CardContent className="p-6">
-                    {previewUrl ? (
+                    {previewUrl && previewKind === "image" ? (
                         <Image
                             className="receipt-preview"
                             src={previewUrl}
@@ -87,9 +92,20 @@ export const ReceiptWorkspaceResultsSection = ({
                             height={1600}
                             unoptimized
                         />
+                    ) : previewUrl && previewKind === "pdf" ? (
+                        <object
+                            aria-label={translations.receipt.previewAlt}
+                            className="min-h-[420px] w-full overflow-hidden rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-muted)]"
+                            data={previewUrl}
+                            type="application/pdf"
+                        >
+                            <div className="grid min-h-[240px] place-items-center p-6 text-center text-muted-foreground">
+                                {displayedFileName ?? translations.receipt.previewAlt}
+                            </div>
+                        </object>
                     ) : (
                         <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
-                            {translations.receipt.previewPlaceholder}
+                            {previewPlaceholderText}
                         </div>
                     )}
                 </CardContent>

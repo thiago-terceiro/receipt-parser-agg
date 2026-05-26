@@ -27,12 +27,20 @@ import {
   parseReceiptExtraction,
   receiptItemsJsonSchema,
   resolveRequestedModelId,
+  type ParsedReceiptExtraction,
 } from "../../../lib/receipt";
+import {
+  isPdfReceiptUpload,
+  isSupportedReceiptUpload,
+  mergeReceiptExtractions,
+} from "../../../lib/receipt-upload";
 
 export const runtime = "nodejs";
 
 const hfToken = process.env.HF_TOKEN;
 const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
+const defaultPdfPageLimit = 5;
+const defaultPdfRenderScale = 3;
 
 type ChatMessageContent =
   | string
@@ -59,6 +67,12 @@ class RequestValidationError extends Error {
   }
 }
 
+type UploadedReceiptData = {
+  fileName: string | null;
+  imageUrls: string[];
+  sourceType: "image" | "pdf";
+};
+
 const getConfiguredProvider = (): string => defaultProvider;
 
 const buildExtractionError = (message: string, modelId: string): string => {
@@ -71,6 +85,7 @@ const logExtractionDiagnostics = (details: {
   provider: string;
   finishReason: string | null | undefined;
   maxOutputTokens: number;
+  sourceLabel: string;
   rawResponse: string | null;
 }) => {
   const traceContext = getActiveTraceContext();
@@ -79,6 +94,7 @@ const logExtractionDiagnostics = (details: {
     [observabilityFields.event]: observabilityEvents.receiptExtractionCompleted,
     model: details.model,
     provider: details.provider,
+    sourceLabel: details.sourceLabel,
     finishReason: details.finishReason ?? null,
     maxOutputTokens: details.maxOutputTokens,
     rawResponseLength: details.rawResponse?.length ?? 0,
@@ -87,20 +103,71 @@ const logExtractionDiagnostics = (details: {
   });
 };
 
-const getUploadedImageDataUrl = async (
+const buildReceiptSourceLabel = (
+  sourceType: "image" | "pdf",
+  pageNumber: number,
+  pageCount: number,
+): string => {
+  if (sourceType !== "pdf" || pageCount <= 1) {
+    return "receipt image";
+  }
+
+  return `PDF page ${pageNumber} of ${pageCount}`;
+};
+
+const renderPdfToImageDataUrls = async (
+  bytes: ArrayBuffer,
+): Promise<string[]> => {
+  const { pdf } = await import("pdf-to-img");
+
+  const document = await pdf(Buffer.from(bytes), {
+    scale: defaultPdfRenderScale,
+  });
+
+  try {
+    if (document.length > defaultPdfPageLimit) {
+      throw new RequestValidationError(
+        `PDF receipts with more than ${defaultPdfPageLimit} pages are not supported yet.`,
+        400,
+      );
+    }
+
+    const imageUrls: string[] = [];
+    for (let pageNumber = 1; pageNumber <= document.length; pageNumber += 1) {
+      const pageBuffer = await document.getPage(pageNumber);
+      imageUrls.push(buildDataUrl(pageBuffer, "image/png"));
+    }
+
+    if (imageUrls.length === 0) {
+      throw new RequestValidationError(
+        "Uploaded PDF did not contain any pages.",
+        400,
+      );
+    }
+
+    return imageUrls;
+  } finally {
+    await document.destroy();
+  }
+};
+
+const getUploadedReceiptData = async (
   formData: FormData,
-): Promise<{ fileName: string | null; imageUrl: string }> => {
+): Promise<UploadedReceiptData> => {
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
     throw new RequestValidationError(
-      "Request must include an image file under the 'file' field.",
+      "Request must include a receipt file under the 'file' field.",
       400,
     );
   }
 
-  if (!file.type.startsWith("image/")) {
-    throw new RequestValidationError("Uploaded file must be an image.", 400);
+  if (!isSupportedReceiptUpload(file)) {
+    throw new RequestValidationError(
+      "Uploaded file must be an image or PDF.",
+      400,
+    );
   }
 
   const bytes = await file.arrayBuffer();
@@ -108,9 +175,124 @@ const getUploadedImageDataUrl = async (
     throw new RequestValidationError("Uploaded file is empty.", 400);
   }
 
+  const fileName = file.name?.trim() || null;
+
+  if (isPdfReceiptUpload(file)) {
+    return {
+      fileName,
+      imageUrls: await renderPdfToImageDataUrls(bytes),
+      sourceType: "pdf",
+    };
+  }
+
   return {
-    fileName: file.name?.trim() || null,
-    imageUrl: buildDataUrl(bytes, file.type || "image/jpeg"),
+    fileName,
+    imageUrls: [buildDataUrl(bytes, file.type || "image/jpeg")],
+    sourceType: "image",
+  };
+};
+
+const extractReceiptFromImageUrl = async (options: {
+  fileName: string | null;
+  imageUrl: string;
+  model: string;
+  pageCount: number;
+  pageNumber: number;
+  provider: string;
+  sourceType: "image" | "pdf";
+}): Promise<{
+  parsedExtraction: ParsedReceiptExtraction;
+  rawResponse: string;
+}> => {
+  const sourceLabel = buildReceiptSourceLabel(
+    options.sourceType,
+    options.pageNumber,
+    options.pageCount,
+  );
+
+  const response = await withSpan(
+    "receipt.extract.huggingface_chat_completion",
+    async (span) => {
+      span.setAttributes({
+        [observabilityAttributes.receiptModel]: options.model,
+        [observabilityAttributes.receiptProvider]: options.provider,
+        [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+        [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+      });
+
+      return inferenceClient!.chatCompletion({
+        provider: options.provider as never,
+        model: options.model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: options.imageUrl },
+              },
+              {
+                type: "text",
+                text: buildReceiptPrompt(),
+              },
+            ] satisfies ChatMessageContent,
+          },
+        ],
+        response_format: {
+          type: "json_object",
+          json_schema: receiptItemsJsonSchema,
+        },
+        max_tokens: defaultMaxOutputTokens,
+        temperature: 0,
+      });
+    },
+    {
+      [observabilityAttributes.receiptOperation]: "extract",
+    },
+  );
+
+  const finishReason = response.choices?.[0]?.finish_reason;
+  const rawResponse = response.choices?.[0]?.message?.content;
+
+  logExtractionDiagnostics({
+    model: options.model,
+    provider: options.provider,
+    finishReason,
+    maxOutputTokens: defaultMaxOutputTokens,
+    sourceLabel,
+    rawResponse: typeof rawResponse === "string" ? rawResponse : null,
+  });
+
+  if (finishReason === "length") {
+    throw new Error(
+      `${sourceLabel} output hit the ${defaultMaxOutputTokens}-token limit. Increase HF_MAX_OUTPUT_TOKENS.`,
+    );
+  }
+
+  if (typeof rawResponse !== "string" || !rawResponse.trim()) {
+    throw new Error(`${sourceLabel} returned an empty response.`);
+  }
+
+  const parsedExtraction = await withSpan(
+    "receipt.extract.parse_items",
+    async (span) => {
+      const parsed = parseReceiptExtraction(rawResponse);
+
+      span.setAttributes({
+        [observabilityAttributes.receiptItemCount]: parsed.items.length,
+        [observabilityAttributes.receiptRawResponseLength]: rawResponse.length,
+      });
+
+      return parsed;
+    },
+    {
+      [observabilityAttributes.receiptOperation]: "parse_items",
+    },
+  );
+
+  return {
+    parsedExtraction,
+    rawResponse,
   };
 };
 
@@ -156,12 +338,14 @@ export const POST = async (request: Request) => {
     selectedModelId: formData.get("modelId"),
   });
   let fileName: string | null;
-  let imageUrl: string;
+  let imageUrls: string[];
+  let sourceType: "image" | "pdf";
 
   try {
-    const upload = await getUploadedImageDataUrl(formData);
+    const upload = await getUploadedReceiptData(formData);
     fileName = upload.fileName;
-    imageUrl = upload.imageUrl;
+    imageUrls = upload.imageUrls;
+    sourceType = upload.sourceType;
   } catch (error) {
     if (error instanceof RequestValidationError) {
       return NextResponse.json(
@@ -185,99 +369,43 @@ export const POST = async (request: Request) => {
   }
 
   try {
-    const response = await withSpan(
-      "receipt.extract.huggingface_chat_completion",
-      async (span) => {
-        span.setAttributes({
-          [observabilityAttributes.receiptModel]: model,
-          [observabilityAttributes.receiptProvider]: provider,
-          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
-          [observabilityAttributes.receiptSourceFilePresent]: Boolean(fileName),
-        });
+    const pageExtractions: ParsedReceiptExtraction[] = [];
+    const rawResponses: string[] = [];
 
-        return inferenceClient.chatCompletion({
-          provider,
-          model,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: { url: imageUrl },
-                },
-                {
-                  type: "text",
-                  text: buildReceiptPrompt(),
-                },
-              ] satisfies ChatMessageContent,
-            },
-          ],
-          response_format: {
-            type: "json_object",
-            json_schema: receiptItemsJsonSchema,
-          },
-          max_tokens: defaultMaxOutputTokens,
-          temperature: 0,
-        });
-      },
-      {
-        [observabilityAttributes.receiptOperation]: "extract",
-      },
-    );
+    for (const [index, imageUrl] of imageUrls.entries()) {
+      const pageExtraction = await extractReceiptFromImageUrl({
+        fileName,
+        imageUrl,
+        model,
+        pageCount: imageUrls.length,
+        pageNumber: index + 1,
+        provider,
+        sourceType,
+      });
 
-    const finishReason = response.choices?.[0]?.finish_reason;
-    const rawResponse = response.choices?.[0]?.message?.content;
-
-    logExtractionDiagnostics({
-      model,
-      provider,
-      finishReason,
-      maxOutputTokens: defaultMaxOutputTokens,
-      rawResponse: typeof rawResponse === "string" ? rawResponse : null,
-    });
-
-    if (finishReason === "length") {
-      return NextResponse.json(
-        {
-          error: buildExtractionError(
-            `Model output hit the ${defaultMaxOutputTokens}-token limit. Increase HF_MAX_OUTPUT_TOKENS.`,
-            model,
-          ),
-        },
-        { status: 502 },
-      );
+      pageExtractions.push(pageExtraction.parsedExtraction);
+      rawResponses.push(pageExtraction.rawResponse);
     }
 
-    console.log("Raw response from Hugging Face:", rawResponse);
-    if (typeof rawResponse !== "string" || !rawResponse.trim()) {
-      return NextResponse.json(
-        {
-          error: buildExtractionError(
-            "Hugging Face returned an empty response.",
-            model,
-          ),
-        },
-        { status: 502 },
-      );
-    }
-    const extractionResult = await withSpan(
-      "receipt.extract.parse_items",
-      async (span) => {
-        const parsedExtraction = parseReceiptExtraction(rawResponse);
+    const extractionResult = mergeReceiptExtractions(pageExtractions);
+    const currencyCode = extractionResult.currencyCode;
+    const items = extractionResult.items;
+    const rawResponse =
+      rawResponses.length === 1
+        ? rawResponses[0]
+        : rawResponses
+          .map((pageRawResponse, index) => `Page ${index + 1}\n${pageRawResponse}`)
+          .join("\n\n");
 
-        span.setAttributes({
-          [observabilityAttributes.receiptItemCount]: parsedExtraction.items.length,
-          [observabilityAttributes.receiptRawResponseLength]: rawResponse.length,
-        });
-
-        return parsedExtraction;
-      },
-      {
-        [observabilityAttributes.receiptOperation]: "parse_items",
-      },
+    const uniqueCurrencyCodes = new Set(
+      pageExtractions.map((pageExtraction) => pageExtraction.currencyCode),
     );
-    const { currencyCode, items } = extractionResult;
+    if (uniqueCurrencyCodes.size > 1) {
+      console.warn("PDF extraction returned inconsistent currency codes.", {
+        fileName,
+        currencyCodes: Array.from(uniqueCurrencyCodes),
+      });
+    }
 
     if (hasSupabaseServerConfig && identity?.userId) {
       const extractedAt = new Date().toISOString();

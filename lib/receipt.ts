@@ -275,8 +275,13 @@ export const resolveRequestedModelId = (options: {
   return sanitizeModelId(options.selectedModelId) ?? defaultModelId;
 };
 
-export const buildDataUrl = (bytes: ArrayBuffer, mimeType: string): string => {
-  const base64 = Buffer.from(bytes).toString("base64");
+export const buildDataUrl = (
+  bytes: ArrayBuffer | Uint8Array,
+  mimeType: string,
+): string => {
+  const normalizedBytes =
+    bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
+  const base64 = Buffer.from(normalizedBytes).toString("base64");
   return `data:${mimeType};base64,${base64}`;
 };
 
