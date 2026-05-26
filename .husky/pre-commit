@@ -1,2 +1,8 @@
 #!/usr/bin/env sh
-npm run ci:verify
+
+command -v corepack >/dev/null 2>&1 || {
+	echo "corepack is required to run pnpm in Git hooks."
+	exit 127
+}
+
+corepack pnpm run ci:verify
