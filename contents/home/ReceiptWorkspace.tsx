@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import {
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -29,7 +30,7 @@ import {
   getReceiptPreviewKindFromDataUrl,
   getReceiptUploadKind,
   isPdfReceiptFileName,
-  isSupportedReceiptUpload
+  isSupportedReceiptUpload,
 } from "@/lib/receipt-upload";
 
 import {
@@ -285,22 +286,15 @@ export const ReceiptWorkspace = ({
   const hasSelectedFile = displayedFileName !== null;
 
   useEffect(() => {
-    if (!file || !isSupportedReceiptUpload(file)) {
-      setPreviewUrl(null);
-      return;
-    }
-
-    const nextPreviewUrl = URL.createObjectURL(file);
-    setPreviewUrl(nextPreviewUrl);
-
     return () => {
-      URL.revokeObjectURL(nextPreviewUrl);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     };
-  }, [file]);
+  }, [previewUrl]);
 
   useEffect(() => {
     if (!file || !isSupportedReceiptUpload(file)) {
-      setDraftPreviewDataUrl(null);
       return;
     }
 
@@ -342,14 +336,16 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    setSelectedModelId(persistedDraft.selectedModelId);
-    setResult(persistedDraft.result);
-    setEditedItems(persistedDraft.editedItems);
-    setShowRawResponse(persistedDraft.showRawResponse);
-    setRestoredDraft({
-      fileName: persistedDraft.fileName,
-      fileSize: persistedDraft.fileSize,
-      previewDataUrl: persistedDraft.previewDataUrl || null,
+    startTransition(() => {
+      setSelectedModelId(persistedDraft.selectedModelId);
+      setResult(persistedDraft.result);
+      setEditedItems(persistedDraft.editedItems);
+      setShowRawResponse(persistedDraft.showRawResponse);
+      setRestoredDraft({
+        fileName: persistedDraft.fileName,
+        fileSize: persistedDraft.fileSize,
+        previewDataUrl: persistedDraft.previewDataUrl || null,
+      });
     });
   }, [
     file,
@@ -407,8 +403,10 @@ export const ReceiptWorkspace = ({
   }, [setEditedItems, setResult, setShowRawResponse]);
 
   const clearSelectedFile = useCallback(() => {
+    setDraftPreviewDataUrl(null);
     setFile(null);
     setIsDraggingFile(false);
+    setPreviewUrl(null);
     resetWorkspaceState();
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [resetWorkspaceState, setFile]);
@@ -425,6 +423,7 @@ export const ReceiptWorkspace = ({
         return;
       }
 
+  setPreviewUrl(URL.createObjectURL(nextFile));
       setDraftPreviewDataUrl(null);
       setFile(nextFile);
       resetWorkspaceState();
