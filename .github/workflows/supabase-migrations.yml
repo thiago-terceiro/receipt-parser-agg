@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - frontend/supabase/migrations/**
+      - supabase/migrations/**
       - .github/workflows/supabase-migrations.yml
   workflow_dispatch:
     inputs:
@@ -18,9 +18,6 @@ jobs:
   apply:
     if: github.event_name == 'push' || github.event.inputs.confirmation == 'APPLY'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
@@ -47,7 +44,7 @@ jobs:
         with:
           node-version: 22.13.1
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: |

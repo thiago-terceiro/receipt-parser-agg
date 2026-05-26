@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-pnpm run ci:verify
+npm run ci:verify
