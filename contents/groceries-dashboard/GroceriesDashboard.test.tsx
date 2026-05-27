@@ -17,6 +17,17 @@ const activeBoard = {
     updatedAt: "2026-04-01T00:00:00.000Z",
 };
 
+const secondaryBoard = {
+    archivedAt: null,
+    createdAt: "2026-04-02T00:00:00.000Z",
+    id: "2a9af65a-8335-4b90-91dc-40bd4a78f068",
+    joinedAt: "2026-04-02T00:00:00.000Z",
+    name: "Trip board",
+    ownerUserId: "user-1",
+    role: "owner" as const,
+    updatedAt: "2026-04-02T00:00:00.000Z",
+};
+
 const members = [
     {
         boardId: activeBoard.id,
@@ -50,6 +61,38 @@ type MockCategoriesProps = {
     categories: GroceryCategorySummary[];
     isMobileDetailOpen: boolean;
     onSelectCategory: (category: GroceryCategorySummary) => void;
+};
+
+type MockBoardsPanelProps = {
+    activeBoard: {
+        name: string;
+    };
+    isBoardSwitchPending?: boolean;
+    onBoardActivated: (boardId: string) => void;
+};
+
+const createLocalStorageStore = () => {
+    const storage = new Map<string, string>();
+
+    (window.localStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        storage.get(key) ?? null,
+    );
+    (window.localStorage.setItem as jest.Mock).mockImplementation(
+        (key: string, value: string) => {
+            storage.set(key, value);
+        },
+    );
+    (window.localStorage.removeItem as jest.Mock).mockImplementation((key: string) => {
+        storage.delete(key);
+    });
+    (window.localStorage.clear as jest.Mock).mockImplementation(() => {
+        storage.clear();
+    });
+    (window.localStorage.key as jest.Mock).mockImplementation((index: number) => {
+        return Array.from(storage.keys())[index] ?? null;
+    });
+
+    return storage;
 };
 
 jest.mock("@/contents/groceries-dashboard/GroceriesDashboardSummarySection", () => ({
@@ -87,15 +130,32 @@ jest.mock("@/contents/groceries-dashboard/GroceriesDashboardCategoriesSection", 
 }));
 
 jest.mock("@/contents/groceries-dashboard/GroceriesDashboardBoardsPanel", () => ({
-    GroceriesDashboardBoardsPanel: () => <div>board panel</div>,
+    GroceriesDashboardBoardsPanel: ({
+        activeBoard,
+        isBoardSwitchPending,
+        onBoardActivated,
+    }: MockBoardsPanelProps) => (
+        <div>
+            <div>{`active-board:${activeBoard.name}`}</div>
+            <div>{`switching:${String(Boolean(isBoardSwitchPending))}`}</div>
+            <button onClick={() => onBoardActivated("2a9af65a-8335-4b90-91dc-40bd4a78f068")}>
+                switch board
+            </button>
+        </div>
+    ),
 }));
 
 describe("GroceriesDashboard", () => {
+    beforeEach(() => {
+        createLocalStorageStore();
+        window.localStorage.clear();
+    });
+
     it("pushes a new route when the month changes", async () => {
         render(
             <GroceriesDashboard
                 activeBoard={activeBoard}
-                boards={[activeBoard]}
+                boards={[activeBoard, secondaryBoard]}
                 payload={makeMonthPayload()}
                 currentMonth="2026-04"
                 members={members}
@@ -106,7 +166,13 @@ describe("GroceriesDashboard", () => {
         await userEvent.click(screen.getByRole("button", { name: "change month" }));
 
         expect(mockNavigationState.router.push).toHaveBeenCalledWith(
-            "/en/groceries?board=4f6939ce-d5f2-4c08-aecc-a0f0569bb10d&month=2026-03",
+            {
+                pathname: "/groceries",
+                query: {
+                    board: "4f6939ce-d5f2-4c08-aecc-a0f0569bb10d",
+                    month: "2026-03",
+                },
+            },
         );
         expect(screen.getByText("recent:1")).toBeInTheDocument();
     });
@@ -115,7 +181,7 @@ describe("GroceriesDashboard", () => {
         render(
             <GroceriesDashboard
                 activeBoard={activeBoard}
-                boards={[activeBoard]}
+                boards={[activeBoard, secondaryBoard]}
                 payload={makeMonthPayload({ categories: [] })}
                 currentMonth="2026-04"
                 members={members}
@@ -132,7 +198,7 @@ describe("GroceriesDashboard", () => {
         render(
             <GroceriesDashboard
                 activeBoard={activeBoard}
-                boards={[activeBoard]}
+                boards={[activeBoard, secondaryBoard]}
                 payload={makeMonthPayload()}
                 currentMonth="2026-04"
                 members={members}
@@ -149,7 +215,7 @@ describe("GroceriesDashboard", () => {
         render(
             <GroceriesDashboard
                 activeBoard={activeBoard}
-                boards={[activeBoard]}
+                boards={[activeBoard, secondaryBoard]}
                 payload={makeMonthPayload({
                     summary: {
                         total: 14,
@@ -174,7 +240,7 @@ describe("GroceriesDashboard", () => {
         render(
             <GroceriesDashboard
                 activeBoard={activeBoard}
-                boards={[activeBoard]}
+                boards={[activeBoard, secondaryBoard]}
                 payload={makeMonthPayload({ currencyCode: "EUR" })}
                 currentMonth="2026-04"
                 members={members}
@@ -185,5 +251,73 @@ describe("GroceriesDashboard", () => {
         expect(
             screen.getByText("groceries.stats.monthTotal:€14.00"),
         ).toBeInTheDocument();
+    });
+
+    it("uses cached board data immediately when switching to a visited board", async () => {
+        const cachedBoardRender = render(
+            <GroceriesDashboard
+                activeBoard={secondaryBoard}
+                boards={[activeBoard, secondaryBoard]}
+                payload={makeMonthPayload({
+                    summary: {
+                        total: 48,
+                        itemCount: 7,
+                        uniqueItemCount: 4,
+                        receiptCount: 3,
+                        categoryCount: 2,
+                    },
+                })}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        expect(screen.getByText("active-board:Trip board")).toBeInTheDocument();
+        cachedBoardRender.unmount();
+
+        render(
+            <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard, secondaryBoard]}
+                payload={makeMonthPayload()}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        expect(screen.getByText("active-board:Home board")).toBeInTheDocument();
+        expect(screen.getByText("groceries.stats.monthTotal:$14.00")).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole("button", { name: "switch board" }));
+
+        expect(mockNavigationState.router.push).toHaveBeenCalledWith({
+            pathname: "/groceries",
+            query: {
+                board: "2a9af65a-8335-4b90-91dc-40bd4a78f068",
+            },
+        });
+        expect(screen.getByText("active-board:Trip board")).toBeInTheDocument();
+        expect(screen.getByText("groceries.stats.monthTotal:$48.00")).toBeInTheDocument();
+        expect(screen.getByText("switching:false")).toBeInTheDocument();
+    });
+
+    it("marks the switch as pending when the target board is not cached", async () => {
+        render(
+            <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard, secondaryBoard]}
+                payload={makeMonthPayload()}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        await userEvent.click(screen.getByRole("button", { name: "switch board" }));
+
+        expect(screen.getByText("switching:true")).toBeInTheDocument();
+        expect(screen.getByText("active-board:Home board")).toBeInTheDocument();
     });
 });

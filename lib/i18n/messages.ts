@@ -180,6 +180,7 @@ export type Messages = { metadata: Metadata } & {
       inviteCopied: string;
       roleOwner: string;
       roleEditor: string;
+      switching: string;
       switchFailed: string;
       nameRequired: string;
       createFailed: string;
@@ -398,6 +399,7 @@ export const createMessagesObject = (
         inviteCopied: t("groceries.boards.inviteCopied"),
         roleOwner: t("groceries.boards.roleOwner"),
         roleEditor: t("groceries.boards.roleEditor"),
+        switching: t("groceries.boards.switching"),
         switchFailed: t("groceries.boards.switchFailed"),
         nameRequired: t("groceries.boards.nameRequired"),
         createFailed: t("groceries.boards.createFailed"),
@@ -625,6 +627,7 @@ export const localeMessages = {
         inviteCopied: "Invite link copied.",
         roleOwner: "Owner",
         roleEditor: "Editor",
+        switching: "Loading board...",
         switchFailed: "Unable to switch boards.",
         nameRequired: "Enter a board name before creating it.",
         createFailed: "Unable to create the board.",
@@ -855,6 +858,7 @@ export const localeMessages = {
         inviteCopied: "Enlace de invitación copiado.",
         roleOwner: "Dueño",
         roleEditor: "Editor",
+        switching: "Cargando tablero...",
         switchFailed: "No se pudo cambiar de tablero.",
         nameRequired: "Escribe un nombre para el tablero antes de crearlo.",
         createFailed: "No se pudo crear el tablero.",
@@ -1084,6 +1088,7 @@ export const localeMessages = {
         inviteCopied: "Link de convite copiado.",
         roleOwner: "Dono",
         roleEditor: "Editor",
+        switching: "Carregando quadro...",
         switchFailed: "Não foi possível trocar de quadro.",
         nameRequired: "Digite um nome para o quadro antes de criá-lo.",
         createFailed: "Não foi possível criar o quadro.",

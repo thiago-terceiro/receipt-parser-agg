@@ -1,11 +1,11 @@
 "use client";
 
 import { CalendarDays, Package2, ReceiptText, Undo2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
 import { Button } from "@/components/ui/button";
-import { Link, getPathname, useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import { createCurrencyFormatter } from "@/lib/currency";
 import {
@@ -20,6 +20,72 @@ import { GroceriesDashboardCategoriesSection } from "./GroceriesDashboardCategor
 import { GroceriesDashboardEmptyState } from "./GroceriesDashboardEmptyState";
 import { GroceriesDashboardRecentReceiptsSection } from "./GroceriesDashboardRecentReceiptsSection";
 import { GroceriesDashboardSummarySection } from "./GroceriesDashboardSummarySection";
+
+type GroceriesDashboardSnapshot = {
+  activeBoard: BoardSummary;
+  payload: GroceriesMonthPayload;
+  currentMonth: string;
+  members: BoardMemberSummary[];
+  monthOptions: MonthOption[];
+};
+
+type BoardSwitchState = {
+  sourceBoardId: string;
+  sourceMonth: string;
+  snapshot: GroceriesDashboardSnapshot | null;
+};
+
+const GROCERIES_DASHBOARD_CACHE_KEY_PREFIX = "receipt-ai-groceries-dashboard";
+
+const buildGroceriesDashboardCacheKey = (
+  locale: string,
+  boardId: string,
+  month: string,
+) => `${GROCERIES_DASHBOARD_CACHE_KEY_PREFIX}:${locale}:${boardId}:${month}`;
+
+const readGroceriesDashboardSnapshot = (
+  locale: string,
+  boardId: string,
+  month: string,
+) => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawSnapshot = window.localStorage.getItem(
+      buildGroceriesDashboardCacheKey(locale, boardId, month),
+    );
+
+    return rawSnapshot
+      ? (JSON.parse(rawSnapshot) as GroceriesDashboardSnapshot)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeGroceriesDashboardSnapshot = (
+  locale: string,
+  snapshot: GroceriesDashboardSnapshot,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      buildGroceriesDashboardCacheKey(
+        locale,
+        snapshot.activeBoard.id,
+        snapshot.payload.month,
+      ),
+      JSON.stringify(snapshot),
+    );
+  } catch {
+    // Ignore storage failures and fall back to server navigation.
+  }
+};
 
 export const GroceriesDashboard = ({
   activeBoard,
@@ -39,14 +105,50 @@ export const GroceriesDashboard = ({
   const locale = useLocale();
   const translations = useTranslations();
   const router = useRouter();
+  const [boardSwitchState, setBoardSwitchState] =
+    useState<BoardSwitchState | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     payload.categories[0]?.category ?? null,
   );
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
+  const serverSnapshot = useMemo(
+    () => ({
+      activeBoard,
+      payload,
+      currentMonth,
+      members,
+      monthOptions,
+    }),
+    [activeBoard, currentMonth, members, monthOptions, payload],
+  );
+  const isBoardSwitchTransitioning =
+    boardSwitchState?.sourceBoardId === activeBoard.id &&
+    boardSwitchState.sourceMonth === payload.month;
+  const displayedSnapshot =
+    isBoardSwitchTransitioning && boardSwitchState.snapshot
+      ? boardSwitchState.snapshot
+      : serverSnapshot;
+  const displayedActiveBoard =
+    isBoardSwitchTransitioning && boardSwitchState?.snapshot
+      ? boards.find(
+        (board) => board.id === boardSwitchState.snapshot?.activeBoard.id,
+      ) ?? boardSwitchState.snapshot.activeBoard
+      : activeBoard;
+  const displayedPayload = displayedSnapshot.payload;
+  const displayedMembers = displayedSnapshot.members;
+  const displayedMonthOptions = displayedSnapshot.monthOptions;
+  const isBoardSwitchPending = Boolean(
+    isBoardSwitchTransitioning && !boardSwitchState?.snapshot,
+  );
+
+  useEffect(() => {
+    writeGroceriesDashboardSnapshot(locale, serverSnapshot);
+  }, [locale, serverSnapshot]);
+
   const currencyFormatter = useMemo(
-    () => createCurrencyFormatter(locale, payload.currencyCode),
-    [locale, payload.currencyCode],
+    () => createCurrencyFormatter(locale, displayedPayload.currencyCode),
+    [displayedPayload.currencyCode, locale],
   );
   const percentFormatter = useMemo(
     () =>
@@ -73,28 +175,28 @@ export const GroceriesDashboard = ({
   );
 
   const activeCategory = useMemo(() => {
-    if (payload.categories.length === 0) {
+    if (displayedPayload.categories.length === 0) {
       return null;
     }
 
     if (
       selectedCategory &&
-      payload.categories.some(
+      displayedPayload.categories.some(
         (category) => category.category === selectedCategory,
       )
     ) {
       return selectedCategory;
     }
 
-    return payload.categories[0].category;
-  }, [payload.categories, selectedCategory]);
+    return displayedPayload.categories[0].category;
+  }, [displayedPayload.categories, selectedCategory]);
 
   const active = useMemo(
     () =>
-      payload.categories.find(
+      displayedPayload.categories.find(
         (category) => category.category === activeCategory,
       ) ?? null,
-    [activeCategory, payload.categories],
+    [activeCategory, displayedPayload.categories],
   );
   const activeCategoryLabel = useMemo(
     () =>
@@ -108,38 +210,38 @@ export const GroceriesDashboard = ({
     () => [
       {
         label: translations.groceries.stats.monthTotal,
-        value: currencyFormatter.format(payload.summary.total),
+        value: currencyFormatter.format(displayedPayload.summary.total),
         icon: ReceiptText,
       },
       {
         label: translations.groceries.stats.uniqueItemsTracked,
-        value: integerFormatter.format(payload.summary.uniqueItemCount),
+        value: integerFormatter.format(displayedPayload.summary.uniqueItemCount),
         icon: Package2,
       },
       {
         label: translations.groceries.stats.itemsTracked,
-        value: integerFormatter.format(payload.summary.itemCount),
+        value: integerFormatter.format(displayedPayload.summary.itemCount),
         icon: Package2,
       },
       {
         label: translations.groceries.stats.receiptsSaved,
-        value: integerFormatter.format(payload.summary.receiptCount),
+        value: integerFormatter.format(displayedPayload.summary.receiptCount),
         icon: ReceiptText,
       },
       {
         label: translations.groceries.stats.categoriesActive,
-        value: integerFormatter.format(payload.summary.categoryCount),
+        value: integerFormatter.format(displayedPayload.summary.categoryCount),
         icon: CalendarDays,
       },
     ],
     [
       currencyFormatter,
+      displayedPayload.summary.categoryCount,
+      displayedPayload.summary.itemCount,
+      displayedPayload.summary.receiptCount,
+      displayedPayload.summary.total,
+      displayedPayload.summary.uniqueItemCount,
       integerFormatter,
-      payload.summary.categoryCount,
-      payload.summary.itemCount,
-      payload.summary.uniqueItemCount,
-      payload.summary.receiptCount,
-      payload.summary.total,
       translations.groceries.stats.categoriesActive,
       translations.groceries.stats.itemsTracked,
       translations.groceries.stats.monthTotal,
@@ -148,8 +250,34 @@ export const GroceriesDashboard = ({
     ],
   );
   const recentExtractedReceipts = useMemo(
-    () => payload.extractedReceipts.slice(0, 6),
-    [payload.extractedReceipts],
+    () => displayedPayload.extractedReceipts.slice(0, 6),
+    [displayedPayload.extractedReceipts],
+  );
+
+  const handleBoardActivated = useCallback(
+    (boardId: string) => {
+      const targetMonth = payload.month;
+      const cachedSnapshot = readGroceriesDashboardSnapshot(
+        locale,
+        boardId,
+        targetMonth,
+      );
+
+      setBoardSwitchState({
+        sourceBoardId: activeBoard.id,
+        sourceMonth: payload.month,
+        snapshot: cachedSnapshot,
+      });
+
+      router.push({
+        pathname: "/groceries",
+        query: {
+          board: boardId,
+          ...(targetMonth !== currentMonth ? { month: targetMonth } : {}),
+        },
+      });
+    },
+    [activeBoard.id, currentMonth, locale, payload.month, router],
   );
 
   const handleSelectCategory = useCallback(
@@ -164,20 +292,15 @@ export const GroceriesDashboard = ({
 
   const handleMonthChange = useCallback(
     (month: string) => {
-      router.push(
-        getPathname({
-          locale,
-          href: {
-            pathname: "/groceries",
-            query: {
-              board: activeBoard.id,
-              ...(month !== currentMonth ? { month } : {}),
-            },
-          },
-        }),
-      );
+      router.push({
+        pathname: "/groceries",
+        query: {
+          board: displayedActiveBoard.id,
+          ...(month !== currentMonth ? { month } : {}),
+        },
+      });
     },
-    [activeBoard.id, currentMonth, locale, router],
+    [currentMonth, displayedActiveBoard.id, router],
   );
 
   return (
@@ -197,20 +320,19 @@ export const GroceriesDashboard = ({
       </div>
 
       <GroceriesDashboardBoardsPanel
-        activeBoard={activeBoard}
+        activeBoard={displayedActiveBoard}
         boards={boards}
-        currentMonth={currentMonth}
-        locale={locale}
-        members={members}
-        selectedMonth={payload.month}
+        members={displayedMembers}
         translations={translations}
+        isBoardSwitchPending={isBoardSwitchPending}
+        onBoardActivated={handleBoardActivated}
       />
 
       <GroceriesDashboardSummarySection
-        boardId={activeBoard.id}
-        payload={payload}
+        boardId={displayedActiveBoard.id}
+        payload={displayedPayload}
         currentMonth={currentMonth}
-        monthOptions={monthOptions}
+        monthOptions={displayedMonthOptions}
         locale={locale}
         statCards={statCards}
         translations={translations}
@@ -218,22 +340,22 @@ export const GroceriesDashboard = ({
       />
 
       <GroceriesDashboardRecentReceiptsSection
-        boardId={activeBoard.id}
+        boardId={displayedActiveBoard.id}
         receipts={recentExtractedReceipts}
         translations={translations}
         currencyFormatter={currencyFormatter}
         dateTimeFormatter={dateTimeFormatter}
       />
 
-      {payload.categories.length === 0 ? (
+      {displayedPayload.categories.length === 0 ? (
         <GroceriesDashboardEmptyState
-          month={payload.month}
+          month={displayedPayload.month}
           locale={locale}
           translations={translations}
         />
       ) : (
         <GroceriesDashboardCategoriesSection
-          categories={payload.categories}
+          categories={displayedPayload.categories}
           activeCategory={activeCategory}
           active={active}
           activeCategoryLabel={activeCategoryLabel}

@@ -423,7 +423,7 @@ export const ReceiptWorkspace = ({
         return;
       }
 
-  setPreviewUrl(URL.createObjectURL(nextFile));
+      setPreviewUrl(URL.createObjectURL(nextFile));
       setDraftPreviewDataUrl(null);
       setFile(nextFile);
       resetWorkspaceState();

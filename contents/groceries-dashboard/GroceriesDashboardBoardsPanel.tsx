@@ -1,60 +1,41 @@
 "use client";
 
-import { Copy, Plus, Share2, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Copy, LoaderCircle, Plus, Share2, Users } from "lucide-react";
+import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { getPathname, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
-import { type AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { logInfo, logWarn, withSpan } from "@/lib/observability";
 import {
-    observabilityAttributes,
-    observabilityEvents,
-    observabilityFields,
+  observabilityAttributes,
+  observabilityEvents,
+  observabilityFields,
 } from "@/lib/observability-schema";
 
 type GroceriesDashboardBoardsPanelProps = {
   activeBoard: BoardSummary;
   boards: BoardSummary[];
-  currentMonth: string;
-  locale: AppLocale;
   members: BoardMemberSummary[];
-  selectedMonth: string;
   translations: Messages;
-};
-
-const buildBoardHref = (
-  basePath: string,
-  boardId: string,
-  currentMonth: string,
-  selectedMonth: string,
-) => {
-  const searchParams = new URLSearchParams();
-  searchParams.set("board", boardId);
-
-  if (selectedMonth !== currentMonth) {
-    searchParams.set("month", selectedMonth);
-  }
-
-  return `${basePath}?${searchParams.toString()}`;
+  isBoardSwitchPending?: boolean;
+  onBoardActivated: (boardId: string) => void;
 };
 
 const getRoleLabel = (translations: Messages, role: BoardSummary["role"]) => {
@@ -66,17 +47,11 @@ const getRoleLabel = (translations: Messages, role: BoardSummary["role"]) => {
 const GroceriesDashboardBoardsPanelContent = ({
   activeBoard,
   boards,
-  currentMonth,
-  locale,
   members,
-  selectedMonth,
   translations,
+  isBoardSwitchPending = false,
+  onBoardActivated,
 }: GroceriesDashboardBoardsPanelProps) => {
-  const router = useRouter();
-  const groceriesPath = useMemo(
-    () => getPathname({ locale, href: "/groceries" }),
-    [locale],
-  );
   const [boardName, setBoardName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -100,12 +75,8 @@ const GroceriesDashboardBoardsPanelContent = ({
     };
   };
 
-  const navigateToBoard = (boardId: string) => {
-    router.push(buildBoardHref(groceriesPath, boardId, currentMonth, selectedMonth));
-  };
-
   const handleBoardChange = async (boardId: string) => {
-    if (!boardId || boardId === activeBoard.id) {
+    if (!boardId || boardId === activeBoard.id || isBoardSwitchPending) {
       return;
     }
 
@@ -137,7 +108,7 @@ const GroceriesDashboardBoardsPanelContent = ({
       logInfo("Switched active board in browser.", {
         [observabilityFields.event]: observabilityEvents.uiBoardsSwitchSuccess,
       });
-      navigateToBoard(boardId);
+      onBoardActivated(boardId);
     } catch (requestError) {
       logWarn("Switching active board failed in browser.", {
         [observabilityFields.event]: observabilityEvents.uiBoardsSwitchFailed,
@@ -206,7 +177,7 @@ const GroceriesDashboardBoardsPanelContent = ({
       });
       setBoardName("");
       setIsCreatingBoard(false);
-      navigateToBoard(createdBoard.id);
+      onBoardActivated(createdBoard.id);
     } catch (requestError) {
       logWarn("Creating board failed in browser.", {
         [observabilityFields.event]: observabilityEvents.uiBoardsCreateFailed,
@@ -341,24 +312,48 @@ const GroceriesDashboardBoardsPanelContent = ({
             </SelectContent>
           </Select>
 
-          <Button type="button" variant="secondary" onClick={() => setIsCreatingBoard(true)}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsCreatingBoard(true)}
+            disabled={isBoardSwitchPending}
+          >
             <Plus className="size-4" />
             <span>{translations.groceries.boards.createBoard}</span>
           </Button>
 
-          <Button type="button" variant="secondary" onClick={() => setIsMembersOpen(true)}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsMembersOpen(true)}
+            disabled={isBoardSwitchPending}
+          >
             <Users className="size-4" />
             <span>{translations.groceries.boards.members}</span>
           </Button>
 
           {activeBoard.role === "owner" ? (
-            <Button type="button" onClick={() => setIsInviteOpen(true)}>
+            <Button
+              type="button"
+              onClick={() => setIsInviteOpen(true)}
+              disabled={isBoardSwitchPending}
+            >
               <Share2 className="size-4" />
               <span>{translations.groceries.boards.invite}</span>
             </Button>
           ) : null}
         </div>
       </div>
+
+      {isBoardSwitchPending ? (
+        <div
+          aria-live="polite"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <LoaderCircle className="size-4 animate-spin" />
+          <span>{translations.groceries.boards.switching}</span>
+        </div>
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">
