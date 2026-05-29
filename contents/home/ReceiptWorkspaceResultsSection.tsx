@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Table,
     TableBody,
     TableCell,
@@ -16,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import type { ExtractionResponse } from "@/context/ReceiptWorkspaceStateProvider";
 import { Link } from "@/i18n/navigation";
+import type { BoardSummary } from "@/lib/boards";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel, type ReceiptItem } from "@/lib/receipt";
@@ -24,6 +32,8 @@ import type { ReceiptUploadKind } from "@/lib/receipt-upload";
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
 type ReceiptWorkspaceResultsSectionProps = {
+    availableBoards: BoardSummary[];
+    boardsError: string | null;
     correctedCount: number;
     currencyFormatter: Intl.NumberFormat;
     dashboardHref:
@@ -36,7 +46,9 @@ type ReceiptWorkspaceResultsSectionProps = {
     displayedFileName: string | null;
     displayedTotal: number;
     editedItems: Record<number, ReceiptItem>;
+    extractedItemCount: number;
     isAuthenticated: boolean;
+    isBoardsLoading: boolean;
     isSaving: boolean;
     locale: AppLocale;
     previewKind: ReceiptUploadKind | null;
@@ -44,14 +56,18 @@ type ReceiptWorkspaceResultsSectionProps = {
     previewUrl: string | null;
     result: ExtractionResponse | null;
     saveMessage: string | null;
-    showRawResponse: boolean;
+    selectedBoardId: string;
     translations: WorkspaceTranslations;
+    onAddManualItem: () => void;
+    onBoardChange: (boardId: string) => void;
     onEditItem: (index: number) => void;
+    onRemoveManualItem: (index: number) => void;
     onSaveGroceries: () => void;
-    onToggleRawResponse: () => void;
 };
 
 export const ReceiptWorkspaceResultsSection = ({
+    availableBoards,
+    boardsError,
     correctedCount,
     currencyFormatter,
     dashboardHref,
@@ -59,7 +75,9 @@ export const ReceiptWorkspaceResultsSection = ({
     displayedFileName,
     displayedTotal,
     editedItems,
+    extractedItemCount,
     isAuthenticated,
+    isBoardsLoading,
     isSaving,
     locale,
     previewKind,
@@ -67,12 +85,20 @@ export const ReceiptWorkspaceResultsSection = ({
     previewUrl,
     result,
     saveMessage,
-    showRawResponse,
+    selectedBoardId,
     translations,
+    onAddManualItem,
+    onBoardChange,
     onEditItem,
+    onRemoveManualItem,
     onSaveGroceries,
-    onToggleRawResponse,
 }: ReceiptWorkspaceResultsSectionProps) => {
+    const dashboardPlaceholder = isBoardsLoading
+        ? translations.receipt.loadingDashboards
+        : availableBoards.length > 0
+            ? translations.receipt.selectDashboard
+            : translations.receipt.noDashboardsAvailable;
+
     return (
         <section className="mt-6 grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
             <Card className="gap-0 rounded-[24px] border-[var(--border)] py-0 shadow-[var(--shadow)] backdrop-blur-[16px]">
@@ -148,8 +174,17 @@ export const ReceiptWorkspaceResultsSection = ({
                                     ) : null}
                                 </div>
                             </div>
-                            <div className="mb-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
-                                {translations.receipt.reviewHint}
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
+                                <span>{translations.receipt.reviewHint}</span>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    className="border-[var(--border)] bg-[var(--surface-plain)]"
+                                    onClick={onAddManualItem}
+                                >
+                                    {translations.receipt.addManualItem}
+                                </Button>
                             </div>
                             <Table>
                                 <TableHeader>
@@ -171,11 +206,27 @@ export const ReceiptWorkspaceResultsSection = ({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {displayedItems.map((entry, index) => (
-                                        <TableRow
-                                            key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
-                                        >
-                                            <TableCell>{entry.item}</TableCell>
+                                    {displayedItems.map((entry, index) => {
+                                        const isManualItem = index >= extractedItemCount;
+                                        const manualIndex = index - extractedItemCount;
+
+                                        return (
+                                            <TableRow
+                                                key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
+                                            >
+                                                <TableCell>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span>{entry.item}</span>
+                                                        {isManualItem ? (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                                                            >
+                                                                {translations.receipt.alerts.manual}
+                                                            </Badge>
+                                                        ) : null}
+                                                    </div>
+                                                </TableCell>
                                             <TableCell>
                                                 <Badge
                                                     variant="outline"
@@ -193,7 +244,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    {editedItems[index] ? (
+                                                    {!isManualItem && editedItems[index] ? (
                                                         <Badge
                                                             variant="outline"
                                                             className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
@@ -210,15 +261,26 @@ export const ReceiptWorkspaceResultsSection = ({
                                                     >
                                                         {translations.receipt.alerts.adjust}
                                                     </Button>
+                                                    {isManualItem ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => onRemoveManualItem(manualIndex)}
+                                                        >
+                                                            {translations.receipt.alerts.remove}
+                                                        </Button>
+                                                    ) : null}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
 
-                            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-4">
-                                <div className="grid gap-1">
+                            <div className="mt-5 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-4">
+                                <div className="grid min-w-[220px] flex-1 gap-1">
                                     <p className="m-0 text-[0.95rem] font-semibold">
                                         {translations.receipt.saveCardTitle}
                                     </p>
@@ -228,11 +290,40 @@ export const ReceiptWorkspaceResultsSection = ({
                                             : translations.receipt.saveSignedOut}
                                     </p>
                                 </div>
+                                <div className="grid w-[240px] gap-2 max-[640px]:order-first max-[640px]:w-full">
+                                    <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+                                        {translations.receipt.selectDashboard}
+                                    </span>
+                                    <Select
+                                        value={selectedBoardId}
+                                        onValueChange={onBoardChange}
+                                        disabled={!isAuthenticated || isSaving || isBoardsLoading || availableBoards.length === 0}
+                                    >
+                                        <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
+                                            <SelectValue placeholder={dashboardPlaceholder} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableBoards.map((board) => (
+                                                <SelectItem key={board.id} value={board.id}>
+                                                    {board.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {boardsError ? (
+                                        <p className="m-0 text-sm text-destructive">{boardsError}</p>
+                                    ) : null}
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                     <Button
                                         type="button"
                                         onClick={onSaveGroceries}
-                                        disabled={!isAuthenticated || isSaving}
+                                        disabled={
+                                            !isAuthenticated ||
+                                            isSaving ||
+                                            isBoardsLoading ||
+                                            !selectedBoardId
+                                        }
                                     >
                                         {isSaving
                                             ? translations.receipt.saving
@@ -253,21 +344,6 @@ export const ReceiptWorkspaceResultsSection = ({
                                         </Link>
                                     </Button>
                                 </div>
-                            </div>
-                            <div className="mt-5 grid gap-2">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="justify-start px-0"
-                                    onClick={onToggleRawResponse}
-                                >
-                                    {showRawResponse ? "Hide raw response" : "Show raw response"}
-                                </Button>
-                                {showRawResponse ? (
-                                    <pre className="raw-response max-h-56 overflow-auto">
-                                        {result.rawResponse}
-                                    </pre>
-                                ) : null}
                             </div>
                         </>
                     ) : (

@@ -170,7 +170,9 @@ const parseReceiptItem = (entry: unknown, index: number): ReceiptItem => {
     throw new Error(`Receipt item at index ${index} must be an object.`);
   }
 
-  const item = (entry as { name?: unknown }).name;
+  const item =
+    (entry as { name?: unknown; item?: unknown }).name ??
+    (entry as { item?: unknown }).item;
   const category = (entry as { category?: unknown }).category;
   const quantity = (entry as { quantity?: unknown }).quantity;
   const unitPrice = (entry as { unitPrice?: unknown }).unitPrice;
@@ -400,4 +402,12 @@ export const parseReceiptExtraction = (
 
 export const parseReceiptItems = (rawResponse: string): ReceiptItem[] => {
   return parseReceiptExtraction(rawResponse).items;
+};
+
+export const sanitizeReceiptItems = (value: unknown): ReceiptItem[] | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value.map((entry, index) => parseReceiptItem(entry, index));
 };

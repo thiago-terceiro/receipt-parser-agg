@@ -73,6 +73,10 @@ export type Messages = { metadata: Metadata } & {
     saveGroceries: string;
     openDashboard: string;
     openFreshDashboard: string;
+    addManualItem: string;
+    selectDashboard: string;
+    loadingDashboards: string;
+    noDashboardsAvailable: string;
     resultPlaceholder: string;
     table: {
       item: string;
@@ -85,17 +89,24 @@ export type Messages = { metadata: Metadata } & {
     editor: {
       title: string;
       description: string;
+      manualTitle: string;
+      manualDescription: string;
       item: string;
       category: string;
       selectCategory: string;
       quantity: string;
+      unitPrice: string;
       unitPriceFixed: (price: string) => string;
       reset: string;
+      addManual: string;
       apply: string;
+      saveManual: string;
     };
     alerts: {
       corrected: string;
       adjust: string;
+      manual: string;
+      remove: string;
     };
     errors: {
       invalidImage: string;
@@ -103,10 +114,14 @@ export type Messages = { metadata: Metadata } & {
       extractionFailed: string;
       unexpectedRequest: string;
       noResultToSave: string;
+      noDashboardSelected: string;
       saveFailed: string;
       unexpectedSave: string;
+      loadDashboards: string;
+      invalidItemName: string;
       invalidCategory: string;
       invalidQuantity: string;
+      invalidUnitPrice: string;
     };
     saveSuccess: (count: number, monthLabel: string) => string;
   };
@@ -287,6 +302,10 @@ export const createMessagesObject = (
       saveGroceries: t("receipt.saveGroceries"),
       openDashboard: t("receipt.openDashboard"),
       openFreshDashboard: t("receipt.openFreshDashboard"),
+      addManualItem: t("receipt.addManualItem"),
+      selectDashboard: t("receipt.selectDashboard"),
+      loadingDashboards: t("receipt.loadingDashboards"),
+      noDashboardsAvailable: t("receipt.noDashboardsAvailable"),
       resultPlaceholder: t("receipt.resultPlaceholder"),
       table: {
         item: t("receipt.table.item"),
@@ -299,18 +318,25 @@ export const createMessagesObject = (
       editor: {
         title: t("receipt.editor.title"),
         description: t("receipt.editor.description"),
+        manualTitle: t("receipt.editor.manualTitle"),
+        manualDescription: t("receipt.editor.manualDescription"),
         item: t("receipt.editor.item"),
         category: t("receipt.editor.category"),
         selectCategory: t("receipt.editor.selectCategory"),
         quantity: t("receipt.editor.quantity"),
+        unitPrice: t("receipt.editor.unitPrice"),
         unitPriceFixed: (price) =>
           t("receipt.editor.unitPriceFixed", { price }),
         reset: t("receipt.editor.reset"),
+        addManual: t("receipt.editor.addManual"),
         apply: t("receipt.editor.apply"),
+        saveManual: t("receipt.editor.saveManual"),
       },
       alerts: {
         corrected: t("receipt.alerts.corrected"),
         adjust: t("receipt.alerts.adjust"),
+        manual: t("receipt.alerts.manual"),
+        remove: t("receipt.alerts.remove"),
       },
       errors: {
         invalidImage: t("receipt.errors.invalidImage"),
@@ -318,10 +344,14 @@ export const createMessagesObject = (
         extractionFailed: t("receipt.errors.extractionFailed"),
         unexpectedRequest: t("receipt.errors.unexpectedRequest"),
         noResultToSave: t("receipt.errors.noResultToSave"),
+        noDashboardSelected: t("receipt.errors.noDashboardSelected"),
         saveFailed: t("receipt.errors.saveFailed"),
         unexpectedSave: t("receipt.errors.unexpectedSave"),
+        loadDashboards: t("receipt.errors.loadDashboards"),
+        invalidItemName: t("receipt.errors.invalidItemName"),
         invalidCategory: t("receipt.errors.invalidCategory"),
         invalidQuantity: t("receipt.errors.invalidQuantity"),
+        invalidUnitPrice: t("receipt.errors.invalidUnitPrice"),
       },
       saveSuccess: (count, monthLabel) =>
         t("receipt.saveSuccess", { count, monthLabel }),
@@ -506,6 +536,10 @@ export const localeMessages = {
       saveGroceries: "Save groceries",
       openDashboard: "Open dashboard",
       openFreshDashboard: "Open fresh dashboard",
+      addManualItem: "Add manual item",
+      selectDashboard: "Select Dashboard",
+      loadingDashboards: "Loading dashboards...",
+      noDashboardsAvailable: "No dashboards available",
       resultPlaceholder:
         "Extracted categorized groceries and the raw model response will appear here.",
       table: {
@@ -520,18 +554,26 @@ export const localeMessages = {
         title: "Adjust extracted grocery",
         description:
           "Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.",
+        manualTitle: "Add manual grocery",
+        manualDescription:
+          "Use this when the extraction missed a line. The manual row will be saved with the rest of the receipt.",
         item: "Item",
         category: "Category",
         selectCategory: "Select category",
         quantity: "Quantity",
+        unitPrice: "Unit price",
         unitPriceFixed:
           "Unit price stays fixed at {price}. The line total will be recalculated when you apply the correction.",
         reset: "Reset to AI result",
+        addManual: "Add item",
         apply: "Apply correction",
+        saveManual: "Save item",
       },
       alerts: {
         corrected: "Corrected",
         adjust: "Adjust",
+        manual: "Manual",
+        remove: "Remove",
       },
       errors: {
         invalidImage: "Use an image or PDF file such as PNG, JPG, WEBP, or PDF.",
@@ -539,10 +581,14 @@ export const localeMessages = {
         extractionFailed: "Extraction failed.",
         unexpectedRequest: "Unexpected request error.",
         noResultToSave: "Extract a receipt before saving groceries.",
+        noDashboardSelected: "Select a dashboard before saving groceries.",
         saveFailed: "Unable to save groceries.",
         unexpectedSave: "Unexpected save error.",
+        loadDashboards: "Unable to load dashboards.",
+        invalidItemName: "Enter an item name.",
         invalidCategory: "Select a valid grocery category.",
         invalidQuantity: "Quantity must be greater than zero.",
+        invalidUnitPrice: "Unit price must be greater than zero.",
       },
       saveSuccess:
         "Saved {count} grocery lines to {monthLabel}. The dashboard link is now primed with the fresh month view.",
@@ -737,6 +783,10 @@ export const localeMessages = {
       saveGroceries: "Guardar compras",
       openDashboard: "Abrir panel",
       openFreshDashboard: "Abrir panel actualizado",
+      addManualItem: "Agregar artículo manual",
+      selectDashboard: "Seleccionar panel",
+      loadingDashboards: "Cargando paneles...",
+      noDashboardsAvailable: "No hay paneles disponibles",
       resultPlaceholder:
         "Las compras categorizadas extraídas y la respuesta sin procesar del modelo aparecerán aquí.",
       table: {
@@ -751,18 +801,26 @@ export const localeMessages = {
         title: "Ajustar compra extraída",
         description:
           "Sobrescribe la categoría o la cantidad elegida por la IA antes de guardar este recibo en el panel mensual.",
+        manualTitle: "Agregar compra manual",
+        manualDescription:
+          "Úsalo cuando la extracción haya omitido una línea. La fila manual se guardará con el resto del recibo.",
         item: "Artículo",
         category: "Categoría",
         selectCategory: "Selecciona una categoría",
         quantity: "Cantidad",
+        unitPrice: "Precio unitario",
         unitPriceFixed:
           "El precio unitario permanece fijo en {price}. El total de la línea se recalculará cuando apliques la corrección.",
         reset: "Restablecer al resultado de la IA",
+        addManual: "Agregar artículo",
         apply: "Aplicar corrección",
+        saveManual: "Guardar artículo",
       },
       alerts: {
         corrected: "Corregido",
         adjust: "Ajustar",
+        manual: "Manual",
+        remove: "Quitar",
       },
       errors: {
         invalidImage: "Usa un archivo de imagen o PDF como PNG, JPG, WEBP o PDF.",
@@ -770,10 +828,14 @@ export const localeMessages = {
         extractionFailed: "La extracción falló.",
         unexpectedRequest: "Error inesperado en la solicitud.",
         noResultToSave: "Extrae un recibo antes de guardar las compras.",
+        noDashboardSelected: "Selecciona un panel antes de guardar las compras.",
         saveFailed: "No se pudieron guardar las compras.",
         unexpectedSave: "Error inesperado al guardar.",
+        loadDashboards: "No se pudieron cargar los paneles.",
+        invalidItemName: "Ingresa el nombre del artículo.",
         invalidCategory: "Selecciona una categoría válida.",
         invalidQuantity: "La cantidad debe ser mayor que cero.",
+        invalidUnitPrice: "El precio unitario debe ser mayor que cero.",
       },
       saveSuccess:
         "Se guardaron {count} líneas de compras en {monthLabel}. El enlace al panel ya quedó listo con la vista mensual actualizada.",
@@ -967,6 +1029,10 @@ export const localeMessages = {
       saveGroceries: "Salvar compras",
       openDashboard: "Abrir painel",
       openFreshDashboard: "Abrir painel atualizado",
+      addManualItem: "Adicionar item manual",
+      selectDashboard: "Selecionar painel",
+      loadingDashboards: "Carregando painéis...",
+      noDashboardsAvailable: "Nenhum painel disponível",
       resultPlaceholder:
         "As compras categorizadas extraídas e a resposta bruta do modelo aparecerão aqui.",
       table: {
@@ -981,18 +1047,26 @@ export const localeMessages = {
         title: "Ajustar compra extraída",
         description:
           "Sobrescreva a categoria ou a quantidade escolhida pela IA antes de salvar este recibo no painel mensal.",
+        manualTitle: "Adicionar compra manual",
+        manualDescription:
+          "Use isto quando a extração perder uma linha. A linha manual será salva junto com o restante do recibo.",
         item: "Item",
         category: "Categoria",
         selectCategory: "Selecione uma categoria",
         quantity: "Quantidade",
+        unitPrice: "Preço unitário",
         unitPriceFixed:
           "O preço unitário permanece fixo em {price}. O total da linha será recalculado quando você aplicar a correção.",
         reset: "Voltar ao resultado da IA",
+        addManual: "Adicionar item",
         apply: "Aplicar correção",
+        saveManual: "Salvar item",
       },
       alerts: {
         corrected: "Corrigido",
         adjust: "Ajustar",
+        manual: "Manual",
+        remove: "Remover",
       },
       errors: {
         invalidImage: "Use um arquivo de imagem ou PDF como PNG, JPG, WEBP ou PDF.",
@@ -1000,10 +1074,14 @@ export const localeMessages = {
         extractionFailed: "A extração falhou.",
         unexpectedRequest: "Erro inesperado na requisição.",
         noResultToSave: "Extraia um recibo antes de salvar as compras.",
+        noDashboardSelected: "Selecione um painel antes de salvar as compras.",
         saveFailed: "Não foi possível salvar as compras.",
         unexpectedSave: "Erro inesperado ao salvar.",
+        loadDashboards: "Não foi possível carregar os painéis.",
+        invalidItemName: "Informe o nome do item.",
         invalidCategory: "Selecione uma categoria válida.",
         invalidQuantity: "A quantidade deve ser maior que zero.",
+        invalidUnitPrice: "O preço unitário deve ser maior que zero.",
       },
       saveSuccess:
         "Salvou {count} linhas de compras em {monthLabel}. O link do painel já foi preparado com a visão mensal atualizada.",

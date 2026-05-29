@@ -20,6 +20,14 @@ describe("ReceiptWorkspaceStateProvider", () => {
 
     it("provides the default state and update functions", async () => {
         const file = new File(["receipt"], "receipt.png", { type: "image/png" });
+        const manualItem = {
+            item: "Bananas",
+            normalizedItem: "bananas",
+            category: "produce",
+            quantity: 1,
+            unitPrice: 4,
+            lineTotal: 4,
+        } as const;
 
         const Probe = () => {
             const state = useReceiptWorkspaceState();
@@ -27,12 +35,12 @@ describe("ReceiptWorkspaceStateProvider", () => {
             return (
                 <>
                     <span>{state.selectedModelId}</span>
-                    <span>{String(state.showRawResponse)}</span>
+                    <span>{state.manualItems.length}</span>
                     <button type="button" onClick={() => state.setFile(file)}>
                         set file
                     </button>
-                    <button type="button" onClick={() => state.setShowRawResponse(true)}>
-                        show raw
+                    <button type="button" onClick={() => state.setManualItems([manualItem])}>
+                        add manual item
                     </button>
                     <span>{state.file?.name ?? "no-file"}</span>
                 </>
@@ -46,12 +54,12 @@ describe("ReceiptWorkspaceStateProvider", () => {
         );
 
         expect(screen.getByText("test-model")).toBeInTheDocument();
-        expect(screen.getByText("false")).toBeInTheDocument();
+        expect(screen.getByText("0")).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "set file" }));
-        await userEvent.click(screen.getByRole("button", { name: "show raw" }));
+        await userEvent.click(screen.getByRole("button", { name: "add manual item" }));
 
         expect(screen.getByText("receipt.png")).toBeInTheDocument();
-        expect(screen.getByText("true")).toBeInTheDocument();
+        expect(screen.getByText("1")).toBeInTheDocument();
     });
 });

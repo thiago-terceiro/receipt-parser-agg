@@ -15,6 +15,7 @@ import {
   ExtractionResponse,
   useReceiptWorkspaceState,
 } from "@/context/ReceiptWorkspaceStateProvider";
+import type { BoardSummary } from "@/lib/boards";
 import {
   createCurrencyFormatter,
   legacyDefaultCurrencyCode,
@@ -35,6 +36,7 @@ import {
 
 import {
   sanitizeCategory,
+  normalizeItemName,
   type AvailableModel,
   type ReceiptItem,
 } from "../../lib/receipt";
@@ -59,10 +61,11 @@ type PersistedReceiptDraft = {
   editedItems: Record<number, ReceiptItem>;
   fileName: string;
   fileSize: number;
+  manualItems?: ReceiptItem[];
   previewDataUrl: string;
   result: ExtractionResponse;
+  selectedBoardId?: string;
   selectedModelId: string;
-  showRawResponse: boolean;
 };
 
 type RestoredReceiptDraft = {
@@ -111,6 +114,36 @@ const isEditedItemsRecord = (
 ): value is Record<number, ReceiptItem> =>
   isRecord(value) && Object.values(value).every(isReceiptItem);
 
+const isReceiptItemsArray = (value: unknown): value is ReceiptItem[] =>
+  Array.isArray(value) && value.every(isReceiptItem);
+
+const isBoardSummary = (value: unknown): value is BoardSummary => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.ownerUserId === "string" &&
+    (value.role === "owner" || value.role === "editor") &&
+    (typeof value.joinedAt === "string" || value.joinedAt === null) &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    (typeof value.archivedAt === "string" || value.archivedAt === null)
+  );
+};
+
+const parsePositiveDecimal = (value: string): number | null => {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return Number(parsedValue.toFixed(2));
+};
+
 const isPersistedReceiptDraft = (
   value: unknown,
 ): value is PersistedReceiptDraft => {
@@ -121,9 +154,10 @@ const isPersistedReceiptDraft = (
   return (
     typeof value.fileName === "string" &&
     typeof value.fileSize === "number" &&
+    (value.manualItems === undefined || isReceiptItemsArray(value.manualItems)) &&
     typeof value.previewDataUrl === "string" &&
+    (value.selectedBoardId === undefined || typeof value.selectedBoardId === "string") &&
     typeof value.selectedModelId === "string" &&
-    typeof value.showRawResponse === "boolean" &&
     isEditedItemsRecord(value.editedItems) &&
     isExtractionResponse(value.result)
   );
@@ -220,11 +254,15 @@ export const ReceiptWorkspace = ({
     setResult,
     editedItems,
     setEditedItems,
-    showRawResponse,
-    setShowRawResponse,
+    manualItems,
+    setManualItems,
   } = useReceiptWorkspaceState();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [boardsError, setBoardsError] = useState<string | null>(null);
+  const [availableBoards, setAvailableBoards] = useState<BoardSummary[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState("");
+  const [isBoardsLoading, setIsBoardsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -250,19 +288,25 @@ export const ReceiptWorkspace = ({
       ),
     [locale, result?.currencyCode],
   );
+  const extractedItemCount = result?.items.length ?? 0;
 
   const displayedItems = useMemo(
-    () => result?.items.map((item, index) => editedItems[index] ?? item) ?? [],
-    [editedItems, result],
+    () => [
+      ...(result?.items.map((item, index) => editedItems[index] ?? item) ?? []),
+      ...manualItems,
+    ],
+    [editedItems, manualItems, result],
   );
   const displayedTotal = useMemo(
     () => displayedItems.reduce((sum, entry) => sum + entry.lineTotal, 0),
     [displayedItems],
   );
   const correctedCount = Object.keys(editedItems).length;
-  const editingItem = editorState
+  const editingItem = editorState?.mode === "adjust" && editorState.index !== null
     ? (displayedItems[editorState.index] ?? null)
-    : null;
+    : editorState?.mode === "edit-manual" && editorState.index !== null
+      ? (manualItems[editorState.index] ?? null)
+      : null;
   const dashboardHref = savedReceipt
     ? {
       pathname: "/groceries",
@@ -272,7 +316,14 @@ export const ReceiptWorkspace = ({
         saved: savedReceipt.receiptId,
       },
     }
-    : "/groceries";
+    : selectedBoardId
+      ? {
+        pathname: "/groceries",
+        query: {
+          board: selectedBoardId,
+        },
+      }
+      : "/groceries";
   const displayedFileName = file?.name ?? restoredDraft?.fileName ?? null;
   const displayedFileSize = file?.size ?? restoredDraft?.fileSize ?? null;
   const displayedPreviewUrl = previewUrl ?? restoredDraft?.previewDataUrl ?? null;
@@ -340,7 +391,8 @@ export const ReceiptWorkspace = ({
       setSelectedModelId(persistedDraft.selectedModelId);
       setResult(persistedDraft.result);
       setEditedItems(persistedDraft.editedItems);
-      setShowRawResponse(persistedDraft.showRawResponse);
+      setManualItems(persistedDraft.manualItems ?? []);
+      setSelectedBoardId(persistedDraft.selectedBoardId ?? "");
       setRestoredDraft({
         fileName: persistedDraft.fileName,
         fileSize: persistedDraft.fileSize,
@@ -351,10 +403,74 @@ export const ReceiptWorkspace = ({
     file,
     result,
     setEditedItems,
+    setManualItems,
     setResult,
+    setSelectedBoardId,
     setSelectedModelId,
-    setShowRawResponse,
   ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !result) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadBoards = async () => {
+      setIsBoardsLoading(true);
+      setBoardsError(null);
+
+      try {
+        const payload = await parseJsonResponse<{
+          boards?: unknown;
+          error?: string;
+        }>(await fetch("/api/boards"));
+
+        const boards = Array.isArray(payload.boards)
+          ? payload.boards.filter(isBoardSummary)
+          : null;
+
+        if (!boards) {
+          throw new Error(translations.receipt.errors.loadDashboards);
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
+        setAvailableBoards(boards);
+        setSelectedBoardId((current) => {
+          if (current && boards.some((board) => board.id === current)) {
+            return current;
+          }
+
+          return boards[0]?.id ?? "";
+        });
+      } catch (requestError) {
+        if (isCancelled) {
+          return;
+        }
+
+        setAvailableBoards([]);
+        setSelectedBoardId("");
+        setBoardsError(
+          requestError instanceof Error
+            ? requestError.message
+            : translations.receipt.errors.loadDashboards,
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsBoardsLoading(false);
+        }
+      }
+    };
+
+    void loadBoards();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAuthenticated, result, translations.receipt.errors.loadDashboards]);
 
   useEffect(() => {
     if (!result || saveMessage) {
@@ -374,33 +490,39 @@ export const ReceiptWorkspace = ({
       editedItems,
       fileName,
       fileSize,
+      manualItems,
       previewDataUrl,
       result,
+      selectedBoardId,
       selectedModelId,
-      showRawResponse,
     });
   }, [
     draftPreviewDataUrl,
     editedItems,
     file,
+    manualItems,
     restoredDraft,
     result,
     saveMessage,
+    selectedBoardId,
     selectedModelId,
-    showRawResponse,
   ]);
 
   const resetWorkspaceState = useCallback(() => {
     clearPersistedReceiptDraft();
     setResult(null);
     setError(null);
+    setBoardsError(null);
+    setAvailableBoards([]);
+    setSelectedBoardId("");
+    setIsBoardsLoading(false);
     setSaveMessage(null);
     setEditedItems({});
+    setManualItems([]);
     setEditorState(null);
-    setShowRawResponse(false);
     setSavedReceipt(null);
     setRestoredDraft(null);
-  }, [setEditedItems, setResult, setShowRawResponse]);
+  }, [setEditedItems, setManualItems, setResult]);
 
   const clearSelectedFile = useCallback(() => {
     setDraftPreviewDataUrl(null);
@@ -578,6 +700,11 @@ export const ReceiptWorkspace = ({
       return;
     }
 
+    if (!selectedBoardId) {
+      setError(translations.receipt.errors.noDashboardSelected);
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setSaveMessage(null);
@@ -592,6 +719,7 @@ export const ReceiptWorkspace = ({
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
+              boardId: selectedBoardId,
               currencyCode: result.currencyCode,
               items: displayedItems,
               sourceFileName: displayedFileName,
@@ -629,7 +757,7 @@ export const ReceiptWorkspace = ({
         boardId:
           typeof payload.boardId === "string" && payload.boardId.trim()
             ? payload.boardId
-            : null,
+            : selectedBoardId,
         month: savedMonth,
         receiptId,
       });
@@ -669,6 +797,7 @@ export const ReceiptWorkspace = ({
     displayedFileName,
     locale,
     result,
+    selectedBoardId,
     translations.receipt,
   ]);
 
@@ -678,34 +807,62 @@ export const ReceiptWorkspace = ({
 
   const openEditor = useCallback(
     (index: number) => {
-      const item = displayedItems[index];
+      if (index < extractedItemCount) {
+        const item = displayedItems[index];
+        if (!item) {
+          return;
+        }
+
+        setEditorState({
+          mode: "adjust",
+          index,
+          itemName: item.item,
+          category: item.category,
+          quantity: String(item.quantity),
+          unitPrice: String(item.unitPrice),
+          error: null,
+        });
+        return;
+      }
+
+      const manualIndex = index - extractedItemCount;
+      const item = manualItems[manualIndex];
       if (!item) {
         return;
       }
 
       setEditorState({
-        index,
+        mode: "edit-manual",
+        index: manualIndex,
+        itemName: item.item,
         category: item.category,
         quantity: String(item.quantity),
+        unitPrice: String(item.unitPrice),
         error: null,
       });
     },
-    [displayedItems],
+    [displayedItems, extractedItemCount, manualItems],
   );
+
+  const openManualItemEditor = useCallback(() => {
+    setEditorState({
+      mode: "add-manual",
+      index: null,
+      itemName: "",
+      category: "other",
+      quantity: "1",
+      unitPrice: "",
+      error: null,
+    });
+  }, []);
 
   const applyCorrection = useCallback(() => {
     if (!editorState) {
       return;
     }
 
-    const sourceItem = displayedItems[editorState.index];
-    if (!sourceItem) {
-      closeEditor();
-      return;
-    }
-
     const category = sanitizeCategory(editorState.category);
-    const quantity = Number(editorState.quantity);
+    const quantity = parsePositiveDecimal(editorState.quantity);
 
     if (!category) {
       setEditorState((current) =>
@@ -716,7 +873,7 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+    if (quantity === null) {
       setEditorState((current) =>
         current
           ? { ...current, error: translations.receipt.errors.invalidQuantity }
@@ -725,48 +882,134 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const roundedQuantity = Number(quantity.toFixed(2));
-    setEditedItems((current) => ({
-      ...current,
-      [editorState.index]: {
-        ...sourceItem,
-        category,
-        quantity: roundedQuantity,
-        lineTotal: Number((sourceItem.unitPrice * roundedQuantity).toFixed(2)),
-      },
-    }));
+    if (editorState.mode === "adjust") {
+      if (editorState.index === null) {
+        closeEditor();
+        return;
+      }
+
+      const sourceItem = displayedItems[editorState.index];
+      if (!sourceItem) {
+        closeEditor();
+        return;
+      }
+
+      setEditedItems((current) => ({
+        ...current,
+        [editorState.index as number]: {
+          ...sourceItem,
+          category,
+          quantity,
+          lineTotal: Number((sourceItem.unitPrice * quantity).toFixed(2)),
+        },
+      }));
+      closeEditor();
+      return;
+    }
+
+    const itemName = editorState.itemName.trim();
+    if (!itemName) {
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidItemName }
+          : current,
+      );
+      return;
+    }
+
+    const unitPrice = parsePositiveDecimal(editorState.unitPrice);
+    if (unitPrice === null) {
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidUnitPrice }
+          : current,
+      );
+      return;
+    }
+
+    const manualItem: ReceiptItem = {
+      item: itemName,
+      normalizedItem: normalizeItemName(itemName),
+      category,
+      quantity,
+      unitPrice,
+      lineTotal: Number((quantity * unitPrice).toFixed(2)),
+    };
+
+    if (editorState.mode === "add-manual") {
+      setManualItems((current) => [...current, manualItem]);
+      closeEditor();
+      return;
+    }
+
+    if (editorState.index === null || !manualItems[editorState.index]) {
+      closeEditor();
+      return;
+    }
+
+    setManualItems((current) =>
+      current.map((item, index) =>
+        index === editorState.index ? manualItem : item,
+      ),
+    );
     closeEditor();
   }, [
     closeEditor,
     displayedItems,
     editorState,
     setEditedItems,
+    setManualItems,
+    manualItems,
+    translations.receipt.errors.invalidItemName,
     translations.receipt.errors.invalidCategory,
     translations.receipt.errors.invalidQuantity,
+    translations.receipt.errors.invalidUnitPrice,
   ]);
 
   const resetCorrection = useCallback(() => {
-    if (!editorState) {
+    if (!editorState || editorState.mode !== "adjust" || editorState.index === null) {
       return;
     }
 
+    const index = editorState.index;
+
     setEditedItems((current) => {
       const next = { ...current };
-      delete next[editorState.index];
+      delete next[index];
       return next;
     });
     closeEditor();
   }, [closeEditor, editorState, setEditedItems]);
 
-  const toggleRawResponse = useCallback(() => {
-    setShowRawResponse((current) => !current);
-  }, [setShowRawResponse]);
+  const removeManualItem = useCallback(
+    (manualIndex: number) => {
+      setManualItems((current) =>
+        current.filter((_, index) => index !== manualIndex),
+      );
+      setEditorState((current) =>
+        current?.mode === "edit-manual" && current.index === manualIndex
+          ? null
+          : current,
+      );
+    },
+    [setManualItems],
+  );
 
   const handleEditorCategoryChange = useCallback((category: string) => {
     setEditorState((current) =>
       current ? { ...current, category, error: null } : current,
     );
   }, []);
+
+  const handleEditorItemNameChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const itemName = event.target.value;
+      setEditorState((current) =>
+        current ? { ...current, itemName, error: null } : current,
+      );
+    },
+    [],
+  );
 
   const handleEditorQuantityChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -778,8 +1021,20 @@ export const ReceiptWorkspace = ({
     [],
   );
 
+  const handleEditorUnitPriceChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const unitPrice = event.target.value;
+      setEditorState((current) =>
+        current ? { ...current, unitPrice, error: null } : current,
+      );
+    },
+    [],
+  );
+
   const hasEditorCorrection =
-    editorState !== null && Boolean(editedItems[editorState.index]);
+    editorState?.mode === "adjust" &&
+    editorState.index !== null &&
+    Boolean(editedItems[editorState.index]);
 
   return (
     <>
@@ -808,6 +1063,8 @@ export const ReceiptWorkspace = ({
       />
 
       <ReceiptWorkspaceResultsSection
+        availableBoards={availableBoards}
+        boardsError={boardsError}
         correctedCount={correctedCount}
         currencyFormatter={currencyFormatter}
         dashboardHref={dashboardHref}
@@ -816,18 +1073,22 @@ export const ReceiptWorkspace = ({
         displayedFileName={displayedFileName}
         displayedTotal={displayedTotal}
         editedItems={editedItems}
+        extractedItemCount={extractedItemCount}
         isAuthenticated={isAuthenticated}
+        isBoardsLoading={isBoardsLoading}
         isSaving={isSaving}
         previewKind={displayedPreviewKind}
         previewPlaceholderText={previewPlaceholderText}
         previewUrl={displayedPreviewUrl}
         result={result}
         saveMessage={saveMessage}
-        showRawResponse={showRawResponse}
+        selectedBoardId={selectedBoardId}
         translations={translations}
+        onAddManualItem={openManualItemEditor}
+        onBoardChange={setSelectedBoardId}
         onEditItem={openEditor}
+        onRemoveManualItem={removeManualItem}
         onSaveGroceries={handleSaveGroceries}
-        onToggleRawResponse={toggleRawResponse}
       />
 
       <ReceiptItemEditorDialog
@@ -839,8 +1100,10 @@ export const ReceiptWorkspace = ({
         onApply={applyCorrection}
         onCategoryChange={handleEditorCategoryChange}
         onClose={closeEditor}
+        onItemNameChange={handleEditorItemNameChange}
         onQuantityChange={handleEditorQuantityChange}
         onReset={resetCorrection}
+        onUnitPriceChange={handleEditorUnitPriceChange}
       />
     </>
   );

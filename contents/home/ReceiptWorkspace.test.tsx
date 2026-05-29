@@ -52,6 +52,29 @@ const createResponse = (body: string, ok = true) =>
         text: jest.fn().mockResolvedValue(body),
     }) as unknown as Response;
 
+const boardFixtures = [
+    {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Home dashboard",
+        ownerUserId: "user-1",
+        role: "owner",
+        joinedAt: "2026-04-01T00:00:00.000Z",
+        createdAt: "2026-04-01T00:00:00.000Z",
+        updatedAt: "2026-04-02T00:00:00.000Z",
+        archivedAt: null,
+    },
+    {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Shared dashboard",
+        ownerUserId: "user-2",
+        role: "editor",
+        joinedAt: "2026-04-03T00:00:00.000Z",
+        createdAt: "2026-04-03T00:00:00.000Z",
+        updatedAt: "2026-04-04T00:00:00.000Z",
+        archivedAt: null,
+    },
+] as const;
+
 const createSessionStorageStore = () => {
     const storage = new Map<string, string>();
 
@@ -127,7 +150,7 @@ describe("ReceiptWorkspace", () => {
         expect(await screen.findByText("receipt.errors.noFile")).toBeInTheDocument();
     });
 
-    it("extracts a receipt, toggles raw response, and saves groceries", async () => {
+    it("extracts a receipt, selects a dashboard, and saves groceries", async () => {
         createSessionStorageStore();
         mockAuthState.status = "authenticated";
         mockAuthState.session = {
@@ -159,7 +182,15 @@ describe("ReceiptWorkspace", () => {
             .mockResolvedValueOnce(
                 createResponse(
                     JSON.stringify({
-                        savedCount: 1,
+                        boards: boardFixtures,
+                    }),
+                ),
+            )
+            .mockResolvedValueOnce(
+                createResponse(
+                    JSON.stringify({
+                        boardId: boardFixtures[1].id,
+                        savedCount: 2,
                         month: "2026-04",
                         receiptId: "saved-1",
                     }),
@@ -186,36 +217,63 @@ describe("ReceiptWorkspace", () => {
         expect(
             screen.getByText('receipt.total {"amount":"€7.00"}'),
         ).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Show raw response" })).not.toBeInTheDocument();
+        expect(screen.getByText("receipt.selectDashboard")).toBeInTheDocument();
 
-        await userEvent.click(screen.getByRole("button", { name: "Show raw response" }));
-        expect(screen.getByText("raw-output")).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getAllByRole("combobox")[1]).not.toBeDisabled();
+        });
+
+        await userEvent.selectOptions(
+            screen.getAllByRole("combobox")[1],
+            boardFixtures[1].id,
+        );
+
+        await userEvent.click(screen.getByRole("button", { name: "receipt.addManualItem" }));
+        await userEvent.type(screen.getByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
+        await userEvent.clear(screen.getByRole("spinbutton", { name: "receipt.editor.quantity" }));
+        await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.quantity" }), "3");
+        await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
+        await userEvent.click(screen.getByRole("button", { name: "receipt.editor.addManual" }));
+
+        expect(await screen.findByText("Bananas")).toBeInTheDocument();
+        expect(screen.getByText("receipt.alerts.manual")).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.saveGroceries" }));
 
-        expect((global.fetch as jest.Mock).mock.calls[1][1]).toEqual(
-            expect.objectContaining({
-                body: JSON.stringify({
-                    currencyCode: "EUR",
-                    items: [
-                        {
-                            item: "Milk",
-                            normalizedItem: "milk",
-                            category: "dairy",
-                            quantity: 2,
-                            unitPrice: 3.5,
-                            lineTotal: 7,
-                        },
-                    ],
-                    sourceFileName: "receipt.png",
-                    modelId: "test-model",
-                }),
-            }),
-        );
+        const saveRequest = (global.fetch as jest.Mock).mock.calls[2][1] as {
+            body?: string;
+        };
+
+        expect(JSON.parse(saveRequest.body ?? "null")).toEqual({
+            boardId: boardFixtures[1].id,
+            currencyCode: "EUR",
+            items: [
+                {
+                    item: "Milk",
+                    normalizedItem: "milk",
+                    category: "dairy",
+                    quantity: 2,
+                    unitPrice: 3.5,
+                    lineTotal: 7,
+                },
+                {
+                    item: "Bananas",
+                    normalizedItem: "bananas",
+                    category: "other",
+                    quantity: 3,
+                    unitPrice: 1.5,
+                    lineTotal: 4.5,
+                },
+            ],
+            sourceFileName: "receipt.png",
+            modelId: "test-model",
+        });
 
         expect(await screen.findByText(/receipt.saveSuccess/)).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "receipt.openFreshDashboard" })).toHaveAttribute(
             "href",
-            "/en/groceries?month=2026-04&saved=saved-1",
+            `/en/groceries?board=${boardFixtures[1].id}&month=2026-04&saved=saved-1`,
         );
     });
 
@@ -259,6 +317,12 @@ describe("ReceiptWorkspace", () => {
         fireEvent.submit(form);
         expect(await screen.findByText("Milk")).toBeInTheDocument();
 
+        await userEvent.click(screen.getByRole("button", { name: "receipt.addManualItem" }));
+        await userEvent.type(screen.getByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
+        await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
+        await userEvent.click(screen.getByRole("button", { name: "receipt.editor.addManual" }));
+        expect(await screen.findByText("Bananas")).toBeInTheDocument();
+
         await waitFor(() => {
             expect(window.sessionStorage.setItem).toHaveBeenCalled();
         });
@@ -270,6 +334,7 @@ describe("ReceiptWorkspace", () => {
         });
 
         expect(await screen.findByText("Milk")).toBeInTheDocument();
+        expect(screen.getByText("Bananas")).toBeInTheDocument();
         expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
         expect(screen.getByRole("link", { name: "receipt.openDashboard" })).toHaveAttribute(
             "href",

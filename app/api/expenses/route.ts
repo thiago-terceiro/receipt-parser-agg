@@ -13,7 +13,7 @@ import {
   loadGroceriesEntries,
   persistGroceriesEntries,
 } from "@/lib/groceries-server";
-import { parseReceiptExtraction } from "@/lib/receipt";
+import { parseReceiptExtraction, sanitizeReceiptItems } from "@/lib/receipt";
 
 type CreateExpensesPayload = {
   boardId?: unknown;
@@ -45,13 +45,37 @@ export async function POST(request: Request) {
   }
 
   const data = (await request.json()) as CreateExpensesPayload;
-  const parsedExtraction =
-    typeof data.rawResponse === "string"
-      ? parseReceiptExtraction(data.rawResponse)
-      : null;
-  const parsedItems = Array.isArray(data.items)
-    ? data.items
-    : parsedExtraction?.items ?? null;
+  let parsedExtraction = null;
+
+  try {
+    parsedExtraction =
+      typeof data.rawResponse === "string"
+        ? parseReceiptExtraction(data.rawResponse)
+        : null;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unable to parse the receipt extraction payload.";
+
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  let parsedItems = parsedExtraction?.items ?? null;
+
+  try {
+    if (data.items !== undefined) {
+      parsedItems = sanitizeReceiptItems(data.items);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Request must include valid grocery items.";
+
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
   const currencyCode =
     parsedExtraction?.currencyCode ?? sanitizeCurrencyCode(data.currencyCode);
 

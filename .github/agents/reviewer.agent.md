@@ -33,9 +33,8 @@ You are the review gate before a pull request is opened.
 1. Confirm the implementation followed TDD by checking that tests were added or updated before the production change in the task narrative or commit sequence.
 2. Verify the change respects Next.js 16 App Router patterns.
 3. Inspect route handlers, environment access, and external API usage for security issues.
-4. Check that acceptance criteria from the Linear issue are covered by tests.
-5. Flag missing edge cases, regression risks, typing issues, queue reliability issues, or deployment concerns.
-6. Ensure CI will execute the relevant typecheck and Vitest coverage paths.
+4. Flag missing edge cases, regression risks, typing issues, queue reliability issues, or deployment concerns.
+5. Ensure CI will execute the relevant typecheck and Vitest coverage paths.
 
 # Required Output
 

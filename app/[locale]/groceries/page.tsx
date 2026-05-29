@@ -1,7 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { GroceriesDashboard } from "@/contents/groceries-dashboard/GroceriesDashboard";
-import { requireBoardIdentity } from "@/lib/boards-server";
+import { redirect } from "@/i18n/navigation";
+import { BoardRouteError, requireBoardIdentity } from "@/lib/boards-server";
 import {
   buildGroceriesMonthPayload,
   buildMonthOptions,
@@ -13,6 +14,17 @@ import { getLocaleFromSegment } from "@/lib/i18n/config";
 import { getSessionIdentity } from "@/lib/session";
 
 import { GroceriesSignInCard } from "./GroceriesSignInCard";
+
+const shouldRecoverFromRequestedBoardError = (
+  requestedBoardId: string | undefined,
+  error: unknown,
+) => {
+  return Boolean(
+    requestedBoardId
+    && error instanceof BoardRouteError
+    && [400, 403, 404].includes(error.statusCode),
+  );
+};
 
 type GroceriesPageProps = {
   params: Promise<{
@@ -47,11 +59,32 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const requestedBoardId = resolvedSearchParams?.board;
   const month = resolveRequestedMonth(resolvedSearchParams?.month, currentMonth);
   const boardIdentity = await requireBoardIdentity();
-  const { selection, entries, extractedReceipts, members } = await loadGroceriesDashboardData(
-    boardIdentity,
-    month,
-    requestedBoardId,
-  );
+  let selection;
+  let entries;
+  let extractedReceipts;
+  let members;
+
+  try {
+    ({ selection, entries, extractedReceipts, members } = await loadGroceriesDashboardData(
+      boardIdentity,
+      month,
+      requestedBoardId,
+    ));
+  } catch (error) {
+    if (shouldRecoverFromRequestedBoardError(requestedBoardId, error)) {
+      redirect({
+        href: month === currentMonth
+          ? "/groceries"
+          : {
+            pathname: "/groceries",
+            query: { month },
+          },
+        locale: resolvedLocale,
+      });
+    }
+
+    throw error;
+  }
 
   const payload = buildGroceriesMonthPayload(month, entries, extractedReceipts);
 

@@ -30,8 +30,8 @@ type ReceiptWorkspaceStateContextValue = {
   setResult: Dispatch<SetStateAction<ExtractionResponse | null>>;
   editedItems: Record<number, ReceiptItem>;
   setEditedItems: Dispatch<SetStateAction<Record<number, ReceiptItem>>>;
-  showRawResponse: boolean;
-  setShowRawResponse: Dispatch<SetStateAction<boolean>>;
+  manualItems: ReceiptItem[];
+  setManualItems: Dispatch<SetStateAction<ReceiptItem[]>>;
 };
 
 const ReceiptWorkspaceStateContext = createContext<
@@ -53,7 +53,7 @@ export const ReceiptWorkspaceStateProvider = ({
   const [editedItems, setEditedItems] = useState<Record<number, ReceiptItem>>(
     {},
   );
-  const [showRawResponse, setShowRawResponse] = useState(false);
+  const [manualItems, setManualItems] = useState<ReceiptItem[]>([]);
 
   const value = useMemo(
     () => ({
@@ -65,10 +65,10 @@ export const ReceiptWorkspaceStateProvider = ({
       setResult,
       editedItems,
       setEditedItems,
-      showRawResponse,
-      setShowRawResponse,
+      manualItems,
+      setManualItems,
     }),
-    [editedItems, file, result, selectedModelId, showRawResponse],
+    [editedItems, file, manualItems, result, selectedModelId],
   );
 
   return (
