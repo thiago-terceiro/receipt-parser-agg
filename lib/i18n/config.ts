@@ -119,6 +119,21 @@ export const stripLocaleFromPathname = (pathname: string): string => {
   return nextPath === "/" ? "/" : nextPath.replace(/\/$/, "") || "/";
 };
 
+export const normalizeLegacyLocalePathname = (pathname: string) => {
+  const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const legacyPortuguesePrefix = normalizedPath.match(/^\/(pt(?:[-_]br)?)(?=\/|$)/i);
+
+  if (!legacyPortuguesePrefix) {
+    return null;
+  }
+
+  if (legacyPortuguesePrefix[1] === "pt-br") {
+    return null;
+  }
+
+  return normalizedPath.replace(/^\/[^/]+/, "/pt-br");
+};
+
 export const localizePath = (pathname: string, locale: AppLocale): string => {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const strippedPath = stripLocaleFromPathname(normalizedPath);

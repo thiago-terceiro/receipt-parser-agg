@@ -73,7 +73,7 @@ export const ReceiptWorkspaceUploadSection = ({
 }: ReceiptWorkspaceUploadSectionProps) => {
     return (
         <section className="grid gap-6 rounded-[28px] border border-[var(--border)] bg-card p-7 shadow-[var(--shadow)] backdrop-blur-[16px] [grid-template-columns:1.2fr_0.8fr] max-[900px]:[grid-template-columns:1fr]">
-            <div className="flex flex-col gap-3">
+            <div className="min-w-0 flex flex-col gap-3">
                 <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
                     {translations.receipt.eyebrow}
                 </p>
@@ -86,7 +86,7 @@ export const ReceiptWorkspaceUploadSection = ({
             </div>
 
             <form
-                className="flex flex-col gap-3.5 rounded-[22px] border border-[rgba(181,82,51,0.16)] bg-[var(--surface-strong)] p-5"
+                className="min-w-0 flex flex-col gap-3.5 rounded-[22px] border border-[rgba(181,82,51,0.16)] bg-[var(--surface-strong)] p-5"
                 onSubmit={onSubmit}
             >
                 <input
@@ -132,8 +132,8 @@ export const ReceiptWorkspaceUploadSection = ({
                     </div>
 
                     {hasSelectedFile ? (
-                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
-                            <div className="min-w-0">
+                        <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-foreground">
                                     {selectedFileName}
                                 </p>
