@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { LocaleEffects } from "@/components/locale-utils";
+import { ThemeToggle } from "@/components/ThemeWrapper";
 import { routing } from "@/i18n/routing";
 import {
   getLocaleFromSegment,
@@ -64,6 +65,9 @@ const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
         <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
           {children}
         </main>
+        <div className="fixed right-4 top-4 z-50">
+          <ThemeToggle />
+        </div>
       </LocaleEffects>
     </NextIntlClientProvider>
   );

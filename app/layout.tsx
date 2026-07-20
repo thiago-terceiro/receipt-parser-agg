@@ -16,16 +16,37 @@ const themeBootScript = `(() => {
 
   const storageKey = "receipt-ai-theme";
   const storedTheme = window.localStorage.getItem(storageKey);
-  const theme =
-    storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
-      ? storedTheme
-      : "system";
+  const known = [
+    "light",
+    "dark",
+    "system",
+    "light-blue",
+    "yellow",
+    "light-yellow",
+    "green",
+    "purple",
+  ];
+
+  const theme = known.includes(storedTheme) ? storedTheme : "system";
+
   const resolvedTheme =
     theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : theme === "system"
         ? "light"
         : theme;
+
+  // Remove existing theme-* classes
+  document.documentElement.classList.forEach((c) => {
+    if (c.startsWith("theme-")) {
+      document.documentElement.classList.remove(c);
+    }
+  });
+
+  // Add named theme class when appropriate
+  if (theme !== "light" && theme !== "dark" && theme !== "system") {
+    document.documentElement.classList.add("theme-" + theme);
+  }
 
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.classList.toggle("dark", resolvedTheme === "dark");

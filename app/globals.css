@@ -47,7 +47,120 @@
   --border: rgba(90, 64, 42, 0.18);
   --input: rgba(90, 64, 42, 0.18);
   --ring: #b55233;
-  --radius: 0.75rem;
+    --radius: 0.75rem;
+}
+
+.theme-light-blue {
+  color-scheme: light;
+  --background: #e0f2fe;
+  --foreground: #075985;
+  --card: #f0f9ff;
+  --card-foreground: #075985;
+  --popover: #f0f9ff;
+  --popover-foreground: #075985;
+  --primary: #0ea5e9;
+  --primary-foreground: #f0f9ff;
+  --secondary: #f0f9ff;
+  --secondary-foreground: #075985;
+  --muted: #f0f9ff;
+  --muted-foreground: #60a5fa;
+  --accent: #0ea5e9;
+  --accent-foreground: #f0f9ff;
+  --destructive: #ef4444;
+  --border: #bae6fd;
+  --input: #bae6fd;
+  --ring: #0ea5e9;
+}
+
+.theme-yellow {
+  color-scheme: light;
+  --background: #fefce8;
+  --foreground: #854d0e;
+  --card: #fef9c3;
+  --card-foreground: #854d0e;
+  --popover: #fef9c3;
+  --popover-foreground: #854d0e;
+  --primary: #eab308;
+  --primary-foreground: #fefce8;
+  --secondary: #fef9c3;
+  --secondary-foreground: #854d0e;
+  --muted: #fef9c3;
+  --muted-foreground: #ca8a04;
+  --accent: #eab308;
+  --accent-foreground: #fefce8;
+  --destructive: #ef4444;
+  --border: #fde047;
+  --input: #fde047;
+  --ring: #eab308;
+}
+
+.theme-light-yellow {
+  color-scheme: light;
+  --background: #fffbeb;
+  --foreground: #b45309;
+  --card: #fef3c7;
+  --card-foreground: #b45309;
+  --popover: #fef3c7;
+  --popover-foreground: #b45309;
+  --primary: #f59e0b;
+  --primary-foreground: #fffbeb;
+  --secondary: #fef3c7;
+  --secondary-foreground: #b45309;
+  --muted: #fef3c7;
+  --muted-foreground: #d97706;
+  --accent: #f59e0b;
+  --accent-foreground: #fffbeb;
+  --destructive: #ef4444;
+  --border: #fcd34d;
+  --input: #fcd34d;
+  --ring: #f59e0b;
+}
+
+.theme-green {
+  color-scheme: light;
+  --background: #f0fdf4;
+  --foreground: #166534;
+  --card: #dcfce7;
+  --card-foreground: #166534;
+  --popover: #dcfce7;
+  --popover-foreground: #166534;
+  --primary: #22c55e;
+  --primary-foreground: #f0fdf4;
+  --secondary: #dcfce7;
+  --secondary-foreground: #166534;
+  --muted: #dcfce7;
+  --muted-foreground: #4ade80;
+  --accent: #22c55e;
+  --accent-foreground: #f0fdf4;
+  --destructive: #ef4444;
+  --border: #86efac;
+  --input: #86efac;
+  --ring: #22c55e;
+}
+
+.theme-purple {
+  color-scheme: light;
+  --background: #f5f3ff;
+  --foreground: #5b21b6;
+  --card: #ede9fe;
+  --card-foreground: #5b21b6;
+  --popover: #ede9fe;
+  --popover-foreground: #5b21b6;
+  --primary: #8b5cf6;
+  --primary-foreground: #f5f3ff;
+  --secondary: #ede9fe;
+  --secondary-foreground: #5b21b6;
+  --muted: #ede9fe;
+  --muted-foreground: #a78bfa;
+  --accent: #8b5cf6;
+  --accent-foreground: #f5f3ff;
+  --destructive: #ef4444;
+  --border: #c4b5fd;
+  --input: #c4b5fd;
+  --ring: #8b5cf6;
+}
+
+:root {
   --surface: rgba(255, 250, 243, 0.92);
   --surface-strong: rgba(255, 247, 236, 0.98);
   --surface-soft: rgba(255, 250, 243, 0.78);
@@ -179,6 +292,28 @@
   table {
     font: inherit;
   }
+}
+
+/* Smooth theme transitions: animate color-related properties for a polished feel */
+html,
+body,
+button,
+input,
+select,
+textarea,
+.card,
+.receipt-preview,
+.file-dropzone-bg,
+.mobile-controls-dialog,
+.mobile-controls-dialog * {
+  transition: background-color 260ms cubic-bezier(0.22,1,0.36,1),
+    color 260ms cubic-bezier(0.22,1,0.36,1), border-color 260ms cubic-bezier(0.22,1,0.36,1),
+    box-shadow 320ms cubic-bezier(0.22,1,0.36,1), transform 200ms ease;
+}
+
+/* Slight fade for page background layers */
+.page-bg-fade {
+  transition: background 520ms cubic-bezier(0.22,1,0.36,1);
 }
 
 .file-dropzone-bg {

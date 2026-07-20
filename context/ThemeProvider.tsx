@@ -12,8 +12,16 @@ import {
 const THEME_STORAGE_KEY = "receipt-ai-theme";
 const SYSTEM_THEME_QUERY = "(prefers-color-scheme: dark)";
 
-export type Theme = "light" | "dark" | "system";
-type ResolvedTheme = Exclude<Theme, "system">;
+export type Theme =
+  | "light"
+  | "dark"
+  | "system"
+  | "light-blue"
+  | "yellow"
+  | "light-yellow"
+  | "green"
+  | "purple";
+type ResolvedTheme = "light" | "dark";
 
 type ThemeContextValue = {
   theme: Theme;
@@ -24,8 +32,18 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const isTheme = (value: string | null): value is Theme =>
-  value === "light" || value === "dark" || value === "system";
+const isTheme = (value: string | null): value is Theme => {
+  return (
+    value === "light" ||
+    value === "dark" ||
+    value === "system" ||
+    value === "light-blue" ||
+    value === "yellow" ||
+    value === "light-yellow" ||
+    value === "green" ||
+    value === "purple"
+  );
+};
 
 const getSystemTheme = (): ResolvedTheme =>
   window.matchMedia(SYSTEM_THEME_QUERY).matches ? "dark" : "light";
@@ -90,9 +108,32 @@ const getSystemThemeSnapshot = (): ResolvedTheme => {
   return getSystemTheme();
 };
 
+const THEME_CLASS_PREFIX = "theme-";
+const NAMED_THEMES: Theme[] = [
+  "light-blue",
+  "yellow",
+  "light-yellow",
+  "green",
+  "purple",
+];
+
 const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
-  const resolvedTheme = theme === "system" ? getSystemTheme() : theme;
+  const resolvedTheme: ResolvedTheme =
+    theme === "system" ? getSystemTheme() : theme === "dark" ? "dark" : "light";
+
   const root = document.documentElement;
+
+  // remove any previous theme- classes
+  Array.from(root.classList).forEach((c) => {
+    if (c.startsWith(THEME_CLASS_PREFIX)) {
+      root.classList.remove(c);
+    }
+  });
+
+  // if selected a named theme, add its class (e.g. theme-light-blue)
+  if ((NAMED_THEMES as string[]).includes(theme as string)) {
+    root.classList.add(`${THEME_CLASS_PREFIX}${theme}`);
+  }
 
   root.dataset.theme = resolvedTheme;
   root.classList.toggle("dark", resolvedTheme === "dark");
