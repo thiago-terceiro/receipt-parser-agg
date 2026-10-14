@@ -1,4 +1,3 @@
-import { resolveCurrencyCode } from "../lib/currency";
 import {
   chunk,
   collectResolvedStorageRecords,
@@ -8,6 +7,7 @@ import {
   ensureProfile,
   parseRedisList,
 } from "./shared-board-migration-utils";
+import { resolveCurrencyCode } from "../lib/currency";
 
 type GroceryRedisItem = {
   currencyCode?: string | null;

@@ -1,8 +1,8 @@
 "use client";
 
-import { Menu } from "lucide-react";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { KeyRound, Menu, X } from "lucide-react";
 import Image from "next/image";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -72,6 +72,12 @@ export const GoogleAuthControls = ({
   const translations = useTranslations();
   const [isMobileView, setIsMobileView] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
+  const [username, setUsername] = useState("thiago");
+  const [password, setPassword] = useState("password123");
+  const [credentialsError, setCredentialsError] = useState<string | null>(null);
+  const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
 
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
@@ -151,6 +157,131 @@ export const GoogleAuthControls = ({
         <GoogleMark />
         <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
       </Button>
+      {!isAuthenticated && !isLoading ? (
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="outline"
+            type="button"
+            className={buttonClassName}
+            onClick={() => setIsCredentialsOpen(!isCredentialsOpen)}
+          >
+            <KeyRound className="size-4" />
+            <span>Password / Test Login</span>
+          </Button>
+          {isCredentialsOpen ? (
+            <div className="mt-2 flex flex-col gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain)] p-4 shadow-md">
+              <div className="flex items-center justify-between">
+                <p className="m-0 text-sm font-bold text-foreground">Sign in with Password</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsCredentialsOpen(false)}
+                  aria-label="Close credentials"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+              <p className="m-0 text-xs text-muted-foreground">
+                Quick select an account or enter custom credentials:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "Thiago", user: "thiago" },
+                  { label: "Priscila", user: "priscila" },
+                  { label: "Test Owner", user: "test" },
+                  { label: "Test Partner", user: "partner" },
+                ].map((account) => (
+                  <Button
+                    key={account.user}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 text-xs font-semibold"
+                    onClick={() => {
+                      setUsername(account.user);
+                      setPassword("password123");
+                      setCredentialsError(null);
+                    }}
+                  >
+                    {account.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold" htmlFor="credentials-username">
+                  Username or Email
+                </label>
+                <input
+                  id="credentials-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="thiago, test, etc."
+                  className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold" htmlFor="credentials-password">
+                  Password
+                </label>
+                <input
+                  id="credentials-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="password123"
+                  className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              {credentialsError ? (
+                <p className="m-0 text-xs font-medium text-destructive">{credentialsError}</p>
+              ) : null}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsCredentialsOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSubmittingCredentials || !username.trim() || !password.trim()}
+                  onClick={async () => {
+                    setIsSubmittingCredentials(true);
+                    setCredentialsError(null);
+                    try {
+                      const res = await signIn("credentials", {
+                        username: username.trim(),
+                        password,
+                        callbackUrl: authCallbackUrl,
+                        redirect: false,
+                      });
+                      if (res?.error) {
+                        setCredentialsError("Invalid username or password.");
+                        setIsSubmittingCredentials(false);
+                      } else if (res?.url) {
+                        window.location.href = res.url;
+                      } else {
+                        window.location.reload();
+                      }
+                    } catch {
+                      setCredentialsError("Sign in failed. Please check your credentials.");
+                      setIsSubmittingCredentials(false);
+                    }
+                  }}
+                >
+                  {isSubmittingCredentials ? "Signing in..." : "Sign in"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -163,33 +294,50 @@ export const GoogleAuthControls = ({
 
   if (isMobileView) {
     return (
-      <section className="mb-4 flex justify-start" aria-label={translations.auth.sectionLabel}>
+      <section
+        className="mb-4 flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 shadow-[var(--shadow)] backdrop-blur-[14px]"
+        aria-label={translations.auth.sectionLabel}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-9 place-items-center rounded-xl bg-[var(--accent)] font-bold text-sm text-[#fffaf3] shadow-sm">
+            R
+          </div>
+          <span className="font-bold text-base tracking-tight text-foreground">
+            Receipt AI
+          </span>
+          {isAuthenticated ? (
+            <span className="ml-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {session.user?.name?.split(" ")[0]}
+            </span>
+          ) : null}
+        </div>
+
         <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <DialogTrigger asChild>
             <Button
               type="button"
               variant="secondary"
               size="icon"
-              className="border-[var(--border)] bg-[var(--surface-soft-muted)] shadow-[var(--shadow)]"
+              className="size-10 rounded-full border-[var(--border)] bg-[var(--surface-plain)] shadow-sm hover:bg-[var(--surface-plain-soft)]"
               aria-label={translations.auth.sectionLabel}
             >
-              <Menu className="size-5" />
+              <Menu className="size-5 text-foreground" />
             </Button>
           </DialogTrigger>
           <DialogContent
-            className="mobile-controls-dialog right-auto max-w-none sm:left-3 sm:top-3 sm:max-w-none sm:translate-x-0 sm:translate-y-0"
+            className="mobile-controls-dialog fixed left-3 right-3 top-3 w-auto max-w-none rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-2xl"
             aria-describedby={undefined}
           >
             <DialogHeader className="pr-10">
-              <DialogTitle>{translations.auth.sectionLabel}</DialogTitle>
+              <DialogTitle className="text-xl font-bold">{translations.auth.sectionLabel}</DialogTitle>
             </DialogHeader>
-            <div className="mt-5 flex flex-col gap-4">
-              <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-[var(--shadow)]">
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
                 {renderAuthBlock(
-                  "mt-1 h-11 w-full border-[var(--border)] bg-[var(--surface-plain)]",
+                  "h-11 w-full border-[var(--border)] bg-[var(--surface-plain)] font-medium text-sm",
                 )}
               </div>
-              <div className="flex flex-col gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-[var(--shadow)]">
+              <div className="flex flex-col gap-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
                 {renderPreferencesBlock("flex flex-col gap-4")}
               </div>
             </div>
@@ -201,13 +349,15 @@ export const GoogleAuthControls = ({
 
   return (
     <section
-      className="mb-4 flex gap-5 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
+      className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
       aria-label={translations.auth.sectionLabel}
     >
-      {renderAuthBlock(
-        "mt-1 h-11 min-w-[190px] border-[var(--border)] bg-[var(--surface-plain)] md:w-auto",
-      )}
-      {renderPreferencesBlock("flex flex-row gap-4")}
+      <div className="flex flex-col gap-2">
+        {renderAuthBlock(
+          "h-11 min-w-[200px] border-[var(--border)] bg-[var(--surface-plain)] hover:bg-[var(--surface-plain-soft)] font-medium text-sm",
+        )}
+      </div>
+      {renderPreferencesBlock("flex flex-row items-center gap-4")}
     </section>
   );
 };

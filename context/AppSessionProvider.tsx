@@ -12,7 +12,7 @@ type AppSessionProviderProps = {
 
 export const AppSessionProvider = ({ children }: AppSessionProviderProps) => {
   return (
-    <SessionProvider>
+    <SessionProvider basePath="/api/auth">
       <ReceiptWorkspaceStateProvider defaultModelId={defaultModelId}>
         <ThemeProvider>{children}</ThemeProvider>
       </ReceiptWorkspaceStateProvider>

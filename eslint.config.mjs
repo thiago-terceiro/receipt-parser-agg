@@ -74,6 +74,7 @@ export default defineConfig([
     "out/**",
     "build/**",
     "coverage/**",
+    "scratch/**",
     "next-env.d.ts",
   ]),
 ]);

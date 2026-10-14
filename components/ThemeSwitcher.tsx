@@ -1,9 +1,10 @@
 "use client";
 
+import { Check, Palette } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme, type Theme } from "@/context/ThemeProvider";
-import { Check, Palette } from "lucide-react";
 
 const THEMES: { id: Theme; label: string; sample: string }[] = [
     { id: "light", label: "Light (default)", sample: "#ffffff" },
@@ -65,7 +66,7 @@ export function ThemeSwitcher() {
                                                             : "light";
                                                 document.documentElement.dataset.theme = resolved;
                                                 document.documentElement.classList.toggle("dark", resolved === "dark");
-                                            } catch (e) {
+                                            } catch {
                                                 /* ignore */
                                             }
                                         }}

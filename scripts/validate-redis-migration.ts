@@ -1,4 +1,3 @@
-import { resolveCurrencyCode } from "../lib/currency";
 import {
   chunk,
   collectResolvedStorageRecords,
@@ -7,6 +6,7 @@ import {
   parseRedisList,
   roundCurrency,
 } from "./shared-board-migration-utils";
+import { resolveCurrencyCode } from "../lib/currency";
 
 type GroceryValidationRow = {
   board_id: string;

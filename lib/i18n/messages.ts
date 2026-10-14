@@ -3,8 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { metadata } from "@/app/metadata";
 import { groceryCategories, type GroceryCategory } from "@/lib/receipt";
 
-import type { Metadata } from "next";
 import type { AppLocale } from "./config";
+import type { Metadata } from "next";
 
 export type Messages = { metadata: Metadata } & {
   locales: Record<AppLocale, string>;

@@ -3,8 +3,8 @@ jest.mock("@/app/localized-redirect", () => ({
 }));
 
 import GroceriesPage from "@/app/groceries/page";
-import { redirect } from "@/i18n/navigation";
 import { getPreferredLocale } from "@/app/localized-redirect";
+import { redirect } from "@/i18n/navigation";
 
 describe("GroceriesPage redirect wrapper", () => {
     beforeEach(() => {

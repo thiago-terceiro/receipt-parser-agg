@@ -35,17 +35,17 @@ import {
 } from "@/lib/receipt-upload";
 
 import {
-  sanitizeCategory,
-  normalizeItemName,
-  type AvailableModel,
-  type ReceiptItem,
-} from "../../lib/receipt";
-import {
   EditorState,
   ReceiptItemEditorDialog,
 } from "./ReceiptItemEditorDialog";
 import { ReceiptWorkspaceResultsSection } from "./ReceiptWorkspaceResultsSection";
 import { ReceiptWorkspaceUploadSection } from "./ReceiptWorkspaceUploadSection";
+import {
+  sanitizeCategory,
+  normalizeItemName,
+  type AvailableModel,
+  type ReceiptItem,
+} from "../../lib/receipt";
 
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
