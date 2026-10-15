@@ -27,6 +27,7 @@ export type Messages = { metadata: Metadata } & {
     setupHint: string;
     signOut: string;
     continueWithGoogle: string;
+    continueWithGitHub: string;
     checking: string;
     userAlt: string;
     signedInFallback: string;
@@ -256,6 +257,7 @@ export const createMessagesObject = (
       setupHint: t("auth.setupHint"),
       signOut: t("auth.signOut"),
       continueWithGoogle: t("auth.continueWithGoogle"),
+      continueWithGitHub: t("auth.continueWithGitHub"),
       checking: t("auth.checking"),
       userAlt: t("auth.userAlt"),
       signedInFallback: t("auth.signedInFallback"),
@@ -481,6 +483,7 @@ export const localeMessages = {
         "Set AUTH_SECRET, AUTH_GOOGLE_ID, and AUTH_GOOGLE_SECRET to enable Google login.",
       signOut: "Sign out",
       continueWithGoogle: "Continue with Google",
+      continueWithGitHub: "Continue with GitHub",
       checking: "Checking Google login...",
       userAlt: "User",
       signedInFallback: "Signed in",
@@ -728,6 +731,7 @@ export const localeMessages = {
         "Define AUTH_SECRET, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET para habilitar el inicio de sesión con Google.",
       signOut: "Cerrar sesión",
       continueWithGoogle: "Continuar con Google",
+      continueWithGitHub: "Continuar con GitHub",
       checking: "Comprobando inicio de sesión con Google...",
       userAlt: "Usuario",
       signedInFallback: "Sesión iniciada",
@@ -974,6 +978,7 @@ export const localeMessages = {
         "Defina AUTH_SECRET, AUTH_GOOGLE_ID e AUTH_GOOGLE_SECRET para habilitar o login com Google.",
       signOut: "Sair",
       continueWithGoogle: "Continuar com Google",
+      continueWithGitHub: "Continuar com GitHub",
       checking: "Verificando login do Google...",
       userAlt: "Usuário",
       signedInFallback: "Sessão iniciada",

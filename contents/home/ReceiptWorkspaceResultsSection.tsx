@@ -2,7 +2,6 @@
 
 import { LayoutDashboard } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import type { ReceiptUploadKind } from "@/lib/receipt-upload";
 
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
-const COMPACT_RESULTS_QUERY = "(max-width: 640px)";
 
 type ReceiptWorkspaceResultsSectionProps = {
     availableBoards: BoardSummary[];
@@ -96,26 +94,6 @@ export const ReceiptWorkspaceResultsSection = ({
     onRemoveManualItem,
     onSaveGroceries,
 }: ReceiptWorkspaceResultsSectionProps) => {
-    const [isCompactResults, setIsCompactResults] = useState(false);
-
-    useEffect(() => {
-        if (typeof window === "undefined") {
-            return undefined;
-        }
-
-        const mediaQuery = window.matchMedia(COMPACT_RESULTS_QUERY);
-        const updateCompactResults = (event?: MediaQueryListEvent) => {
-            setIsCompactResults(event?.matches ?? mediaQuery.matches);
-        };
-
-        updateCompactResults();
-        mediaQuery.addEventListener("change", updateCompactResults);
-
-        return () => {
-            mediaQuery.removeEventListener("change", updateCompactResults);
-        };
-    }, []);
-
     const dashboardPlaceholder = isBoardsLoading
         ? translations.receipt.loadingDashboards
         : availableBoards.length > 0
@@ -209,105 +187,103 @@ export const ReceiptWorkspaceResultsSection = ({
                                     {translations.receipt.addManualItem}
                                 </Button>
                             </div>
-                            {isCompactResults ? (
-                                <div className="grid gap-3">
-                                    {displayedItems.map((entry, index) => {
-                                        const isManualItem = index >= extractedItemCount;
-                                        const manualIndex = index - extractedItemCount;
+                            <div className="grid gap-3 sm:hidden">
+                                {displayedItems.map((entry, index) => {
+                                    const isManualItem = index >= extractedItemCount;
+                                    const manualIndex = index - extractedItemCount;
 
-                                        return (
-                                            <article
-                                                key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
-                                                className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4"
-                                            >
-                                                <div className="flex flex-col gap-3">
-                                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                                        <div className="grid min-w-0 gap-2">
-                                                            <p className="m-0 break-words text-[1rem] font-semibold leading-6">
-                                                                {entry.item}
-                                                            </p>
-                                                            <div className="flex flex-wrap gap-2">
+                                    return (
+                                        <article
+                                            key={`mobile-${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
+                                            className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4"
+                                        >
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div className="grid min-w-0 gap-2">
+                                                        <p className="m-0 break-words text-[1rem] font-semibold leading-6">
+                                                            {entry.item}
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                                                            >
+                                                                {formatCategoryLabel(entry.category, translations.categories)}
+                                                            </Badge>
+                                                            {isManualItem ? (
                                                                 <Badge
                                                                     variant="outline"
                                                                     className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
                                                                 >
-                                                                    {formatCategoryLabel(entry.category, translations.categories)}
+                                                                    {translations.receipt.alerts.manual}
                                                                 </Badge>
-                                                                {isManualItem ? (
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
-                                                                    >
-                                                                        {translations.receipt.alerts.manual}
-                                                                    </Badge>
-                                                                ) : null}
-                                                                {!isManualItem && editedItems[index] ? (
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
-                                                                    >
-                                                                        {translations.receipt.alerts.corrected}
-                                                                    </Badge>
-                                                                ) : null}
-                                                            </div>
+                                                            ) : null}
+                                                            {!isManualItem && editedItems[index] ? (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
+                                                                >
+                                                                    {translations.receipt.alerts.corrected}
+                                                                </Badge>
+                                                            ) : null}
                                                         </div>
-                                                    </div>
-
-                                                    <dl className="grid grid-cols-3 gap-3 rounded-[14px] bg-[var(--surface-plain)] px-3 py-3 text-sm max-[420px]:grid-cols-1">
-                                                        <div className="grid gap-1">
-                                                            <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                                {translations.receipt.table.quantity}
-                                                            </dt>
-                                                            <dd className="m-0 font-semibold text-foreground">
-                                                                {entry.quantity}
-                                                            </dd>
-                                                        </div>
-                                                        <div className="grid gap-1">
-                                                            <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                                {translations.receipt.table.unit}
-                                                            </dt>
-                                                            <dd className="m-0 font-semibold text-foreground">
-                                                                {currencyFormatter.format(entry.unitPrice)}
-                                                            </dd>
-                                                        </div>
-                                                        <div className="grid gap-1">
-                                                            <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                                {translations.receipt.table.total}
-                                                            </dt>
-                                                            <dd className="m-0 font-semibold text-foreground">
-                                                                {currencyFormatter.format(entry.lineTotal)}
-                                                            </dd>
-                                                        </div>
-                                                    </dl>
-
-                                                    <div className="flex flex-wrap gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            className="border-[var(--border)] bg-[var(--surface-plain)]"
-                                                            onClick={() => onEditItem(index)}
-                                                        >
-                                                            {translations.receipt.alerts.adjust}
-                                                        </Button>
-                                                        {isManualItem ? (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => onRemoveManualItem(manualIndex)}
-                                                            >
-                                                                {translations.receipt.alerts.remove}
-                                                            </Button>
-                                                        ) : null}
                                                     </div>
                                                 </div>
-                                            </article>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <Table>
+
+                                                <dl className="grid grid-cols-3 gap-3 rounded-[14px] bg-[var(--surface-plain)] px-3 py-3 text-sm max-[420px]:grid-cols-1">
+                                                    <div className="grid gap-1">
+                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                                                            {translations.receipt.table.quantity}
+                                                        </dt>
+                                                        <dd className="m-0 font-semibold text-foreground">
+                                                            {entry.quantity}
+                                                        </dd>
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                                                            {translations.receipt.table.unit}
+                                                        </dt>
+                                                        <dd className="m-0 font-semibold text-foreground">
+                                                            {currencyFormatter.format(entry.unitPrice)}
+                                                        </dd>
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                                                            {translations.receipt.table.total}
+                                                        </dt>
+                                                        <dd className="m-0 font-semibold text-foreground">
+                                                            {currencyFormatter.format(entry.lineTotal)}
+                                                        </dd>
+                                                    </div>
+                                                </dl>
+
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        className="border-[var(--border)] bg-[var(--surface-plain)]"
+                                                        onClick={() => onEditItem(index)}
+                                                    >
+                                                        {translations.receipt.alerts.adjust}
+                                                    </Button>
+                                                    {isManualItem ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => onRemoveManualItem(manualIndex)}
+                                                        >
+                                                            {translations.receipt.alerts.remove}
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                            <Table className="hidden sm:table">
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>{translations.receipt.table.item}</TableHead>
@@ -399,7 +375,6 @@ export const ReceiptWorkspaceResultsSection = ({
                                         })}
                                     </TableBody>
                                 </Table>
-                            )}
 
                             <div className="mt-5 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-4 max-[640px]:px-3.5 max-[640px]:py-3.5">
                                 <div className="grid min-w-[220px] flex-1 gap-1 max-[640px]:min-w-0">

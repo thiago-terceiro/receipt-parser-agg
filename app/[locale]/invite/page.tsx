@@ -1,6 +1,6 @@
 import { setRequestLocale } from "next-intl/server";
 
-import { isTestAuthEnabled } from "@/auth";
+import { isCredentialsAuthEnabled, isTestAuthEnabled } from "@/auth";
 import { InviteAcceptanceCard } from "@/contents/invite/InviteAcceptanceCard";
 import { getPendingBoardInviteDetails } from "@/lib/boards-server";
 import { getLocaleFromSegment } from "@/lib/i18n/config";
@@ -24,6 +24,10 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
     const token = resolvedSearchParams?.token?.trim() || null;
     const hasGoogleAuthConfigured = Boolean(
         process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
+    );
+    const hasGitHubAuthConfigured = Boolean(
+        (process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID) &&
+        (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
     );
     const identity = await getSessionIdentity();
 
@@ -50,9 +54,11 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
         <main className="mx-auto grid w-[min(900px,calc(100vw-32px))] gap-6 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),900px)] max-[900px]:pt-5">
             <InviteAcceptanceCard
                 canUseGoogleAuth={hasGoogleAuthConfigured}
+                canUseGitHubAuth={hasGitHubAuthConfigured}
                 initialSignedInEmail={identity?.email ?? null}
                 initialStatus={identity?.userId ? "authenticated" : "unauthenticated"}
                 inviteDetails={inviteDetails}
+                isCredentialsAuthEnabled={isCredentialsAuthEnabled()}
                 isTestAuthEnabled={isTestAuthEnabled()}
                 locale={resolvedLocale}
                 token={token}

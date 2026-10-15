@@ -26,11 +26,13 @@ export type PendingBoardInviteDetails = {
 
 type InviteAcceptanceCardProps = {
     canUseGoogleAuth: boolean;
+    canUseGitHubAuth?: boolean;
     initialError?: string | null;
     initialSignedInEmail?: string | null;
     initialStatus?: "authenticated" | "unauthenticated";
     inviteDetails?: PendingBoardInviteDetails | null;
     isTestAuthEnabled?: boolean;
+    isCredentialsAuthEnabled?: boolean;
     locale: AppLocale;
     token: string | null;
 };
@@ -45,11 +47,13 @@ const isInviteEmailMismatchError = (message: string | null) => {
 
 export const InviteAcceptanceCard = ({
     canUseGoogleAuth,
+    canUseGitHubAuth,
     initialError = null,
     initialSignedInEmail = null,
     initialStatus,
     inviteDetails = null,
     isTestAuthEnabled,
+    isCredentialsAuthEnabled,
     locale,
     token,
 }: InviteAcceptanceCardProps) => {
@@ -154,7 +158,9 @@ export const InviteAcceptanceCard = ({
             <div className="grid gap-4">
                 <GoogleAuthControls
                     canUseGoogleAuth={canUseGoogleAuth}
+                    canUseGitHubAuth={canUseGitHubAuth}
                     callbackUrl={inviteCallbackUrl}
+                    isCredentialsAuthEnabled={isCredentialsAuthEnabled}
                     isTestAuthEnabled={isTestAuthEnabled}
                 />
                 <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">

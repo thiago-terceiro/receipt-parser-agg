@@ -271,9 +271,6 @@ export const ReceiptWorkspace = ({
   const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(
     null,
   );
-  const [draftPreviewDataUrl, setDraftPreviewDataUrl] = useState<string | null>(
-    null,
-  );
   const [restoredDraft, setRestoredDraft] = useState<RestoredReceiptDraft | null>(
     null,
   );
@@ -343,38 +340,6 @@ export const ReceiptWorkspace = ({
       }
     };
   }, [previewUrl]);
-
-  useEffect(() => {
-    if (!file || !isSupportedReceiptUpload(file)) {
-      return;
-    }
-
-    let isCancelled = false;
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (isCancelled) {
-        return;
-      }
-
-      setDraftPreviewDataUrl(
-        typeof reader.result === "string" ? reader.result : null,
-      );
-    };
-    reader.onerror = () => {
-      if (!isCancelled) {
-        setDraftPreviewDataUrl(null);
-      }
-    };
-    reader.readAsDataURL(file);
-
-    return () => {
-      isCancelled = true;
-      if (reader.readyState === FileReader.LOADING) {
-        reader.abort();
-      }
-    };
-  }, [file]);
 
   useEffect(() => {
     if (file || result) {
@@ -480,7 +445,7 @@ export const ReceiptWorkspace = ({
     const fileName = file?.name ?? restoredDraft?.fileName;
     const fileSize = file?.size ?? restoredDraft?.fileSize;
     const previewDataUrl =
-      file != null ? (draftPreviewDataUrl ?? "") : (restoredDraft?.previewDataUrl ?? "");
+      file != null ? "" : (restoredDraft?.previewDataUrl ?? "");
 
     if (!fileName || fileSize == null) {
       return;
@@ -497,7 +462,6 @@ export const ReceiptWorkspace = ({
       selectedModelId,
     });
   }, [
-    draftPreviewDataUrl,
     editedItems,
     file,
     manualItems,
@@ -525,10 +489,14 @@ export const ReceiptWorkspace = ({
   }, [setEditedItems, setManualItems, setResult]);
 
   const clearSelectedFile = useCallback(() => {
-    setDraftPreviewDataUrl(null);
+    setPreviewUrl((currentPreviewUrl) => {
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+      }
+      return null;
+    });
     setFile(null);
     setIsDraggingFile(false);
-    setPreviewUrl(null);
     resetWorkspaceState();
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [resetWorkspaceState, setFile]);
@@ -545,8 +513,12 @@ export const ReceiptWorkspace = ({
         return;
       }
 
-      setPreviewUrl(URL.createObjectURL(nextFile));
-      setDraftPreviewDataUrl(null);
+      setPreviewUrl((currentPreviewUrl) => {
+        if (currentPreviewUrl) {
+          URL.revokeObjectURL(currentPreviewUrl);
+        }
+        return URL.createObjectURL(nextFile);
+      });
       setFile(nextFile);
       resetWorkspaceState();
     },

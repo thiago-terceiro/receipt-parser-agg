@@ -36,6 +36,7 @@ import {
 } from "../../../lib/receipt-upload";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const hfToken = process.env.HF_TOKEN;
 const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
@@ -372,19 +373,31 @@ export const POST = async (request: Request) => {
     const pageExtractions: ParsedReceiptExtraction[] = [];
     const rawResponses: string[] = [];
 
-    for (const [index, imageUrl] of imageUrls.entries()) {
-      const pageExtraction = await extractReceiptFromImageUrl({
-        fileName,
-        imageUrl,
-        model,
-        pageCount: imageUrls.length,
-        pageNumber: index + 1,
-        provider,
-        sourceType,
+    const extractionConcurrencyCap = 2;
+    for (let i = 0; i < imageUrls.length; i += extractionConcurrencyCap) {
+      const batch = imageUrls.slice(i, i + extractionConcurrencyCap);
+      const batchPromises = batch.map((imageUrl, offset) => {
+        const pageNumber = i + offset + 1;
+        return extractReceiptFromImageUrl({
+          fileName,
+          imageUrl,
+          model,
+          pageCount: imageUrls.length,
+          pageNumber,
+          provider,
+          sourceType,
+        });
       });
 
-      pageExtractions.push(pageExtraction.parsedExtraction);
-      rawResponses.push(pageExtraction.rawResponse);
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      for (const res of batchResults) {
+        if (res.status === "rejected") {
+          throw res.reason;
+        }
+        pageExtractions.push(res.value.parsedExtraction);
+        rawResponses.push(res.value.rawResponse);
+      }
     }
 
     const extractionResult = mergeReceiptExtractions(pageExtractions);

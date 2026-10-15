@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { isTestAuthEnabled } from "@/auth";
+import { isCredentialsAuthEnabled, isTestAuthEnabled } from "@/auth";
 import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -23,11 +23,17 @@ const HomePage = async ({ params }: HomePageProps) => {
   const hasGoogleAuthConfigured = Boolean(
     process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
   );
+  const hasGitHubAuthConfigured = Boolean(
+    (process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID) &&
+    (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
+  );
 
   return (
     <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
       <GoogleAuthControls
         canUseGoogleAuth={hasGoogleAuthConfigured}
+        canUseGitHubAuth={hasGitHubAuthConfigured}
+        isCredentialsAuthEnabled={isCredentialsAuthEnabled()}
         isTestAuthEnabled={isTestAuthEnabled()}
       />
       <section className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch">

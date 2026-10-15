@@ -212,7 +212,7 @@ describe("ReceiptWorkspace", () => {
 
         fireEvent.submit(form);
 
-        expect(await screen.findByText("Milk")).toBeInTheDocument();
+        expect((await screen.findAllByText("Milk"))[0]).toBeInTheDocument();
         expect(screen.getByText("receipt.servedBy {\"backend\":\"hf-api\"}")).toBeInTheDocument();
         expect(
             screen.getByText('receipt.total {"amount":"€7.00"}'),
@@ -236,8 +236,8 @@ describe("ReceiptWorkspace", () => {
         await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.addManual" }));
 
-        expect(await screen.findByText("Bananas")).toBeInTheDocument();
-        expect(screen.getByText("receipt.alerts.manual")).toBeInTheDocument();
+        expect((await screen.findAllByText("Bananas"))[0]).toBeInTheDocument();
+        expect(screen.getAllByText("receipt.alerts.manual")[0]).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.saveGroceries" }));
 
@@ -315,13 +315,13 @@ describe("ReceiptWorkspace", () => {
         });
 
         fireEvent.submit(form);
-        expect(await screen.findByText("Milk")).toBeInTheDocument();
+        expect((await screen.findAllByText("Milk"))[0]).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.addManualItem" }));
         await userEvent.type(screen.getByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
         await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.addManual" }));
-        expect(await screen.findByText("Bananas")).toBeInTheDocument();
+        expect((await screen.findAllByText("Bananas"))[0]).toBeInTheDocument();
 
         await waitFor(() => {
             expect(window.sessionStorage.setItem).toHaveBeenCalled();
@@ -333,8 +333,8 @@ describe("ReceiptWorkspace", () => {
             withWorkspaceProvider: true,
         });
 
-        expect(await screen.findByText("Milk")).toBeInTheDocument();
-        expect(screen.getByText("Bananas")).toBeInTheDocument();
+        expect((await screen.findAllByText("Milk"))[0]).toBeInTheDocument();
+        expect(screen.getAllByText("Bananas")[0]).toBeInTheDocument();
         expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
         expect(screen.getByRole("link", { name: "receipt.openDashboard" })).toHaveAttribute(
             "href",
@@ -379,8 +379,8 @@ describe("ReceiptWorkspace", () => {
         });
 
         fireEvent.submit(form);
-        await screen.findByText("Milk");
-        await userEvent.click(screen.getByRole("button", { name: "receipt.alerts.adjust" }));
+        await screen.findAllByText("Milk");
+        await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
 
         const quantityInput = screen.getByRole("spinbutton");
         await userEvent.clear(quantityInput);
@@ -392,9 +392,9 @@ describe("ReceiptWorkspace", () => {
         await userEvent.type(quantityInput, "3");
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.apply" }));
 
-        expect(await screen.findByText("receipt.alerts.corrected")).toBeInTheDocument();
+        expect((await screen.findAllByText("receipt.alerts.corrected"))[0]).toBeInTheDocument();
 
-        await userEvent.click(screen.getByRole("button", { name: "receipt.alerts.adjust" }));
+        await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.reset" }));
 
         await waitFor(() => {

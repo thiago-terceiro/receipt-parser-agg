@@ -171,5 +171,40 @@ describe("authOptions", () => {
       });
       expect(user).toBeNull();
     });
+
+    it("registers GitHub provider when AUTH_GITHUB_ID & AUTH_GITHUB_SECRET are configured", () => {
+      process.env.AUTH_GITHUB_ID = "gh-client-123";
+      process.env.AUTH_GITHUB_SECRET = "gh-secret-456";
+
+      const gh = authOptions.providers.find((p) => p.id === "github");
+      expect(gh).toBeDefined();
+    });
+
+    it("registers GitHub provider with fallback GITHUB_ID & GITHUB_SECRET", () => {
+      delete process.env.AUTH_GITHUB_ID;
+      delete process.env.AUTH_GITHUB_SECRET;
+      process.env.GITHUB_ID = "gh-fallback-id";
+      process.env.GITHUB_SECRET = "gh-fallback-secret";
+
+      const gh = authOptions.providers.find((p) => p.id === "github");
+      expect(gh).toBeDefined();
+    });
+  });
+
+  describe("github jwt callback", () => {
+    it("jwt callback sets token.uid from account for github", async () => {
+      const account: Account = {
+        provider: "github",
+        type: "oauth",
+        providerAccountId: "github-98765",
+      };
+      const token = await authOptions.callbacks!.jwt!({
+        token: {} as JWT,
+        user: {} as User,
+        account,
+      });
+
+      expect(token.uid).toBe("github-98765");
+    });
   });
 });
