@@ -15,9 +15,10 @@ declare global {
 }
 
 const browserTelemetryEnabled =
-    process.env.NEXT_PUBLIC_OTEL_BROWSER_ENABLED === "true";
+    process.env.NEXT_PUBLIC_OTEL_BROWSER_ENABLED !== "false";
 const collectorEndpoint =
-    process.env.NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL?.trim() || "";
+    process.env.NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL?.trim() ||
+    "/api/otel/v1/traces";
 const browserServiceName =
     process.env.NEXT_PUBLIC_OTEL_BROWSER_SERVICE_NAME?.trim() ||
     "receipt-ai-browser";
@@ -25,7 +26,7 @@ const browserDebugMode =
     process.env.NEXT_PUBLIC_OTEL_BROWSER_DEBUG === "true";
 const browserEnabledEnvironments =
     process.env.NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS?.trim() ||
-    "preview";
+    "development,preview,production";
 
 const resolveRuntimeEnvironment = () => {
     const envCandidates = [

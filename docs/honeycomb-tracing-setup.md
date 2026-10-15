@@ -77,49 +77,26 @@ Once a trace opens, Honeycomb shows the Trace Waterfall page with four main area
 
 That is the exact place to inspect latency, errors, and parent/child span relationships.
 
-## Repo-Specific Gaps You Need To Close
+## Architecture & How It Works
 
-Before expecting traces in Honeycomb, fix these two gaps.
+This repo provides a zero-external-infrastructure tracing pipeline:
 
-### 1. Browser Tracing Is Not Ready For Local Testing Yet
+1. **Browser Tracing**:
+   - `instrumentation-client.ts` initializes `@honeycombio/opentelemetry-web`.
+   - Instead of needing an external Docker container or exposing Honeycomb API keys in browser bundles, browser traces are dispatched to the app's internal proxy endpoint: `/api/otel/v1/traces`.
+   - The `/api/otel/v1/traces` route injects `x-honeycomb-team: process.env.HONEYCOMB_API_KEY` securely on the server and forwards traces upstream to Honeycomb (`https://api.honeycomb.io/v1/traces`).
+   - If `HONEYCOMB_API_KEY` is not yet set, `/api/otel/v1/traces` gracefully acknowledges traces locally without failing.
 
-Browser tracing in this repo only starts when all of these are true:
+2. **Server Tracing**:
+   - `instrumentation.ts` registers `@vercel/otel`.
+   - Next.js exports server traces directly to Honeycomb via standard OTel environment variables:
+     - `OTEL_EXPORTER_OTLP_ENDPOINT="https://api.honeycomb.io"`
+     - `OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=YOUR_KEY"`
+     - `OTEL_SERVICE_NAME="receipt-ai-frontend"`
+   - Also captures unhandled server errors via Next.js 15 `onRequestError`.
 
-- `NEXT_PUBLIC_OTEL_BROWSER_ENABLED=true`
-- the current runtime environment is included in `NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS`
-- `NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL` is not empty
-
-The local config currently prevents local browser testing because:
-
-- `NEXT_PUBLIC_OTEL_BROWSER_ENABLED_ENVIRONMENTS` is set to `preview`
-- `NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL` is blank
-
-That means local browser traces will not initialize.
-
-### 2. Server Tracing Needs An Export Path
-
-The server is instrumented through `@vercel/otel`, but spans only arrive in Honeycomb if runtime export is configured.
-
-You need one of these:
-
-- a Vercel tracing integration that forwards traces
-- OTLP exporter environment variables that point to a collector or backend
-- a custom exporter setup
-
-This repo currently documents the service name, but not the full export path for the server.
-
-## Recommended Architecture
-
-Use an OpenTelemetry Collector between the app and Honeycomb.
-
-Why:
-
-- browser code must not ship a Honeycomb ingest key
-- browser and server can both send to the same collector
-- the collector can handle batching, headers, and forwarding to Honeycomb
-- you can keep the Honeycomb API key in collector configuration only
-
-## Local Setup
+3. **External Collector Option (Optional)**:
+   - If an external OpenTelemetry Collector is preferred instead of the internal proxy, set `NEXT_PUBLIC_OTEL_BROWSER_COLLECTOR_URL` to the collector's URL.
 
 ## 1. Create A Local Collector Config
 

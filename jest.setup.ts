@@ -1,6 +1,16 @@
 import "@testing-library/jest-dom";
 import React from "react";
 
+if (typeof global.Request === "undefined" && typeof globalThis.Request !== "undefined") {
+    global.Request = globalThis.Request;
+}
+if (typeof global.Response === "undefined" && typeof globalThis.Response !== "undefined") {
+    global.Response = globalThis.Response;
+}
+if (typeof global.Headers === "undefined" && typeof globalThis.Headers !== "undefined") {
+    global.Headers = globalThis.Headers;
+}
+
 import {
     mockAuthState,
     mockIntlState,
@@ -128,57 +138,59 @@ jest.mock("motion/react", () => ({
 beforeEach(() => {
     resetMockState();
 
-    Object.defineProperty(window, "matchMedia", {
-        writable: true,
-        value: jest.fn().mockImplementation((query: string) => ({
-            matches: query.includes("dark") ? false : false,
-            media: query,
-            onchange: null,
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
-            dispatchEvent: jest.fn(),
-        })),
-    });
+    if (typeof window !== "undefined") {
+        Object.defineProperty(window, "matchMedia", {
+            writable: true,
+            value: jest.fn().mockImplementation((query: string) => ({
+                matches: query.includes("dark") ? false : false,
+                media: query,
+                onchange: null,
+                addEventListener: jest.fn(),
+                removeEventListener: jest.fn(),
+                addListener: jest.fn(),
+                removeListener: jest.fn(),
+                dispatchEvent: jest.fn(),
+            })),
+        });
 
-    Object.defineProperty(window, "localStorage", {
-        writable: true,
-        value: {
-            clear: jest.fn(),
-            getItem: jest.fn(() => null),
-            key: jest.fn(),
-            length: 0,
-            removeItem: jest.fn(),
-            setItem: jest.fn(),
-        },
-    });
+        Object.defineProperty(window, "localStorage", {
+            writable: true,
+            value: {
+                clear: jest.fn(),
+                getItem: jest.fn(() => null),
+                key: jest.fn(),
+                length: 0,
+                removeItem: jest.fn(),
+                setItem: jest.fn(),
+            },
+        });
 
-    Object.defineProperty(window, "sessionStorage", {
-        writable: true,
-        value: {
-            clear: jest.fn(),
-            getItem: jest.fn(() => null),
-            key: jest.fn(),
-            length: 0,
-            removeItem: jest.fn(),
-            setItem: jest.fn(),
-        },
-    });
+        Object.defineProperty(window, "sessionStorage", {
+            writable: true,
+            value: {
+                clear: jest.fn(),
+                getItem: jest.fn(() => null),
+                key: jest.fn(),
+                length: 0,
+                removeItem: jest.fn(),
+                setItem: jest.fn(),
+            },
+        });
 
-    Object.defineProperty(window.URL, "createObjectURL", {
-        writable: true,
-        value: jest.fn(() => "blob:preview-url"),
-    });
-    Object.defineProperty(window.URL, "revokeObjectURL", {
-        writable: true,
-        value: jest.fn(),
-    });
+        Object.defineProperty(window.URL, "createObjectURL", {
+            writable: true,
+            value: jest.fn(() => "blob:preview-url"),
+        });
+        Object.defineProperty(window.URL, "revokeObjectURL", {
+            writable: true,
+            value: jest.fn(),
+        });
 
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
-        writable: true,
-        value: jest.fn(),
-    });
+        Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+            writable: true,
+            value: jest.fn(),
+        });
+    }
 
     global.ResizeObserver = class ResizeObserver {
         observe() { }
