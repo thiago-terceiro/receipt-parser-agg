@@ -64,8 +64,7 @@
     "react": "latest",
     "react-dom": "latest",
     "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.2",
-    "vaul": "^1.1.2"
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",

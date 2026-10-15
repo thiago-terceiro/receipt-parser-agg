@@ -102,6 +102,7 @@ export const ReceiptWorkspaceUploadSection = ({
                 <div
                     role="button"
                     tabIndex={0}
+                    aria-label={hasSelectedFile ? `${translations.receipt.fileReady}: ${selectedFileName ?? ""}` : translations.receipt.dropImage}
                     onClick={onDropzoneClick}
                     onKeyDown={onDropzoneKeyDown}
                     onDragOver={onDropzoneDragOver}
@@ -175,7 +176,10 @@ export const ReceiptWorkspaceUploadSection = ({
                         onValueChange={onModelChange}
                         disabled={isLoading || availableModels.length === 0}
                     >
-                        <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
+                        <SelectTrigger
+                            className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]"
+                            aria-label={translations.receipt.modelLabel}
+                        >
                             <SelectValue placeholder={translations.receipt.selectModel} />
                         </SelectTrigger>
                         <SelectContent>

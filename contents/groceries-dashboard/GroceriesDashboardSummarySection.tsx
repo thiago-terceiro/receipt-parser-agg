@@ -164,7 +164,10 @@ export const GroceriesDashboardSummarySection = ({
             </Link>
           </Button>
           <Select value={payload.month} onValueChange={onMonthChange}>
-            <SelectTrigger className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)]">
+            <SelectTrigger
+              className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)]"
+              aria-label={translations.groceries.selectMonth}
+            >
               <SelectValue placeholder={translations.groceries.selectMonth} />
             </SelectTrigger>
             <SelectContent>

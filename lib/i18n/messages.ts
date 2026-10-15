@@ -206,6 +206,21 @@ export type Messages = { metadata: Metadata } & {
     };
   };
   categories: Record<GroceryCategory, string>;
+  invite: {
+    noToken: string;
+    signInPrompt: (boardName?: string | null) => string;
+    invitedDescription: (boardName?: string | null, role?: string | null) => string;
+    acceptedDescription: string;
+    redirecting: string;
+    boardLabel: string;
+    roleLabel: string;
+    signedInAs: (email: string) => string;
+    emailMismatch: string;
+    signOutAnotherAccount: string;
+    acceptInvitation: string;
+    accepting: string;
+    retry: string;
+  };
 };
 
 type TranslationValues = Record<
@@ -441,6 +456,30 @@ export const createMessagesObject = (
       },
     },
     categories: buildCategoryLabels(t),
+    invite: {
+      noToken: t("invite.noToken"),
+      signInPrompt: (boardName) =>
+        boardName
+          ? t("invite.signInPromptWithName", { boardName })
+          : t("invite.signInPrompt"),
+      invitedDescription: (boardName, role) =>
+        boardName
+          ? t("invite.invitedDescriptionWithName", {
+              boardName,
+              role: role ? ` (${role})` : "",
+            })
+          : t("invite.invitedDescription"),
+      acceptedDescription: t("invite.acceptedDescription"),
+      redirecting: t("invite.redirecting"),
+      boardLabel: t("invite.boardLabel"),
+      roleLabel: t("invite.roleLabel"),
+      signedInAs: (email) => t("invite.signedInAs", { email }),
+      emailMismatch: t("invite.emailMismatch"),
+      signOutAnotherAccount: t("invite.signOutAnotherAccount"),
+      acceptInvitation: t("invite.acceptInvitation"),
+      accepting: t("invite.accepting"),
+      retry: t("invite.retry"),
+    },
   };
 };
 
@@ -698,6 +737,23 @@ export const localeMessages = {
       "personal-care": "Personal care",
       other: "Other",
     },
+    invite: {
+      noToken: "No invite token was provided in the URL.",
+      signInPrompt: "Sign in to accept this board invite.",
+      signInPromptWithName: "You've been invited to join {boardName}. Sign in to accept this board invite.",
+      invitedDescription: "You have been invited to collaborate on a shared board.",
+      invitedDescriptionWithName: "You have been invited to join {boardName}{role}.",
+      acceptedDescription: "The invite has been accepted.",
+      redirecting: "Invite accepted. Redirecting to the shared board...",
+      boardLabel: "Board",
+      roleLabel: "Role",
+      signedInAs: "Current signed-in email: {email}",
+      emailMismatch: "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited account, then open the invite link again.",
+      signOutAnotherAccount: "Sign out and use another account",
+      acceptInvitation: "Accept Invitation",
+      accepting: "Accepting invitation...",
+      retry: "Retry invite check",
+    },
   },
   es: {
     metadata: {
@@ -946,6 +1002,23 @@ export const localeMessages = {
       "personal-care": "Cuidado personal",
       other: "Otros",
     },
+    invite: {
+      noToken: "No se proporcionó ningún token de invitación en la URL.",
+      signInPrompt: "Inicia sesión para aceptar esta invitación al tablero.",
+      signInPromptWithName: "Te han invitado a unirte a {boardName}. Inicia sesión para aceptar esta invitación.",
+      invitedDescription: "Te han invitado a colaborar en un tablero compartido.",
+      invitedDescriptionWithName: "Te han invitado a unirte a {boardName}{role}.",
+      acceptedDescription: "La invitación ha sido aceptada.",
+      redirecting: "Invitación aceptada. Redirigiendo al tablero compartido...",
+      boardLabel: "Tablero",
+      roleLabel: "Rol",
+      signedInAs: "Sesión iniciada como: {email}",
+      emailMismatch: "Esta invitación pertenece a una dirección de correo diferente a la de la sesión actual. Cierra sesión y continúa con la cuenta invitada, luego vuelve a abrir el enlace de invitación.",
+      signOutAnotherAccount: "Cerrar sesión y usar otra cuenta",
+      acceptInvitation: "Aceptar invitación",
+      accepting: "Aceptando invitación...",
+      retry: "Reintentar comprobación de invitación",
+    },
   },
   "pt-BR": {
     metadata: {
@@ -1192,6 +1265,23 @@ export const localeMessages = {
       household: "Casa",
       "personal-care": "Cuidados pessoais",
       other: "Outros",
+    },
+    invite: {
+      noToken: "Nenhum token de convite foi fornecido na URL.",
+      signInPrompt: "Entre para aceitar este convite do quadro.",
+      signInPromptWithName: "Você foi convidado para participar de {boardName}. Entre para aceitar este convite.",
+      invitedDescription: "Você foi convidado para colaborar em um quadro compartilhado.",
+      invitedDescriptionWithName: "Você foi convidado para participar de {boardName}{role}.",
+      acceptedDescription: "O convite foi aceito.",
+      redirecting: "Convite aceito. Redirecionando para o quadro compartilhado...",
+      boardLabel: "Quadro",
+      roleLabel: "Função",
+      signedInAs: "Conectado como: {email}",
+      emailMismatch: "Este convite pertence a um endereço de email diferente do que está conectado no momento. Saia e continue com a conta convidada, depois abra o link de convite novamente.",
+      signOutAnotherAccount: "Sair e usar outra conta",
+      acceptInvitation: "Aceitar convite",
+      accepting: "Aceitando convite...",
+      retry: "Tentar novamente a verificação do convite",
     },
   },
 } as const satisfies Record<AppLocale, Record<string, unknown>>;

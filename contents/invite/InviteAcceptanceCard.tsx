@@ -146,7 +146,7 @@ export const InviteAcceptanceCard = ({
                 <CardHeader>
                     <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
                     <CardDescription>
-                        No invite token was provided in the URL.
+                        {translations.invite.noToken}
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -167,9 +167,7 @@ export const InviteAcceptanceCard = ({
                     <CardHeader>
                         <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
                         <CardDescription>
-                            {inviteDetails?.boardName
-                                ? `You've been invited to join ${inviteDetails.boardName}. Sign in with Google to accept this board invite.`
-                                : "Sign in with Google to accept this board invite."}
+                            {translations.invite.signInPrompt(inviteDetails?.boardName)}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -193,17 +191,15 @@ export const InviteAcceptanceCard = ({
                 <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
                 <CardDescription>
                     {isSuccess
-                        ? "The invite has been accepted."
-                        : inviteDetails?.boardName
-                            ? `You have been invited to join ${inviteDetails.boardName}${inviteDetails.role ? ` (${inviteDetails.role})` : ""}.`
-                            : "You have been invited to collaborate on a shared board."}
+                        ? translations.invite.acceptedDescription
+                        : translations.invite.invitedDescription(inviteDetails?.boardName, inviteDetails?.role)}
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
                 {isSuccess ? (
                     <Alert>
                         <AlertDescription>
-                            Invite accepted. Redirecting to the shared board...
+                            {translations.invite.redirecting}
                         </AlertDescription>
                     </Alert>
                 ) : null}
@@ -211,17 +207,17 @@ export const InviteAcceptanceCard = ({
                 {!isSuccess && inviteDetails ? (
                     <div className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 text-sm grid gap-1">
                         <p className="font-semibold text-foreground m-0">
-                            Board: {inviteDetails.boardName}
+                            {translations.invite.boardLabel}: {inviteDetails.boardName}
                         </p>
                         <p className="text-muted-foreground capitalize m-0">
-                            Role: {inviteDetails.role}
+                            {translations.invite.roleLabel}: {inviteDetails.role}
                         </p>
                     </div>
                 ) : null}
 
                 {!isSuccess && signedInEmail ? (
                     <p className="text-sm text-muted-foreground m-0">
-                        Current signed-in email: {signedInEmail}
+                        {translations.invite.signedInAs(signedInEmail)}
                     </p>
                 ) : null}
 
@@ -229,7 +225,7 @@ export const InviteAcceptanceCard = ({
                     <Alert variant="destructive">
                         <AlertDescription>
                             {isInviteEmailMismatch
-                                ? "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited Google account, then open the invite link again."
+                                ? translations.invite.emailMismatch
                                 : error}
                         </AlertDescription>
                     </Alert>
@@ -253,7 +249,7 @@ export const InviteAcceptanceCard = ({
                                     });
                                 }}
                             >
-                                Sign out and use another account
+                                {translations.invite.signOutAnotherAccount}
                             </Button>
                         ) : null}
                         <Button
@@ -261,7 +257,7 @@ export const InviteAcceptanceCard = ({
                             disabled={isAccepting || isInviteEmailMismatch}
                             onClick={handleAcceptInvite}
                         >
-                            {isAccepting ? "Accepting invitation..." : "Accept Invitation"}
+                            {isAccepting ? translations.invite.accepting : translations.invite.acceptInvitation}
                         </Button>
                         {initialError ? (
                             <Button
@@ -272,7 +268,7 @@ export const InviteAcceptanceCard = ({
                                     router.refresh();
                                 }}
                             >
-                                Retry invite check
+                                {translations.invite.retry}
                             </Button>
                         ) : null}
                         <Button asChild variant="outline">

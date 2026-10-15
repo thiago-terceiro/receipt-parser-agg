@@ -300,7 +300,10 @@ const GroceriesDashboardBoardsPanelContent = ({
 
         <div className="flex flex-wrap items-center gap-2 max-[760px]:w-full">
           <Select value={activeBoard.id} onValueChange={handleBoardChange}>
-            <SelectTrigger className="min-w-[220px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] max-[760px]:w-full">
+            <SelectTrigger
+              className="min-w-[220px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] max-[760px]:w-full"
+              aria-label={translations.groceries.boards.selectBoard}
+            >
               <SelectValue placeholder={translations.groceries.boards.selectBoard} />
             </SelectTrigger>
             <SelectContent>
@@ -377,13 +380,18 @@ const GroceriesDashboardBoardsPanelContent = ({
           </DialogHeader>
 
           <div className="grid gap-4 pt-4">
-            <input
-              type="text"
-              value={boardName}
-              onChange={(event) => setBoardName(event.target.value)}
-              placeholder={translations.groceries.boards.createBoardPlaceholder}
-              className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
-            />
+            <label className="grid gap-2 text-sm">
+              <span className="font-semibold text-foreground">
+                {translations.groceries.boards.createBoardPlaceholder}
+              </span>
+              <input
+                type="text"
+                value={boardName}
+                onChange={(event) => setBoardName(event.target.value)}
+                placeholder={translations.groceries.boards.createBoardPlaceholder}
+                className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
+              />
+            </label>
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setIsCreatingBoard(false)}>
@@ -422,14 +430,16 @@ const GroceriesDashboardBoardsPanelContent = ({
 
             {inviteLink ? (
               <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4">
-                <span className="text-sm font-semibold text-foreground">
+                <label htmlFor="board-invite-link-input" className="text-sm font-semibold text-foreground">
                   {translations.groceries.boards.inviteLinkLabel}
-                </span>
+                </label>
                 <div className="flex gap-2 max-[640px]:flex-col">
                   <input
+                    id="board-invite-link-input"
                     type="text"
                     readOnly
                     value={inviteLink}
+                    aria-label={translations.groceries.boards.inviteLinkLabel}
                     className="h-11 flex-1 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-sm text-foreground outline-none"
                   />
                   <Button type="button" variant="secondary" onClick={handleCopyInviteLink}>

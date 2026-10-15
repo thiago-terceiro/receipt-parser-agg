@@ -28,8 +28,11 @@ describe("ThemeToggle", () => {
     it("updates the theme when an option is clicked", async () => {
         render(<ThemeToggle />);
 
-        const buttons = screen.getAllByRole("button");
-        await userEvent.click(buttons[1]);
+        expect(screen.getByRole("button", { name: "theme.light" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "theme.dark" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "theme.system" })).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole("button", { name: "theme.light" }));
 
         expect(setTheme).toHaveBeenCalledWith("light");
     });

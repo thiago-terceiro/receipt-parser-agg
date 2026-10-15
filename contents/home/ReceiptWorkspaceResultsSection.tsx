@@ -283,7 +283,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     );
                                 })}
                             </div>
-                            <Table className="hidden sm:table">
+                            <Table className="hidden sm:table" aria-label={translations.receipt.extractedItems}>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>{translations.receipt.table.item}</TableHead>
@@ -396,7 +396,10 @@ export const ReceiptWorkspaceResultsSection = ({
                                         onValueChange={onBoardChange}
                                         disabled={!isAuthenticated || isSaving || isBoardsLoading || availableBoards.length === 0}
                                     >
-                                        <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
+                                        <SelectTrigger
+                                            className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]"
+                                            aria-label={translations.receipt.selectDashboard}
+                                        >
                                             <SelectValue placeholder={dashboardPlaceholder} />
                                         </SelectTrigger>
                                         <SelectContent>

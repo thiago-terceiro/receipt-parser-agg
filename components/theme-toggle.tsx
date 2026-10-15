@@ -32,7 +32,7 @@ export const ThemeToggle = () => {
         role="group"
         aria-label={translations.theme.switcherLabel}
       >
-        {themeOptions.map(({ value, Icon }) => {
+        {themeOptions.map(({ value, label, Icon }) => {
           const isActive = isLoaded ? theme === value : value === "system";
 
           return (
@@ -41,6 +41,7 @@ export const ThemeToggle = () => {
               type="button"
               size="sm"
               variant={isActive ? "default" : "ghost"}
+              aria-label={label}
               aria-pressed={isActive}
               onClick={() => setTheme(value)}
               className={cn(

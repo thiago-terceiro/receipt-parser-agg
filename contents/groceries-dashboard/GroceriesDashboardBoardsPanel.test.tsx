@@ -64,8 +64,11 @@ describe("GroceriesDashboardBoardsPanel", () => {
         await userEvent.click(
             screen.getByRole("button", { name: "groceries.boards.createBoard" }),
         );
+        expect(
+            screen.getByLabelText("groceries.boards.createBoardPlaceholder"),
+        ).toBeInTheDocument();
         await userEvent.type(
-            screen.getByPlaceholderText("groceries.boards.createBoardPlaceholder"),
+            screen.getByLabelText("groceries.boards.createBoardPlaceholder"),
             "Weekend groceries",
         );
         await userEvent.click(
@@ -83,6 +86,51 @@ describe("GroceriesDashboardBoardsPanel", () => {
         });
         expect(onBoardActivated).toHaveBeenCalledWith(
             "9c4f8769-3c63-4e21-9df7-99d1f2e4432a",
+        );
+    });
+
+    it("renders board switcher with accessible name and creates invite with accessible fields", async () => {
+        global.fetch = jest.fn().mockResolvedValue(
+            createJsonResponse({
+                invite: {
+                    inviteUrl: "/en/invite?token=secret-token",
+                },
+            }),
+        ) as jest.Mock;
+
+        render(
+            <GroceriesDashboardBoardsPanel
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
+                members={members}
+                translations={translations}
+                onBoardActivated={jest.fn()}
+            />,
+        );
+
+        // Verify board select trigger accessibility
+        const selectTrigger = screen.getByRole("combobox", {
+            name: "groceries.boards.selectBoard",
+        });
+        expect(selectTrigger).toBeInTheDocument();
+
+        // Open invite modal
+        await userEvent.click(screen.getByRole("button", { name: "groceries.boards.invite" }));
+        expect(
+            screen.getByLabelText("groceries.boards.inviteEmailLabel"),
+        ).toBeInTheDocument();
+
+        // Submit invite creation
+        await userEvent.click(
+            screen.getByRole("button", { name: "groceries.boards.createInvite" }),
+        );
+
+        await waitFor(() => {
+            expect(screen.getByLabelText("groceries.boards.inviteLinkLabel")).toBeInTheDocument();
+        });
+
+        expect(screen.getByLabelText("groceries.boards.inviteLinkLabel")).toHaveValue(
+            `${window.location.origin}/en/invite?token=secret-token`,
         );
     });
 });

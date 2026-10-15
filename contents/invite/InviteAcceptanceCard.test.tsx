@@ -37,9 +37,9 @@ describe("InviteAcceptanceCard", () => {
         );
 
         expect(screen.getByText("Unable to accept the invite.")).toBeInTheDocument();
-        expect(screen.getByText("Current signed-in email: person@example.com")).toBeInTheDocument();
+        expect(screen.getByText(/invite\.signedInAs/)).toBeInTheDocument();
 
-        await userEvent.click(screen.getByRole("button", { name: "Retry invite check" }));
+        await userEvent.click(screen.getByRole("button", { name: "invite.retry" }));
 
         expect(mockNavigationState.router.refresh).toHaveBeenCalledTimes(1);
     });
@@ -66,7 +66,7 @@ describe("InviteAcceptanceCard", () => {
         );
 
         await userEvent.click(
-            screen.getByRole("button", { name: "Sign out and use another account" }),
+            screen.getByRole("button", { name: "invite.signOutAnotherAccount" }),
         );
 
         expect(mockAuthState.signOut).toHaveBeenCalledWith({
@@ -118,10 +118,10 @@ describe("InviteAcceptanceCard", () => {
                 { withThemeProvider: true },
             );
 
-            expect(screen.getByText("Board: Weekly Groceries")).toBeInTheDocument();
-            expect(screen.getByRole("button", { name: "Accept Invitation" })).toBeInTheDocument();
+            expect(screen.getByText(/invite\.boardLabel/)).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "invite.acceptInvitation" })).toBeInTheDocument();
 
-            await userEvent.click(screen.getByRole("button", { name: "Accept Invitation" }));
+            await userEvent.click(screen.getByRole("button", { name: "invite.acceptInvitation" }));
 
             expect(fetchMock).toHaveBeenCalledWith("/api/invites/accept", {
                 method: "POST",
@@ -163,7 +163,7 @@ describe("InviteAcceptanceCard", () => {
                 { withThemeProvider: true },
             );
 
-            await userEvent.click(screen.getByRole("button", { name: "Accept Invitation" }));
+            await userEvent.click(screen.getByRole("button", { name: "invite.acceptInvitation" }));
 
             expect(await screen.findByText("Invite token is invalid or expired.")).toBeInTheDocument();
         });
@@ -194,15 +194,13 @@ describe("InviteAcceptanceCard", () => {
             );
 
             expect(
-                screen.getByText(
-                    "This invite belongs to a different email address than the one currently signed in. Sign out and continue with the invited Google account, then open the invite link again.",
-                ),
+                screen.getByText("invite.emailMismatch"),
             ).toBeInTheDocument();
 
-            const acceptButton = screen.getByRole("button", { name: "Accept Invitation" });
+            const acceptButton = screen.getByRole("button", { name: "invite.acceptInvitation" });
             expect(acceptButton).toBeDisabled();
             expect(
-                screen.getByRole("button", { name: "Sign out and use another account" }),
+                screen.getByRole("button", { name: "invite.signOutAnotherAccount" }),
             ).toBeInTheDocument();
         });
 

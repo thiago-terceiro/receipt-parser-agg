@@ -124,7 +124,10 @@ export const ReceiptItemEditorDialog = ({
                                     {translations.receipt.editor.category}
                                 </span>
                                 <Select value={editorState?.category ?? ""} onValueChange={onCategoryChange}>
-                                    <SelectTrigger className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]">
+                                    <SelectTrigger
+                                        className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]"
+                                        aria-label={translations.receipt.editor.category}
+                                    >
                                         <SelectValue
                                             placeholder={translations.receipt.editor.selectCategory}
                                         />

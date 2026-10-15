@@ -62,21 +62,34 @@ const CategoryDetails = ({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]">
-        <div className="grid grid-cols-[repeat(4,1fr)] gap-4 border-b border-[var(--border)] px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] max-[740px]:hidden">
-          <span>{translations.groceries.table.item}</span>
-          <span className="text-right">{translations.groceries.table.unitPrice}</span>
-          <span className="text-right">{translations.groceries.table.amount}</span>
-          <span className="text-right">{translations.groceries.table.total}</span>
+      <div
+        role="table"
+        aria-label={categoryLabel}
+        className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)]"
+      >
+        <div
+          role="rowgroup"
+          className="border-b border-[var(--border)] max-[740px]:hidden"
+        >
+          <div
+            role="row"
+            className="grid grid-cols-[repeat(4,1fr)] gap-4 px-5 py-3 text-[0.76rem] font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)]"
+          >
+            <span role="columnheader">{translations.groceries.table.item}</span>
+            <span role="columnheader" className="text-right">{translations.groceries.table.unitPrice}</span>
+            <span role="columnheader" className="text-right">{translations.groceries.table.amount}</span>
+            <span role="columnheader" className="text-right">{translations.groceries.table.total}</span>
+          </div>
         </div>
 
-        <div className="grid   gap-0">
+        <div role="rowgroup" className="grid gap-0">
           {category.groups.map((group) => (
             <div
               key={group.normalizedItem}
+              role="row"
               className="grid grid-cols-[repeat(4,1fr)] gap-4 border-b border-[var(--border)] px-5 py-4 last:border-b-0 max-[740px]:grid-cols-1"
             >
-              <div className="min-w-0">
+              <div role="cell" className="min-w-0">
                 <p className="m-0 text-[1rem] font-semibold text-foreground">
                   {group.item}
                 </p>
@@ -84,7 +97,7 @@ const CategoryDetails = ({
                   {translations.groceries.receiptEntries(group.entries.length)}
                 </p>
               </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
+              <div role="cell" className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
                 <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
                   {translations.groceries.table.unitPrice}
                 </span>
@@ -92,13 +105,13 @@ const CategoryDetails = ({
                   {currencyFormatter.format(group.unitPrice)}
                 </span>
               </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
+              <div role="cell" className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
                 <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
                   {translations.groceries.table.amount}
                 </span>
                 <span className="font-semibold">{group.quantity}</span>
               </div>
-              <div className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
+              <div role="cell" className="text-right max-[740px]:flex max-[740px]:items-center max-[740px]:justify-between">
                 <span className="hidden text-sm text-muted-foreground max-[740px]:inline">
                   {translations.groceries.table.total}
                 </span>
@@ -138,6 +151,7 @@ export const CategorySummaryCard = ({
       <button
         type="button"
         onClick={() => onSelect(category)}
+        aria-pressed={isActive}
         className={cn(
           "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors",
           isActive
