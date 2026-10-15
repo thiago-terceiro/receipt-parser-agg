@@ -2,11 +2,76 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+export const MAX_PAYLOAD_BYTES = 256 * 1024; // 256 KB
+
 const defaultHoneycombEndpoint = "https://api.honeycomb.io/v1/traces";
 
 export async function POST(request: Request) {
   try {
-    const rawBody = await request.arrayBuffer();
+    const contentLength = request.headers.get("content-length");
+    if (contentLength) {
+      const parsedLength = Number.parseInt(contentLength, 10);
+      if (Number.isFinite(parsedLength) && parsedLength > MAX_PAYLOAD_BYTES) {
+        return NextResponse.json(
+          {
+            error: "Payload too large",
+            message: `Request payload exceeds the 256 KB limit (${parsedLength} bytes received).`,
+          },
+          { status: 413 },
+        );
+      }
+    }
+
+    let rawBody: ArrayBuffer;
+    if (request.body && typeof request.body.getReader === "function") {
+      const reader = request.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          totalBytes += value.byteLength;
+          if (totalBytes > MAX_PAYLOAD_BYTES) {
+            try {
+              await reader.cancel();
+            } catch {
+              // Suppress stream cancellation failure so 413 is consistently returned
+            }
+            return NextResponse.json(
+              {
+                error: "Payload too large",
+                message: "Request payload exceeds the 256 KB limit.",
+              },
+              { status: 413 },
+            );
+          }
+          chunks.push(value);
+        }
+      }
+
+      const merged = new Uint8Array(totalBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      rawBody = merged.buffer;
+    } else {
+      const buffer = await request.arrayBuffer();
+      if (buffer.byteLength > MAX_PAYLOAD_BYTES) {
+        return NextResponse.json(
+          {
+            error: "Payload too large",
+            message: `Request payload exceeds the 256 KB limit (${buffer.byteLength} bytes received).`,
+          },
+          { status: 413 },
+        );
+      }
+      rawBody = buffer;
+    }
+
     const apiKey = process.env.HONEYCOMB_API_KEY?.trim();
 
     if (!apiKey) {

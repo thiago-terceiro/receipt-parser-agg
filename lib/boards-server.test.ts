@@ -16,6 +16,7 @@ jest.mock("@/lib/supabase-server", () => ({
 import {
     acceptBoardInviteForIdentity,
     BoardRouteError,
+    getPendingBoardInviteDetails,
 } from "@/lib/boards-server";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -196,5 +197,48 @@ describe("acceptBoardInviteForIdentity", () => {
         expect(mocks.memberUpsert).not.toHaveBeenCalled();
         expect(mocks.inviteUpdate).not.toHaveBeenCalled();
         expect(mocks.profileUpdate).not.toHaveBeenCalled();
+    });
+
+    describe("getPendingBoardInviteDetails", () => {
+        it("returns invite and board details when pending invite exists", async () => {
+            const { client } = createMockClient({
+                board: { id: "board-123", name: "Family Groceries" },
+                invite: {
+                    id: "invite-123",
+                    board_id: "board-123",
+                    email: "person@example.com",
+                    invited_by_user_id: "owner-123",
+                    role: "editor",
+                },
+            });
+
+            mockGetSupabaseServerClient.mockReturnValue(client);
+
+            const details = await getPendingBoardInviteDetails("valid-token");
+            expect(details).toEqual({
+                boardId: "board-123",
+                boardName: "Family Groceries",
+                role: "editor",
+                email: "person@example.com",
+            });
+        });
+
+        it("returns null when invite is not found or expired", async () => {
+            const { client } = createMockClient({
+                invite: null,
+            });
+
+            mockGetSupabaseServerClient.mockReturnValue(client);
+
+            const details = await getPendingBoardInviteDetails("non-existent-token");
+            expect(details).toBeNull();
+        });
+
+        it("returns null when token is invalid or empty", async () => {
+            expect(await getPendingBoardInviteDetails("")).toBeNull();
+            expect(await getPendingBoardInviteDetails("   ")).toBeNull();
+            expect(await getPendingBoardInviteDetails(null)).toBeNull();
+            expect(await getPendingBoardInviteDetails(undefined)).toBeNull();
+        });
     });
 });

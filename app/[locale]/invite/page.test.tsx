@@ -7,12 +7,11 @@ jest.mock("@/lib/session", () => ({
 }));
 
 jest.mock("@/lib/boards-server", () => ({
-    acceptBoardInviteForIdentity: jest.fn(),
+    getPendingBoardInviteDetails: jest.fn(),
 }));
 
 import InvitePage from "@/app/[locale]/invite/page";
-import { redirect } from "@/i18n/navigation";
-import { acceptBoardInviteForIdentity } from "@/lib/boards-server";
+import { getPendingBoardInviteDetails } from "@/lib/boards-server";
 import { getSessionIdentity } from "@/lib/session";
 
 describe("InvitePage", () => {
@@ -20,69 +19,54 @@ describe("InvitePage", () => {
         jest.clearAllMocks();
     });
 
-    it("redirects authenticated users after accepting the invite on the server", async () => {
-        const redirectSignal = new Error("redirect");
-        const redirectMock = redirect as unknown as jest.Mock;
-
-        redirectMock.mockImplementation(() => {
-            throw redirectSignal;
-        });
+    it("renders invite page and loads invite details without burning token on GET", async () => {
         (getSessionIdentity as jest.Mock).mockResolvedValue({
             email: "person@example.com",
             image: null,
             name: "Test Person",
             userId: "user-123",
         });
-        (acceptBoardInviteForIdentity as jest.Mock).mockResolvedValue({
-            board_id: "board-123",
-        });
-
-        await expect(
-            InvitePage({
-                params: Promise.resolve({ locale: "en" }),
-                searchParams: Promise.resolve({ token: "invite-token" }),
-            }),
-        ).rejects.toBe(redirectSignal);
-
-        expect(acceptBoardInviteForIdentity).toHaveBeenCalledWith(
-            {
-                email: "person@example.com",
-                image: null,
-                name: "Test Person",
-                userId: "user-123",
-            },
-            "invite-token",
-        );
-        expect(redirectMock).toHaveBeenCalledWith({
-            href: {
-                pathname: "/groceries",
-                query: { board: "board-123" },
-            },
-            locale: "en",
-        });
-    });
-
-    it("passes a server-side acceptance error into the invite card props", async () => {
-        (getSessionIdentity as jest.Mock).mockResolvedValue({
+        (getPendingBoardInviteDetails as jest.Mock).mockResolvedValue({
+            boardId: "board-123",
+            boardName: "Test Board",
+            role: "editor",
             email: "person@example.com",
-            image: null,
-            name: "Test Person",
-            userId: "user-123",
         });
-        (acceptBoardInviteForIdentity as jest.Mock).mockRejectedValue(
-            new Error("The signed-in email does not match this invite."),
-        );
 
         const page = await InvitePage({
             params: Promise.resolve({ locale: "en" }),
             searchParams: Promise.resolve({ token: "invite-token" }),
         });
 
-        expect(page.props.children.props.initialError).toBe(
-            "The signed-in email does not match this invite.",
-        );
+        expect(getPendingBoardInviteDetails).toHaveBeenCalledWith("invite-token");
+        expect(page.props.children.props.inviteDetails).toEqual({
+            boardId: "board-123",
+            boardName: "Test Board",
+            role: "editor",
+            email: "person@example.com",
+        });
         expect(page.props.children.props.initialSignedInEmail).toBe("person@example.com");
         expect(page.props.children.props.initialStatus).toBe("authenticated");
+        expect(page.props.children.props.isTestAuthEnabled).toBe(true);
         expect(page.props.children.props.token).toBe("invite-token");
     });
-});
+
+    it("handles unauthenticated visitors safely without accepting", async () => {
+        (getSessionIdentity as jest.Mock).mockResolvedValue(null);
+        (getPendingBoardInviteDetails as jest.Mock).mockResolvedValue({
+            boardId: "board-123",
+            boardName: "Test Board",
+            role: "editor",
+            email: null,
+        });
+
+        const page = await InvitePage({
+            params: Promise.resolve({ locale: "en" }),
+            searchParams: Promise.resolve({ token: "invite-token" }),
+        });
+
+        expect(page.props.children.props.initialSignedInEmail).toBeNull();
+        expect(page.props.children.props.initialStatus).toBe("unauthenticated");
+        expect(page.props.children.props.token).toBe("invite-token");
+    });
+});

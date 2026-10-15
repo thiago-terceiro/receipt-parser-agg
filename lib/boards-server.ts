@@ -611,6 +611,51 @@ const loadPendingBoardInviteForToken = async (
     return (data as PendingBoardInviteRecord | null) ?? null;
 };
 
+export type PendingBoardInviteDetails = {
+    boardId: string;
+    boardName: string;
+    role: BoardRole;
+    email: string | null;
+};
+
+export const getPendingBoardInviteDetails = async (
+    token: unknown,
+): Promise<PendingBoardInviteDetails | null> => {
+    return withSpan("boards.invites.get_details", async (span) => {
+        if (!hasSupabaseServerConfig || typeof token !== "string" || !token.trim()) {
+            return null;
+        }
+
+        const client = getSupabaseServerClient();
+        const tokenHash = hashInviteTokenForStorage(token.trim());
+        const invite = await loadPendingBoardInviteForToken(client, tokenHash);
+
+        if (!invite) {
+            return null;
+        }
+
+        const { data: board } = await client
+            .from("boards")
+            .select("id, name")
+            .eq("id", invite.board_id)
+            .maybeSingle();
+
+        const details: PendingBoardInviteDetails = {
+            boardId: invite.board_id,
+            boardName: (board as { name?: string } | null)?.name || "Shared Board",
+            role: invite.role,
+            email: invite.email,
+        };
+
+        span.setAttributes({
+            [observabilityAttributes.inviteTokenPresent]: true,
+            [observabilityAttributes.inviteRole]: details.role,
+        });
+
+        return details;
+    });
+};
+
 const upsertBoardMembershipFromInvite = async (
     client: SupabaseClient,
     invite: PendingBoardInviteRecord,

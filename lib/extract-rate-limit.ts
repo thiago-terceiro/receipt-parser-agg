@@ -77,14 +77,55 @@ const extractRateLimiter =
         })
         : null;
 
-const getClientIpAddress = (request: Request) => {
-    const forwardedFor = request.headers.get("x-forwarded-for")?.trim();
-    if (forwardedFor) {
-        return forwardedFor.split(",")[0]?.trim() || null;
+const normalizeIp = (ip: string): string => {
+    const trimmed = ip.trim();
+    const bracketedIpv6 = trimmed.match(/^\[([a-fA-F0-9:]+)\](?::\d+)?$/);
+    if (bracketedIpv6) {
+        return bracketedIpv6[1];
+    }
+    const ipv4WithPort = trimmed.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?$/);
+    if (ipv4WithPort) {
+        return ipv4WithPort[1];
+    }
+    return trimmed;
+};
+
+export const getClientIpAddress = (request: Request): string | null => {
+    // Prioritize trusted edge headers that cannot be spoofed by clients
+    const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for")?.trim();
+    if (vercelForwardedFor) {
+        const ip = vercelForwardedFor.split(",")[0]?.trim();
+        if (ip) {
+            return normalizeIp(ip);
+        }
+    }
+
+    const cfConnectingIp = request.headers.get("cf-connecting-ip")?.trim();
+    if (cfConnectingIp) {
+        const ip = cfConnectingIp.split(",")[0]?.trim();
+        if (ip) {
+            return normalizeIp(ip);
+        }
     }
 
     const realIp = request.headers.get("x-real-ip")?.trim();
-    return realIp || null;
+    if (realIp) {
+        const ip = realIp.split(",")[0]?.trim();
+        if (ip) {
+            return normalizeIp(ip);
+        }
+    }
+
+    // Fall back to standard x-forwarded-for proxy chain
+    const forwardedFor = request.headers.get("x-forwarded-for")?.trim();
+    if (forwardedFor) {
+        const parts = forwardedFor.split(",").map((entry) => entry.trim()).filter(Boolean);
+        if (parts.length > 0) {
+            return normalizeIp(parts[0]);
+        }
+    }
+
+    return null;
 };
 
 export const buildReceiptExtractionRateLimitKey = (

@@ -25,20 +25,7 @@ describe("authOptions", () => {
   describe("Credentials authorize", () => {
     it("authorizes preconfigured account with username", async () => {
       const user = await credentialsProvider.authorize({
-        username: "thiago",
-        password: getCredentialsPassword(),
-      });
-
-      expect(user).toEqual({
-        id: "114690011262528439253",
-        name: "Thiago Terceiro",
-        email: "thiagomacterceiro@gmail.com",
-      });
-    });
-
-    it("authorizes preconfigured account with email", async () => {
-      const user = await credentialsProvider.authorize({
-        username: "test@receipt.ai",
+        username: "test",
         password: getCredentialsPassword(),
       });
 
@@ -49,9 +36,22 @@ describe("authOptions", () => {
       });
     });
 
+    it("authorizes preconfigured account with email", async () => {
+      const user = await credentialsProvider.authorize({
+        username: "partner@receipt.ai",
+        password: getCredentialsPassword(),
+      });
+
+      expect(user).toEqual({
+        id: "test-user-partner-002",
+        name: "Test Partner",
+        email: "partner@receipt.ai",
+      });
+    });
+
     it("rejects invalid password", async () => {
       const user = await credentialsProvider.authorize({
-        username: "thiago",
+        username: "test",
         password: "wrong-password",
       });
 
@@ -123,6 +123,53 @@ describe("authOptions", () => {
       });
 
       expect((session.user as { id?: string })?.id).toBe("test-user-001");
+    });
+  });
+
+  describe("provider gating", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    afterAll(() => {
+      process.env = originalEnv;
+    });
+
+    it("excludes credentialsProvider in production when ENABLE_TEST_AUTH is not set", () => {
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+      delete process.env.ENABLE_TEST_AUTH;
+
+      const creds = authOptions.providers.find((p) => p.id === "credentials");
+      expect(creds).toBeUndefined();
+    });
+
+    it("includes credentialsProvider in production when ENABLE_TEST_AUTH is true", () => {
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+      process.env.ENABLE_TEST_AUTH = "true";
+
+      const creds = authOptions.providers.find((p) => p.id === "credentials");
+      expect(creds).toBeDefined();
+    });
+
+    it("includes credentialsProvider in non-production environments", () => {
+      (process.env as Record<string, string | undefined>).NODE_ENV = "development";
+      delete process.env.ENABLE_TEST_AUTH;
+
+      const creds = authOptions.providers.find((p) => p.id === "credentials");
+      expect(creds).toBeDefined();
+    });
+
+    it("rejects authorize() in production when ENABLE_TEST_AUTH is not set", async () => {
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+      delete process.env.ENABLE_TEST_AUTH;
+
+      const user = await credentialsProvider.authorize({
+        username: "test",
+        password: getCredentialsPassword(),
+      });
+      expect(user).toBeNull();
     });
   });
 });

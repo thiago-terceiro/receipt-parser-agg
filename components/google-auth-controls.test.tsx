@@ -100,4 +100,20 @@ describe("GoogleAuthControls", () => {
         expect(screen.getByText("Theme toggle")).toBeInTheDocument();
         expect(screen.getByText("Locale switcher")).toBeInTheDocument();
     });
+
+    it("hides Password / Test Login when test auth is explicitly disabled", () => {
+        render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={false} />);
+
+        expect(
+            screen.queryByRole("button", { name: "Password / Test Login" }),
+        ).not.toBeInTheDocument();
+    });
+
+    it("shows Password / Test Login when test auth is enabled", () => {
+        render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
+
+        expect(
+            screen.getByRole("button", { name: "Password / Test Login" }),
+        ).toBeInTheDocument();
+    });
 });

@@ -12,18 +12,6 @@ export type PreconfiguredAccount = {
 
 export const PRECONFIGURED_ACCOUNTS: PreconfiguredAccount[] = [
   {
-    id: "114690011262528439253",
-    email: "thiagomacterceiro@gmail.com",
-    username: "thiago",
-    name: "Thiago Terceiro",
-  },
-  {
-    id: "103601866952658809467",
-    email: "priscila.barizan@gmail.com",
-    username: "priscila",
-    name: "Priscila Barizan",
-  },
-  {
     id: "test-user-owner-001",
     email: "test@receipt.ai",
     username: "test",
@@ -36,6 +24,10 @@ export const PRECONFIGURED_ACCOUNTS: PreconfiguredAccount[] = [
     name: "Test Partner",
   },
 ];
+
+export const isTestAuthEnabled = () =>
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_TEST_AUTH === "true";
 
 export const getCredentialsPassword = () =>
   process.env.TEST_AUTH_PASSWORD?.trim() || "password123";
@@ -58,11 +50,11 @@ const credentialsConfig = {
   name: "Username & Password",
   type: "credentials" as const,
   credentials: {
-    username: { label: "Username or Email", type: "text", placeholder: "thiago or test" },
+    username: { label: "Username or Email", type: "text", placeholder: "test or partner" },
     password: { label: "Password", type: "password" },
   },
   authorize(credentials: Record<string, string> | undefined): User | null {
-    if (!credentials?.username || !credentials.password) {
+    if (!isTestAuthEnabled() || !credentials?.username || !credentials.password) {
       return null;
     }
 
@@ -96,23 +88,25 @@ const credentialsConfig = {
   },
 };
 
-const credentialsProvider = {
+export const credentialsProvider = {
   ...createCredentials(credentialsConfig),
   ...credentialsConfig,
 };
 
-const googleProvider =
-  process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
-    ? Google({
-        clientId: process.env.AUTH_GOOGLE_ID,
-        clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      })
-    : null;
+export const getAuthProviders = () => {
+  const googleProvider =
+    process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
+      ? Google({
+          clientId: process.env.AUTH_GOOGLE_ID,
+          clientSecret: process.env.AUTH_GOOGLE_SECRET,
+        })
+      : null;
 
-const providers = [
-  ...(googleProvider ? [googleProvider] : []),
-  credentialsProvider,
-];
+  return [
+    ...(googleProvider ? [googleProvider] : []),
+    ...(isTestAuthEnabled() ? [credentialsProvider] : []),
+  ];
+};
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -141,6 +135,8 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  providers,
+  get providers() {
+    return getAuthProviders();
+  },
 };
 

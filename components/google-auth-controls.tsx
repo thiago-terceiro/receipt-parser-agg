@@ -61,11 +61,13 @@ const getInitials = (
 type GoogleAuthControlsProps = {
   canUseGoogleAuth: boolean;
   callbackUrl?: string;
+  isTestAuthEnabled?: boolean;
 };
 
 export const GoogleAuthControls = ({
   canUseGoogleAuth,
   callbackUrl,
+  isTestAuthEnabled: isTestAuthEnabledProp,
 }: GoogleAuthControlsProps) => {
   const { data: session, status } = useSession();
   const locale = useLocale();
@@ -73,8 +75,14 @@ export const GoogleAuthControls = ({
   const [isMobileView, setIsMobileView] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const isTestAuthActive =
+    isTestAuthEnabledProp ??
+    (process.env.NODE_ENV !== "production" ||
+      process.env.ENABLE_TEST_AUTH === "true" ||
+      process.env.NEXT_PUBLIC_ENABLE_TEST_AUTH === "true");
+
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
-  const [username, setUsername] = useState("thiago");
+  const [username, setUsername] = useState("test");
   const [password, setPassword] = useState("password123");
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
   const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
@@ -157,7 +165,7 @@ export const GoogleAuthControls = ({
         <GoogleMark />
         <span>{isLoading ? translations.auth.checking : buttonLabel}</span>
       </Button>
-      {!isAuthenticated && !isLoading ? (
+      {!isAuthenticated && !isLoading && isTestAuthActive ? (
         <div className="flex flex-col gap-2">
           <Button
             variant="outline"
@@ -188,8 +196,6 @@ export const GoogleAuthControls = ({
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  { label: "Thiago", user: "thiago" },
-                  { label: "Priscila", user: "priscila" },
                   { label: "Test Owner", user: "test" },
                   { label: "Test Partner", user: "partner" },
                 ].map((account) => (
@@ -218,7 +224,7 @@ export const GoogleAuthControls = ({
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="thiago, test, etc."
+                  placeholder="test, partner, etc."
                   className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
                 />
               </div>
