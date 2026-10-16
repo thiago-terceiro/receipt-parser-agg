@@ -411,7 +411,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                         </SelectContent>
                                     </Select>
                                     {boardsError ? (
-                                        <p className="m-0 text-sm text-destructive">{boardsError}</p>
+                                        <p role="alert" className="m-0 text-sm text-destructive">{boardsError}</p>
                                     ) : null}
                                 </div>
                                 <div className="flex w-full flex-wrap gap-2 min-[641px]:w-auto">
@@ -436,7 +436,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                         className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full"
                                     >
                                         <Link href={dashboardHref} locale={locale}>
-                                            <LayoutDashboard className="size-4" />
+                                            <LayoutDashboard className="size-4" aria-hidden="true" />
                                             <span>
                                                 {saveMessage
                                                     ? translations.receipt.openFreshDashboard

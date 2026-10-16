@@ -93,7 +93,7 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
         >
           <div className="flex items-center justify-between gap-3">
             <p className="m-0 text-sm text-muted-foreground">{stat.label}</p>
-            <stat.icon className="size-4 text-[var(--accent-dark)]" />
+            <stat.icon className="size-4 text-[var(--accent-dark)]" aria-hidden="true" />
           </div>
           <p className="m-0 mt-3 text-[1.85rem] font-semibold tracking-[-0.04em]">
             {stat.value}
@@ -216,7 +216,7 @@ export const GroceriesDashboardSummarySection = ({
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <CalendarDays className="size-4 text-[var(--accent-dark)]" />
+            <CalendarDays className="size-4 text-[var(--accent-dark)]" aria-hidden="true" />
             <span>{translations.groceries.monthProgress}</span>
           </div>
           <p className="m-0 text-sm text-muted-foreground">
@@ -225,7 +225,15 @@ export const GroceriesDashboardSummarySection = ({
         </div>
 
         <div className="grid gap-2">
-          <div className="relative h-4 overflow-hidden rounded-full bg-[var(--progress-track)]">
+          <div
+            role="progressbar"
+            aria-label={translations.groceries.monthProgress}
+            aria-valuemin={1}
+            aria-valuemax={progress.totalDays}
+            aria-valuenow={progress.currentDay}
+            aria-valuetext={translations.groceries.dayOf(progress.currentDay, progress.totalDays)}
+            className="relative h-4 overflow-hidden rounded-full bg-[var(--progress-track)]"
+          >
             <motion.div
               className="absolute inset-y-0 left-0 rounded-full"
               initial={{ width: 0 }}
@@ -239,7 +247,7 @@ export const GroceriesDashboardSummarySection = ({
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center justify-between text-sm text-muted-foreground" aria-hidden="true">
             <span>1</span>
             <span>{Math.ceil(progress.totalDays / 2)}</span>
             <span>{progress.totalDays}</span>

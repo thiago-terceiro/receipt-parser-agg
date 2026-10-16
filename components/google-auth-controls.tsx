@@ -213,15 +213,27 @@ export const GoogleAuthControls = ({
             variant="outline"
             type="button"
             className={buttonClassName}
+            aria-expanded={isCredentialsOpen}
+            aria-controls="credentials-auth-panel"
             onClick={() => setIsCredentialsOpen(!isCredentialsOpen)}
           >
-            <KeyRound className="size-4" />
+            <KeyRound className="size-4" aria-hidden="true" />
             <span>Password / Test Login</span>
           </Button>
           {isCredentialsOpen ? (
-            <div className="mt-2 flex flex-col gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain)] p-4 shadow-md">
+            <div
+              id="credentials-auth-panel"
+              role="group"
+              aria-labelledby="credentials-auth-heading"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setIsCredentialsOpen(false);
+                }
+              }}
+              className="mt-2 flex flex-col gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain)] p-4 shadow-md"
+            >
               <div className="flex items-center justify-between">
-                <p className="m-0 text-sm font-bold text-foreground">
+                <p id="credentials-auth-heading" className="m-0 text-sm font-bold text-foreground">
                   {authMode === "signin" ? "Sign in with Password" : "Create an Account"}
                 </p>
                 <Button
@@ -232,16 +244,21 @@ export const GoogleAuthControls = ({
                   onClick={() => setIsCredentialsOpen(false)}
                   aria-label="Close credentials"
                 >
-                  <X className="size-4" />
+                  <X className="size-4" aria-hidden="true" />
                 </Button>
               </div>
 
               {/* Mode Toggle */}
-              <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-[var(--surface-plain-soft)] p-1">
+              <div
+                role="group"
+                aria-label="Authentication mode"
+                className="grid grid-cols-2 gap-1 rounded-[12px] bg-[var(--surface-plain-soft)] p-1"
+              >
                 <Button
                   type="button"
                   variant={authMode === "signin" ? "secondary" : "ghost"}
                   size="sm"
+                  aria-pressed={authMode === "signin"}
                   className="h-8 text-xs font-semibold"
                   onClick={() => {
                     setAuthMode("signin");
@@ -255,6 +272,7 @@ export const GoogleAuthControls = ({
                   type="button"
                   variant={authMode === "signup" ? "secondary" : "ghost"}
                   size="sm"
+                  aria-pressed={authMode === "signup"}
                   className="h-8 text-xs font-semibold"
                   onClick={() => {
                     setAuthMode("signup");
@@ -359,10 +377,18 @@ export const GoogleAuthControls = ({
               ) : null}
 
               {credentialsError ? (
-                <p className="m-0 text-xs font-medium text-destructive">{credentialsError}</p>
+                <p role="alert" className="m-0 text-xs font-medium text-destructive">
+                  {credentialsError}
+                </p>
               ) : null}
               {credentialsSuccess ? (
-                <p className="m-0 text-xs font-medium text-emerald-600 dark:text-emerald-400">{credentialsSuccess}</p>
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="m-0 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                >
+                  {credentialsSuccess}
+                </p>
               ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

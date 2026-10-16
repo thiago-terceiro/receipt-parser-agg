@@ -10,6 +10,8 @@ const config = {
     "components/**/*.tsx",
     "contents/**/*.tsx",
     "context/**/*.tsx",
+    "lib/**/*.ts",
+    "app/api/**/*.ts",
     "app/**/GroceriesSignInCard.tsx",
     "!**/*.test.ts",
     "!**/*.test.tsx",

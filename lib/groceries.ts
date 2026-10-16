@@ -212,7 +212,7 @@ export const buildSavedReceiptSummaries = (
       const extractedReceipt = extractedReceiptsById.get(receiptId);
       const currencyCode = getSingleCurrencyCode(
         [
-          extractedReceipt?.currencyCode,
+          ...(extractedReceipt ? [extractedReceipt.currencyCode] : []),
           ...sortedEntries.map((entry) => entry.currencyCode),
         ],
         "Saved receipt items must all use the same currency.",

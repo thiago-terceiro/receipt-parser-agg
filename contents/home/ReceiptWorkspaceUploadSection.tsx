@@ -109,7 +109,7 @@ export const ReceiptWorkspaceUploadSection = ({
                     onDragLeave={onDropzoneDragLeave}
                     onDrop={onDropzoneDrop}
                     className={[
-                        "file-dropzone-bg grid min-h-[220px] w-full content-center gap-3 rounded-[18px] border-[1.5px] border-dashed p-5 text-left transition-all duration-150",
+                        "file-dropzone-bg grid min-h-[220px] w-full content-center gap-3 rounded-[18px] border-[1.5px] border-dashed p-5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
                         isDraggingFile
                             ? "border-[var(--accent)] bg-[var(--surface-selected)] shadow-[0_0_0_4px_var(--focus-surface)]"
                             : "border-[rgba(181,82,51,0.42)]",
@@ -156,7 +156,7 @@ export const ReceiptWorkspaceUploadSection = ({
                                 disabled={isLoading}
                                 aria-label={translations.receipt.removeSelectedImage}
                             >
-                                <X className="size-4" />
+                                <X className="size-4" aria-hidden="true" />
                             </Button>
                         </div>
                     ) : (
@@ -217,7 +217,7 @@ export const ReceiptWorkspaceUploadSection = ({
 
                 {saveMessage ? (
                     <Alert>
-                        <Check className="size-4" />
+                        <Check className="size-4" aria-hidden="true" />
                         <AlertDescription>{saveMessage}</AlertDescription>
                     </Alert>
                 ) : null}

@@ -10,7 +10,7 @@ import {
 } from "@/lib/groceries";
 import {
   deleteSavedReceipt,
-  loadGroceriesEntries,
+  loadGroceriesMonthData,
   persistGroceriesEntries,
 } from "@/lib/groceries-server";
 import { parseReceiptExtraction, sanitizeReceiptItems } from "@/lib/receipt";
@@ -161,9 +161,15 @@ export async function GET(request: Request) {
   const month = resolveRequestedMonth(requestedMonth);
 
   try {
-    const entries = await loadGroceriesEntries(identity, month, boardId);
+    const { entries, extractedReceipts } = await loadGroceriesMonthData(
+      identity,
+      month,
+      boardId,
+    );
 
-    return NextResponse.json(buildGroceriesMonthPayload(month, entries));
+    return NextResponse.json(
+      buildGroceriesMonthPayload(month, entries, extractedReceipts),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load groceries.";
 

@@ -153,7 +153,7 @@ export const CategorySummaryCard = ({
         onClick={() => onSelect(category)}
         aria-pressed={isActive}
         className={cn(
-          "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors",
+          "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
           isActive
             ? "border-[var(--accent)] bg-[var(--surface-accent)] shadow-[0_0_0_4px_var(--focus-surface)]"
             : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:bg-[var(--surface-soft)]",
@@ -168,7 +168,10 @@ export const CategorySummaryCard = ({
               {currencyFormatter.format(category.total)}
             </h2>
           </div>
-          <div className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)]">
+          <div
+            className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)]"
+            aria-hidden="true"
+          >
             <ChevronRight
               className={cn("size-4 transition-transform", isActive && "rotate-90")}
             />
@@ -182,7 +185,7 @@ export const CategorySummaryCard = ({
             </span>
             <span>{percentFormatter.format(category.share)}</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]">
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]" aria-hidden="true">
             <div
               className="h-full rounded-full"
               style={{

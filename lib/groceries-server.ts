@@ -10,6 +10,7 @@ import {
     resolveCurrencyCode,
 } from "@/lib/currency";
 import {
+    buildSavedReceiptSummaries,
     type ExtractedReceipt,
     getMonthKey,
     getMonthRange,
@@ -400,6 +401,10 @@ export const persistGroceriesEntries = async (
     requestedBoardId: unknown,
     entries: GroceryEntry[],
 ) => {
+    if (entries.length === 0) {
+        throw new BoardRouteError("At least one grocery entry is required.", 400);
+    }
+
     const authenticatedIdentity = asAuthenticatedIdentity(identity);
     const selection = await resolveBoardSelection(
         authenticatedIdentity,
@@ -471,6 +476,43 @@ export const persistGroceriesEntries = async (
 
     if (error) {
         throw new Error(error.message || "Unable to persist grocery entries.");
+    }
+
+    const receiptSummaries = buildSavedReceiptSummaries(month, entries);
+    if (receiptSummaries.length > 0) {
+        const receiptInsertPayload = receiptSummaries.map((summary) => ({
+            id: summary.id,
+            board_id: board.id,
+            created_by_user_id: authenticatedIdentity.userId,
+            month: summary.month,
+            currency_code: summary.currencyCode,
+            source_file_name: summary.sourceFileName,
+            model_id: summary.modelId,
+            extracted_at: summary.extractedAt,
+            item_count: summary.itemCount,
+            total: summary.total,
+            categories: summary.categories,
+            items: summary.items,
+            created_at: summary.extractedAt,
+        }));
+
+        const { error: receiptError } = await client
+            .from("extracted_receipts")
+            .insert(receiptInsertPayload);
+
+        if (receiptError) {
+            await client
+                .from("grocery_entries")
+                .delete()
+                .eq("board_id", board.id)
+                .in(
+                    "receipt_id",
+                    receiptSummaries.map((summary) => summary.id),
+                );
+            throw new Error(
+                receiptError.message || "Unable to persist extracted receipt.",
+            );
+        }
     }
 
     return {

@@ -2,11 +2,6 @@ import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
 
 import { checkReceiptExtractionRateLimit } from "@/lib/extract-rate-limit";
-import {
-  getMonthKey,
-  type ExtractedReceipt,
-} from "@/lib/groceries";
-import { persistExtractedReceipt } from "@/lib/groceries-server";
 import { getActiveTraceContext, withSpan } from "@/lib/observability";
 import {
   observabilityAttributes,
@@ -14,7 +9,6 @@ import {
   observabilityFields,
 } from "@/lib/observability-schema";
 import { getSessionIdentity } from "@/lib/session";
-import { hasSupabaseServerConfig } from "@/lib/supabase-server";
 
 import {
   buildDataUrl,
@@ -334,7 +328,6 @@ export const POST = async (request: Request) => {
   }
 
   const formData = await request.formData();
-  const requestedBoardId = formData.get("boardId");
   const model = resolveRequestedModelId({
     selectedModelId: formData.get("modelId"),
   });
@@ -418,43 +411,6 @@ export const POST = async (request: Request) => {
         fileName,
         currencyCodes: Array.from(uniqueCurrencyCodes),
       });
-    }
-
-    if (hasSupabaseServerConfig && identity?.userId) {
-      const extractedAt = new Date().toISOString();
-      const month = getMonthKey(new Date(extractedAt));
-
-      const extraction: ExtractedReceipt = {
-        id: crypto.randomUUID(),
-        month,
-        currencyCode,
-        sourceFileName: fileName,
-        modelId: model,
-        extractedAt,
-        itemCount: items.length,
-        total: Number(
-          items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
-        ),
-        categories: Array.from(new Set(items.map((item) => item.category))),
-        items,
-      };
-
-      try {
-        await withSpan(
-          "receipt.extract.persist_history",
-          async (span) => {
-            span.setAttributes({
-              [observabilityAttributes.boardRequested]: Boolean(requestedBoardId),
-              [observabilityAttributes.receiptItemCount]: extraction.itemCount,
-              [observabilityAttributes.userIsAuthenticated]: true,
-            });
-
-            await persistExtractedReceipt(identity, requestedBoardId, extraction);
-          },
-        );
-      } catch (error) {
-        console.warn("Unable to persist extracted receipt history.", error);
-      }
     }
 
     return NextResponse.json({
