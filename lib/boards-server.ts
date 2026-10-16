@@ -616,6 +616,9 @@ export type PendingBoardInviteDetails = {
     boardName: string;
     role: BoardRole;
     email: string | null;
+    status?: "pending" | "accepted" | "expired" | "invalid";
+    isExpired?: boolean;
+    isAccepted?: boolean;
 };
 
 export const getPendingBoardInviteDetails = async (
@@ -631,6 +634,39 @@ export const getPendingBoardInviteDetails = async (
         const invite = await loadPendingBoardInviteForToken(client, tokenHash);
 
         if (!invite) {
+            const { data: existingInvite } = await client
+                .from("board_invites")
+                .select("id, board_id, email, role, status, expires_at")
+                .eq("invite_token_hash", tokenHash)
+                .maybeSingle();
+
+            if (existingInvite) {
+                const isExpired = new Date(existingInvite.expires_at).getTime() <= Date.now();
+                const isAccepted = existingInvite.status === "accepted";
+                const { data: board } = await client
+                    .from("boards")
+                    .select("id, name")
+                    .eq("id", existingInvite.board_id)
+                    .maybeSingle();
+
+                const details: PendingBoardInviteDetails = {
+                    boardId: existingInvite.board_id,
+                    boardName: (board as { name?: string } | null)?.name || "Shared Board",
+                    role: existingInvite.role,
+                    email: existingInvite.email,
+                    status: isAccepted ? "accepted" : isExpired ? "expired" : "pending",
+                    isExpired,
+                    isAccepted,
+                };
+
+                span.setAttributes({
+                    [observabilityAttributes.inviteTokenPresent]: true,
+                    [observabilityAttributes.inviteRole]: details.role,
+                });
+
+                return details;
+            }
+
             return null;
         }
 
@@ -645,6 +681,9 @@ export const getPendingBoardInviteDetails = async (
             boardName: (board as { name?: string } | null)?.name || "Shared Board",
             role: invite.role,
             email: invite.email,
+            status: "pending",
+            isExpired: false,
+            isAccepted: false,
         };
 
         span.setAttributes({
@@ -716,6 +755,55 @@ export const acceptBoardInviteForIdentity = async (
         const invite = await loadPendingBoardInviteForToken(client, tokenHash);
 
         if (!invite) {
+            const { data: existingInvite } = await client
+                .from("board_invites")
+                .select("id, board_id, role, status, accepted_by_user_id, expires_at")
+                .eq("invite_token_hash", tokenHash)
+                .maybeSingle();
+
+            if (existingInvite) {
+                if (existingInvite.status === "accepted") {
+                    const { data: existingMember } = await client
+                        .from("board_members")
+                        .select("role, status")
+                        .eq("board_id", existingInvite.board_id)
+                        .eq("user_id", identity.userId)
+                        .eq("status", "active")
+                        .maybeSingle();
+
+                    if (existingMember || existingInvite.accepted_by_user_id === identity.userId) {
+                        await client
+                            .from("profiles")
+                            .update({ last_active_board_id: existingInvite.board_id })
+                            .eq("id", identity.userId);
+
+                        const { data: board } = await client
+                            .from("boards")
+                            .select("id, name")
+                            .eq("id", existingInvite.board_id)
+                            .maybeSingle();
+
+                        return {
+                            board_id: existingInvite.board_id as string,
+                            board_name: (board?.name as string) || "Shared Board",
+                            role: (existingMember?.role ?? existingInvite.role) as BoardRole,
+                        };
+                    }
+
+                    throw new BoardRouteError(
+                        "This invitation has already been accepted.",
+                        409,
+                    );
+                }
+
+                if (new Date(existingInvite.expires_at).getTime() <= Date.now()) {
+                    throw new BoardRouteError(
+                        "This invitation link has expired.",
+                        410,
+                    );
+                }
+            }
+
             throw new BoardRouteError("Invite token is invalid or expired.", 404);
         }
 

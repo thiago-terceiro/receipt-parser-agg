@@ -219,6 +219,9 @@ export type Messages = { metadata: Metadata } & {
     signOutAnotherAccount: string;
     acceptInvitation: string;
     accepting: string;
+    alreadyAccepted: string;
+    expired: string;
+    goToBoard: string;
     retry: string;
   };
 };
@@ -478,6 +481,9 @@ export const createMessagesObject = (
       signOutAnotherAccount: t("invite.signOutAnotherAccount"),
       acceptInvitation: t("invite.acceptInvitation"),
       accepting: t("invite.accepting"),
+      alreadyAccepted: t("invite.alreadyAccepted"),
+      expired: t("invite.expired"),
+      goToBoard: t("invite.goToBoard"),
       retry: t("invite.retry"),
     },
   };
@@ -752,6 +758,9 @@ export const localeMessages = {
       signOutAnotherAccount: "Sign out and use another account",
       acceptInvitation: "Accept Invitation",
       accepting: "Accepting invitation...",
+      alreadyAccepted: "This invitation has already been accepted.",
+      expired: "This invitation link has expired. Please ask the board owner for a new invite.",
+      goToBoard: "Go to Board",
       retry: "Retry invite check",
     },
   },
@@ -1017,6 +1026,9 @@ export const localeMessages = {
       signOutAnotherAccount: "Cerrar sesión y usar otra cuenta",
       acceptInvitation: "Aceptar invitación",
       accepting: "Aceptando invitación...",
+      alreadyAccepted: "Esta invitación ya ha sido aceptada.",
+      expired: "Este enlace de invitación ha caducado. Pide al propietario del tablero una nueva invitación.",
+      goToBoard: "Ir al tablero",
       retry: "Reintentar comprobación de invitación",
     },
   },
@@ -1281,6 +1293,9 @@ export const localeMessages = {
       signOutAnotherAccount: "Sair e usar outra conta",
       acceptInvitation: "Aceitar convite",
       accepting: "Aceitando convite...",
+      alreadyAccepted: "Este convite já foi aceito.",
+      expired: "Este link de convite expirou. Peça ao proprietário do quadro um novo convite.",
+      goToBoard: "Ir para o quadro",
       retry: "Tentar novamente a verificação do convite",
     },
   },

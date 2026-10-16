@@ -54,8 +54,8 @@ const createMockClient = ({
 
     const inviteMaybeSingle = jest.fn().mockResolvedValue({ data: invite ?? null, error: null });
     const inviteGt = jest.fn(() => ({ maybeSingle: inviteMaybeSingle }));
-    const inviteEqStatus = jest.fn(() => ({ gt: inviteGt }));
-    const inviteEqToken = jest.fn(() => ({ eq: inviteEqStatus }));
+    const inviteEqStatus = jest.fn(() => ({ gt: inviteGt, maybeSingle: inviteMaybeSingle }));
+    const inviteEqToken = jest.fn(() => ({ eq: inviteEqStatus, maybeSingle: inviteMaybeSingle }));
     const inviteSelect = jest.fn(() => ({ eq: inviteEqToken }));
     const inviteUpdateEq = jest.fn().mockResolvedValue({ error: null });
     const inviteUpdate = jest.fn(() => ({ eq: inviteUpdateEq }));
@@ -220,6 +220,9 @@ describe("acceptBoardInviteForIdentity", () => {
                 boardName: "Family Groceries",
                 role: "editor",
                 email: "person@example.com",
+                status: "pending",
+                isExpired: false,
+                isAccepted: false,
             });
         });
 

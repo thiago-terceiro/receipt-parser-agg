@@ -52,7 +52,14 @@ export async function GET() {
                 [observabilityAttributes.boardCount]: boards.length,
             });
 
-            return NextResponse.json({ boards });
+            return NextResponse.json(
+                { boards },
+                {
+                    headers: {
+                        "Cache-Control": "private, no-cache",
+                    },
+                },
+            );
         });
 
         return response;

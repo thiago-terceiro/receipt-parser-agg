@@ -22,6 +22,9 @@ export type PendingBoardInviteDetails = {
     boardName: string;
     role: string;
     email: string | null;
+    status?: "pending" | "accepted" | "expired" | "invalid";
+    isExpired?: boolean;
+    isAccepted?: boolean;
 };
 
 type InviteAcceptanceCardProps = {
@@ -156,13 +159,15 @@ export const InviteAcceptanceCard = ({
     if (resolvedStatus !== "authenticated") {
         return (
             <div className="grid gap-4">
-                <GoogleAuthControls
-                    canUseGoogleAuth={canUseGoogleAuth}
-                    canUseGitHubAuth={canUseGitHubAuth}
-                    callbackUrl={inviteCallbackUrl}
-                    isCredentialsAuthEnabled={isCredentialsAuthEnabled}
-                    isTestAuthEnabled={isTestAuthEnabled}
-                />
+                {!inviteDetails?.isExpired && !inviteDetails?.isAccepted ? (
+                    <GoogleAuthControls
+                        canUseGoogleAuth={canUseGoogleAuth}
+                        canUseGitHubAuth={canUseGitHubAuth}
+                        callbackUrl={inviteCallbackUrl}
+                        isCredentialsAuthEnabled={isCredentialsAuthEnabled}
+                        isTestAuthEnabled={isTestAuthEnabled}
+                    />
+                ) : null}
                 <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
                     <CardHeader>
                         <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
@@ -171,6 +176,16 @@ export const InviteAcceptanceCard = ({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {inviteDetails?.isAccepted ? (
+                            <Alert className="mb-4">
+                                <AlertDescription>{translations.invite.alreadyAccepted}</AlertDescription>
+                            </Alert>
+                        ) : null}
+                        {inviteDetails?.isExpired ? (
+                            <Alert variant="destructive" className="mb-4">
+                                <AlertDescription>{translations.invite.expired}</AlertDescription>
+                            </Alert>
+                        ) : null}
                         {error ? (
                             <Alert variant="destructive" className="mb-4">
                                 <AlertDescription>{error}</AlertDescription>
@@ -204,7 +219,7 @@ export const InviteAcceptanceCard = ({
                     </Alert>
                 ) : null}
 
-                {!isSuccess && inviteDetails ? (
+                {!isSuccess && inviteDetails && !inviteDetails.isExpired && !inviteDetails.isAccepted ? (
                     <div className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 text-sm grid gap-1">
                         <p className="font-semibold text-foreground m-0">
                             {translations.invite.boardLabel}: {inviteDetails.boardName}
@@ -219,6 +234,22 @@ export const InviteAcceptanceCard = ({
                     <p className="text-sm text-muted-foreground m-0">
                         {translations.invite.signedInAs(signedInEmail)}
                     </p>
+                ) : null}
+
+                {inviteDetails?.isAccepted ? (
+                    <Alert>
+                        <AlertDescription>
+                            {translations.invite.alreadyAccepted}
+                        </AlertDescription>
+                    </Alert>
+                ) : null}
+
+                {inviteDetails?.isExpired ? (
+                    <Alert variant="destructive">
+                        <AlertDescription>
+                            {translations.invite.expired}
+                        </AlertDescription>
+                    </Alert>
                 ) : null}
 
                 {error || isInviteEmailMismatch ? (
@@ -252,13 +283,27 @@ export const InviteAcceptanceCard = ({
                                 {translations.invite.signOutAnotherAccount}
                             </Button>
                         ) : null}
-                        <Button
-                            type="button"
-                            disabled={isAccepting || isInviteEmailMismatch}
-                            onClick={handleAcceptInvite}
-                        >
-                            {isAccepting ? translations.invite.accepting : translations.invite.acceptInvitation}
-                        </Button>
+                        {inviteDetails?.isAccepted && inviteDetails?.boardId ? (
+                            <Button asChild>
+                                <Link
+                                    href={{
+                                        pathname: "/groceries",
+                                        query: { board: inviteDetails.boardId },
+                                    }}
+                                    locale={locale}
+                                >
+                                    {translations.invite.goToBoard}
+                                </Link>
+                            </Button>
+                        ) : !inviteDetails?.isExpired && !inviteDetails?.isAccepted ? (
+                            <Button
+                                type="button"
+                                disabled={isAccepting || isInviteEmailMismatch}
+                                onClick={handleAcceptInvite}
+                            >
+                                {isAccepting ? translations.invite.accepting : translations.invite.acceptInvitation}
+                            </Button>
+                        ) : null}
                         {initialError ? (
                             <Button
                                 type="button"

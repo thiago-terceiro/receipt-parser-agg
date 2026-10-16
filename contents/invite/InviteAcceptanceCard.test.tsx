@@ -221,6 +221,67 @@ describe("InviteAcceptanceCard", () => {
                 screen.queryByRole("button", { name: "Password / Test Login" }),
             ).not.toBeInTheDocument();
         });
+
+        it("shows already accepted alert and navigation button when invite is already accepted", () => {
+            mockAuthState.status = "authenticated";
+            mockAuthState.session = {
+                expires: "2026-05-01T00:00:00.000Z",
+                user: {
+                    email: "person@example.com",
+                    name: "Test Person",
+                },
+            };
+
+            renderWithProviders(
+                <InviteAcceptanceCard
+                    canUseGoogleAuth
+                    inviteDetails={{
+                        boardId: "board-123",
+                        boardName: "Test Board",
+                        role: "editor",
+                        email: null,
+                        isAccepted: true,
+                    }}
+                    locale="en"
+                    token="token-accepted"
+                />,
+                { withThemeProvider: true },
+            );
+
+            expect(screen.getByText("invite.alreadyAccepted")).toBeInTheDocument();
+            expect(screen.getByRole("link", { name: "invite.goToBoard" })).toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: "invite.acceptInvitation" })).not.toBeInTheDocument();
+        });
+
+        it("shows expired alert when invite has expired", () => {
+            mockAuthState.status = "authenticated";
+            mockAuthState.session = {
+                expires: "2026-05-01T00:00:00.000Z",
+                user: {
+                    email: "person@example.com",
+                    name: "Test Person",
+                },
+            };
+
+            renderWithProviders(
+                <InviteAcceptanceCard
+                    canUseGoogleAuth
+                    inviteDetails={{
+                        boardId: "board-123",
+                        boardName: "Test Board",
+                        role: "editor",
+                        email: null,
+                        isExpired: true,
+                    }}
+                    locale="en"
+                    token="token-expired"
+                />,
+                { withThemeProvider: true },
+            );
+
+            expect(screen.getByText("invite.expired")).toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: "invite.acceptInvitation" })).not.toBeInTheDocument();
+        });
     });
 });
 

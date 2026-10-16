@@ -169,6 +169,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       buildGroceriesMonthPayload(month, entries, extractedReceipts),
+      {
+        headers: {
+          "Cache-Control": "private, no-cache",
+        },
+      },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load groceries.";
