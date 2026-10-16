@@ -41,10 +41,15 @@ describe("ThemeProvider", () => {
         expect(document.documentElement.classList.contains("dark")).toBe(true);
     });
 
-    it("persists a new theme selection", async () => {
+    it("persists a new theme selection and synchronously updates the document", async () => {
         const Probe = () => {
             const { setTheme } = useTheme();
-            return <button onClick={() => setTheme("light")}>light</button>;
+            return (
+                <>
+                    <button onClick={() => setTheme("dark")}>dark</button>
+                    <button onClick={() => setTheme("light")}>light</button>
+                </>
+            );
         };
 
         render(
@@ -53,8 +58,19 @@ describe("ThemeProvider", () => {
             </ThemeProvider>,
         );
 
+        await userEvent.click(screen.getByRole("button", { name: "dark" }));
+
+        expect(document.documentElement.dataset.theme).toBe("dark");
+        expect(document.documentElement.classList.contains("dark")).toBe(true);
+        expect(window.localStorage.setItem).toHaveBeenCalledWith(
+            "receipt-ai-theme",
+            "dark",
+        );
+
         await userEvent.click(screen.getByRole("button", { name: "light" }));
 
+        expect(document.documentElement.dataset.theme).toBe("light");
+        expect(document.documentElement.classList.contains("dark")).toBe(false);
         expect(window.localStorage.setItem).toHaveBeenCalledWith(
             "receipt-ai-theme",
             "light",

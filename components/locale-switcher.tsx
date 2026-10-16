@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { appLocales, type AppLocale } from "@/lib/i18n/config";
+import { appLocales, localeNativeNames, type AppLocale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
 import {
@@ -69,10 +69,10 @@ export const LocaleSwitcher = () => {
             className="min-w-[180px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)]"
             aria-label={translations.common.language}
           >
-            <SelectValue aria-label={translations.locales[locale]}>
+            <SelectValue aria-label={localeNativeNames[locale]}>
               <span className="flex items-center gap-2">
                 <Languages className="size-4" />
-                <span>{translations.locales[locale]}</span>
+                <span>{localeNativeNames[locale]}</span>
               </span>
             </SelectValue>
           </SelectTrigger>
@@ -81,7 +81,7 @@ export const LocaleSwitcher = () => {
               <SelectItem key={nextLocale} value={nextLocale}>
                 <span className="flex items-center gap-2">
                   <Languages className="size-4" />
-                  <span>{translations.locales[nextLocale]}</span>
+                  <span>{localeNativeNames[nextLocale]}</span>
                 </span>
               </SelectItem>
             ))}
@@ -111,7 +111,7 @@ export const LocaleSwitcher = () => {
                 )}
               >
                 <Languages className="size-4" />
-                <span>{translations.locales[nextLocale]}</span>
+                <span>{localeNativeNames[nextLocale]}</span>
               </Button>
             );
           })}

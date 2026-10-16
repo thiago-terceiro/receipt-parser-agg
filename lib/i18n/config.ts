@@ -2,6 +2,12 @@ export const appLocales = ["en", "es", "pt-BR"] as const;
 
 export type AppLocale = (typeof appLocales)[number];
 
+export const localeNativeNames: Record<AppLocale, string> = {
+  en: "English",
+  es: "Español",
+  "pt-BR": "Português (Brasil)",
+};
+
 export const defaultLocale: AppLocale = "en";
 export const localeCookieName = "receipt-ai-locale";
 

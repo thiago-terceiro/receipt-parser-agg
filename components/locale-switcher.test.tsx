@@ -91,12 +91,12 @@ describe("LocaleSwitcher", () => {
 
         render(<LocaleSwitcher />);
 
-        expect(screen.getByRole("button", { name: "locales.en" })).toHaveAttribute(
+        expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
             "aria-pressed",
             "true",
         );
-        expect(screen.getByRole("button", { name: "locales.es" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "locales.pt-BR" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Português (Brasil)" })).toBeInTheDocument();
     });
 
     it("renders a locale dropdown at 980px and below", () => {
@@ -106,6 +106,9 @@ describe("LocaleSwitcher", () => {
 
         expect(screen.getByRole("combobox", { name: "common.language" })).toBeInTheDocument();
         expect(screen.queryByRole("group", { name: "common.language" })).not.toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "English" })).toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "Español" })).toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "Português (Brasil)" })).toBeInTheDocument();
     });
 
     it("persists the locale and replaces the route", async () => {
@@ -115,7 +118,7 @@ describe("LocaleSwitcher", () => {
 
         render(<LocaleSwitcher />);
 
-        await userEvent.click(screen.getByRole("button", { name: "locales.es" }));
+        await userEvent.click(screen.getByRole("button", { name: "Español" }));
 
         expect(__mockSyncDocumentLocale).toHaveBeenCalledWith("es");
         expect(mockNavigationState.router.replace).toHaveBeenCalledWith(

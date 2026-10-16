@@ -121,6 +121,10 @@ const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   const resolvedTheme: ResolvedTheme =
     theme === "system" ? getSystemTheme() : theme === "dark" ? "dark" : "light";
 
+  if (typeof document === "undefined") {
+    return resolvedTheme;
+  }
+
   const root = document.documentElement;
 
   // remove any previous theme- classes
@@ -157,6 +161,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const isLoaded = true;
 
   const setTheme = useCallback((nextTheme: Theme) => {
+    applyThemeToDocument(nextTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     window.dispatchEvent(new Event("receipt-ai-theme-change"));
   }, []);

@@ -184,28 +184,6 @@
   }
 }
 
-/* Smooth theme transitions: animate color-related properties for a polished feel */
-html,
-body,
-button,
-input,
-select,
-textarea,
-.card,
-.receipt-preview,
-.file-dropzone-bg,
-.mobile-controls-dialog,
-.mobile-controls-dialog * {
-  transition: background-color 260ms cubic-bezier(0.22,1,0.36,1),
-    color 260ms cubic-bezier(0.22,1,0.36,1), border-color 260ms cubic-bezier(0.22,1,0.36,1),
-    box-shadow 320ms cubic-bezier(0.22,1,0.36,1), transform 200ms ease;
-}
-
-/* Slight fade for page background layers */
-.page-bg-fade {
-  transition: background 520ms cubic-bezier(0.22,1,0.36,1);
-}
-
 .file-dropzone-bg {
   background: var(--dropzone-background);
 }
