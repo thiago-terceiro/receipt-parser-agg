@@ -115,6 +115,11 @@ export async function POST(request: Request) {
       "x-honeycomb-team": apiKey,
     };
 
+    const contentEncoding = request.headers.get("content-encoding");
+    if (contentEncoding) {
+      upstreamHeaders["content-encoding"] = contentEncoding;
+    }
+
     const dataset = process.env.HONEYCOMB_DATASET?.trim();
     if (dataset) {
       upstreamHeaders["x-honeycomb-dataset"] = dataset;

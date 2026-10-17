@@ -84,13 +84,38 @@ export const detectLocaleFromAcceptLanguage = (
     return defaultLocale;
   }
 
-  const normalized = acceptLanguage.toLowerCase();
-  if (normalized.includes("pt-br") || normalized.includes("pt")) {
-    return "pt-BR";
-  }
+  const entries = acceptLanguage
+    .split(",")
+    .map((entry) => {
+      const [langTag, ...params] = entry.trim().split(";");
+      if (!langTag) {
+        return null;
+      }
+      let q = 1.0;
+      for (const param of params) {
+        const trimmedParam = param.trim();
+        if (trimmedParam.startsWith("q=")) {
+          const parsedQ = Number.parseFloat(trimmedParam.slice(2));
+          if (Number.isFinite(parsedQ)) {
+            q = parsedQ;
+          }
+        }
+      }
+      return { tag: langTag.trim().toLowerCase(), q };
+    })
+    .filter((entry): entry is { tag: string; q: number } => entry !== null)
+    .sort((a, b) => b.q - a.q);
 
-  if (normalized.includes("es")) {
-    return "es";
+  for (const { tag } of entries) {
+    if (tag === "pt" || tag.startsWith("pt-") || tag.startsWith("pt_")) {
+      return "pt-BR";
+    }
+    if (tag === "es" || tag.startsWith("es-")) {
+      return "es";
+    }
+    if (tag === "en" || tag.startsWith("en-")) {
+      return "en";
+    }
   }
 
   return defaultLocale;

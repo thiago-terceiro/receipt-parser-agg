@@ -12,6 +12,15 @@ import {
 } from "@/lib/observability-schema";
 import { getSessionIdentity } from "@/lib/session";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+    robots: {
+        index: false,
+        follow: false,
+    },
+};
+
 type InvitePageProps = {
     params: Promise<{ locale: string }>;
     searchParams?: Promise<{ token?: string }>;
@@ -50,6 +59,13 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
         }
     }
 
+    const sanitizedInviteDetails = inviteDetails
+        ? {
+            ...inviteDetails,
+            email: identity?.userId ? inviteDetails.email : null,
+        }
+        : null;
+
     return (
         <main className="mx-auto grid w-[min(900px,calc(100vw-32px))] gap-6 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),900px)] max-[900px]:pt-5">
             <InviteAcceptanceCard
@@ -57,7 +73,7 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
                 canUseGitHubAuth={hasGitHubAuthConfigured}
                 initialSignedInEmail={identity?.email ?? null}
                 initialStatus={identity?.userId ? "authenticated" : "unauthenticated"}
-                inviteDetails={inviteDetails}
+                inviteDetails={sanitizedInviteDetails}
                 isCredentialsAuthEnabled={isCredentialsAuthEnabled()}
                 isTestAuthEnabled={isTestAuthEnabled()}
                 locale={resolvedLocale}

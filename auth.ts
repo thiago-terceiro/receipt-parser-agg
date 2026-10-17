@@ -33,7 +33,10 @@ export const isTestAuthEnabled = () =>
   process.env.NODE_ENV !== "production" ||
   process.env.ENABLE_TEST_AUTH === "true";
 
-export const isCredentialsAuthEnabled = () => isTestAuthEnabled();
+export const isCredentialsAuthEnabled = () =>
+  isTestAuthEnabled() ||
+  process.env.AUTH_ENABLE_CREDENTIALS === "true" ||
+  process.env.NEXT_PUBLIC_ENABLE_CREDENTIALS_AUTH === "true";
 
 export const getCredentialsPassword = () =>
   process.env.TEST_AUTH_PASSWORD?.trim() || "password123";
@@ -84,8 +87,43 @@ const credentialsConfig = {
             email: dbUser.email,
           };
         }
+
+        // If credentials authentication failed against the database, check if an existing
+        // account or profile already exists with this email or username/id in Supabase.
+        // If so, NEVER fall through to synthetic test-user fallback to prevent account takeover.
+        const client = getSupabaseServerClient();
+        const { data: profileByEmail } = await client
+          .from("profiles")
+          .select("id")
+          .eq("email", inputUser)
+          .maybeSingle();
+
+        if (profileByEmail?.id) {
+          return null;
+        }
+
+        const { data: profileById } = await client
+          .from("profiles")
+          .select("id")
+          .eq("id", inputUser)
+          .maybeSingle();
+
+        if (profileById?.id) {
+          return null;
+        }
+
+        const { data: credsByEmail } = await client
+          .from("user_credentials")
+          .select("id")
+          .eq("email", inputUser)
+          .maybeSingle();
+
+        if (credsByEmail?.id) {
+          return null;
+        }
       } catch (err) {
         console.error("Error verifying credentials against database:", err);
+        return null;
       }
     }
 
@@ -192,7 +230,21 @@ export const authOptions: NextAuthOptions = {
             .maybeSingle();
 
           if (existingProfile?.id) {
-            token.uid = existingProfile.id;
+            const candidateId = String(user?.id ?? token.uid ?? "");
+            const isSyntheticTestCredentialsUser =
+              (!account || account.provider === "credentials") &&
+              (candidateId.startsWith("test-user-") ||
+                candidateId.startsWith("user_"));
+
+            if (
+              isSyntheticTestCredentialsUser &&
+              user?.id !== existingProfile.id &&
+              token.uid !== existingProfile.id
+            ) {
+              // Do not overwrite token.uid with an existing profile (prevents test-user account takeover)
+            } else {
+              token.uid = existingProfile.id;
+            }
           } else {
             const initialId =
               (typeof token.uid === "string" && token.uid.trim())

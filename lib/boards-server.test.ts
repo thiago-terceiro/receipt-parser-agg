@@ -17,6 +17,7 @@ import {
     acceptBoardInviteForIdentity,
     BoardRouteError,
     getPendingBoardInviteDetails,
+    listBoardsForIdentity,
 } from "@/lib/boards-server";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -27,6 +28,7 @@ const createMockClient = ({
     existingJoinedAt = null,
     existingMembership = null,
     invite,
+    existingInvite,
     updatedInviteRows,
 }: {
     board?: { id: string; name: string } | null;
@@ -38,6 +40,14 @@ const createMockClient = ({
         email: string | null;
         invited_by_user_id: string;
         role: "editor";
+    } | null;
+    existingInvite?: {
+        id: string;
+        board_id: string;
+        email: string | null;
+        role: "editor";
+        status: string;
+        expires_at: string;
     } | null;
     updatedInviteRows?: Array<{ id: string }> | null;
 }) => {
@@ -57,9 +67,10 @@ const createMockClient = ({
     const profileUpdate = jest.fn(() => ({ eq: profileUpdateEq }));
 
     const inviteMaybeSingle = jest.fn().mockResolvedValue({ data: invite ?? null, error: null });
+    const fallbackMaybeSingle = jest.fn().mockResolvedValue({ data: existingInvite ?? null, error: null });
     const inviteGt = jest.fn(() => ({ maybeSingle: inviteMaybeSingle }));
     const inviteEqStatus = jest.fn(() => ({ gt: inviteGt, maybeSingle: inviteMaybeSingle }));
-    const inviteEqToken = jest.fn(() => ({ eq: inviteEqStatus, maybeSingle: inviteMaybeSingle }));
+    const inviteEqToken = jest.fn(() => ({ eq: inviteEqStatus, maybeSingle: fallbackMaybeSingle }));
     const inviteSelect = jest.fn(() => ({ eq: inviteEqToken }));
     const inviteUpdateSelect = jest.fn().mockResolvedValue({
         data: updatedInviteRows !== undefined ? updatedInviteRows : [{ id: invite?.id ?? "invite-123" }],
@@ -395,11 +406,142 @@ describe("acceptBoardInviteForIdentity", () => {
             expect(details).toBeNull();
         });
 
+        it("returns isAccepted: true and isExpired: false when accepted invite passes its expiry date", async () => {
+            const { client } = createMockClient({
+                board: { id: "board-123", name: "Family Groceries" },
+                invite: null,
+                existingInvite: {
+                    id: "invite-accepted-id",
+                    board_id: "board-123",
+                    email: "person@example.com",
+                    role: "editor",
+                    status: "accepted",
+                    expires_at: new Date(Date.now() - 100000).toISOString(),
+                },
+            });
+
+            mockGetSupabaseServerClient.mockReturnValue(client);
+
+            const details = await getPendingBoardInviteDetails("accepted-token");
+            expect(details).toEqual({
+                boardId: "board-123",
+                boardName: "Family Groceries",
+                role: "editor",
+                email: "person@example.com",
+                status: "accepted",
+                isExpired: false,
+                isAccepted: true,
+            });
+        });
+
         it("returns null when token is invalid or empty", async () => {
             expect(await getPendingBoardInviteDetails("")).toBeNull();
             expect(await getPendingBoardInviteDetails("   ")).toBeNull();
             expect(await getPendingBoardInviteDetails(null)).toBeNull();
             expect(await getPendingBoardInviteDetails(undefined)).toBeNull();
+        });
+    });
+
+    describe("listBoardsForIdentity", () => {
+        it("ensures a default board is created and returned if user has no boards", async () => {
+            let membershipCallCount = 0;
+            const mockClient = {
+                from: jest.fn().mockImplementation((table: string) => {
+                    if (table === "profiles") {
+                        return {
+                            upsert: jest.fn().mockReturnValue({
+                                select: jest.fn().mockReturnValue({
+                                    single: jest.fn().mockResolvedValue({
+                                        data: { id: "user-1", email: "user@example.com", last_active_board_id: null },
+                                        error: null,
+                                    }),
+                                }),
+                            }),
+                        };
+                    }
+                    if (table === "board_members") {
+                        return {
+                            select: jest.fn().mockReturnValue({
+                                eq: jest.fn().mockReturnValue({
+                                    eq: jest.fn().mockImplementation(() => {
+                                        membershipCallCount++;
+                                        if (membershipCallCount === 1) {
+                                            return Promise.resolve({ data: [], error: null });
+                                        }
+                                        return Promise.resolve({
+                                            data: [
+                                                {
+                                                    id: "member-1",
+                                                    board_id: "board-default-id",
+                                                    user_id: "user-1",
+                                                    role: "owner",
+                                                    status: "active",
+                                                    joined_at: "2026-04-01T00:00:00.000Z",
+                                                    created_at: "2026-04-01T00:00:00.000Z",
+                                                    updated_at: "2026-04-01T00:00:00.000Z",
+                                                },
+                                            ],
+                                            error: null,
+                                        });
+                                    }),
+                                }),
+                            }),
+                        };
+                    }
+                    if (table === "boards") {
+                        return {
+                            select: jest.fn().mockReturnValue({
+                                in: jest.fn().mockReturnValue({
+                                    is: jest.fn().mockResolvedValue({
+                                        data: [
+                                            {
+                                                id: "board-default-id",
+                                                name: "My groceries",
+                                                owner_user_id: "user-1",
+                                                created_at: "2026-04-01T00:00:00.000Z",
+                                                updated_at: "2026-04-01T00:00:00.000Z",
+                                                archived_at: null,
+                                            },
+                                        ],
+                                        error: null,
+                                    }),
+                                }),
+                            }),
+                        };
+                    }
+                    return {};
+                }),
+                rpc: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({
+                        data: {
+                            board_id: "board-default-id",
+                            board_name: "My groceries",
+                            owner_user_id: "user-1",
+                            role: "owner",
+                            created_at: "2026-04-01T00:00:00.000Z",
+                            updated_at: "2026-04-01T00:00:00.000Z",
+                        },
+                        error: null,
+                    }),
+                }),
+            };
+
+            mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+            const boards = await listBoardsForIdentity({
+                userId: "user-1",
+                email: "user@example.com",
+                name: "Test User",
+                image: null,
+            });
+
+            expect(mockClient.rpc).toHaveBeenCalledWith("create_board_for_user", {
+                p_name: "My groceries",
+                p_user_id: "user-1",
+            });
+            expect(boards).toHaveLength(1);
+            expect(boards[0].id).toBe("board-default-id");
+            expect(boards[0].name).toBe("My groceries");
         });
     });
 });

@@ -5,10 +5,38 @@ import { InviteAcceptanceCard } from "@/contents/invite/InviteAcceptanceCard";
 import { mockAuthState, mockNavigationState } from "@/test/mock-state";
 import { renderWithProviders } from "@/test/render";
 
+const defaultInviteDetails = {
+    boardId: "board-123",
+    boardName: "Family Board",
+    role: "editor",
+    email: null,
+};
+
 describe("InviteAcceptanceCard", () => {
+    it("shows invalid/expired state when token is present but inviteDetails is null", () => {
+        renderWithProviders(
+            <InviteAcceptanceCard
+                canUseGoogleAuth
+                inviteDetails={null}
+                locale="en"
+                token="invalid-token"
+            />,
+            { withThemeProvider: true },
+        );
+
+        expect(screen.getByText("invite.expired")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "groceries.backToHome" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "auth.continueWithGoogle" })).not.toBeInTheDocument();
+    });
+
     it("preserves the invite URL when prompting an unauthenticated user to sign in", async () => {
         renderWithProviders(
-            <InviteAcceptanceCard canUseGoogleAuth locale="en" token="invite-token" />,
+            <InviteAcceptanceCard
+                canUseGoogleAuth
+                inviteDetails={defaultInviteDetails}
+                locale="en"
+                token="invite-token"
+            />,
             { withThemeProvider: true },
         );
 
@@ -30,6 +58,7 @@ describe("InviteAcceptanceCard", () => {
                 initialError="Unable to accept the invite."
                 initialSignedInEmail="person@example.com"
                 initialStatus="authenticated"
+                inviteDetails={defaultInviteDetails}
                 locale="en"
                 token="invite-token"
             />,
@@ -59,6 +88,7 @@ describe("InviteAcceptanceCard", () => {
                 canUseGoogleAuth
                 initialError="The signed-in email does not match this invite."
                 initialStatus="authenticated"
+                inviteDetails={defaultInviteDetails}
                 locale="en"
                 token="invite-token"
             />,
@@ -157,6 +187,7 @@ describe("InviteAcceptanceCard", () => {
             renderWithProviders(
                 <InviteAcceptanceCard
                     canUseGoogleAuth
+                    inviteDetails={defaultInviteDetails}
                     locale="en"
                     token="expired-token"
                 />,
@@ -210,6 +241,7 @@ describe("InviteAcceptanceCard", () => {
             renderWithProviders(
                 <InviteAcceptanceCard
                     canUseGoogleAuth
+                    inviteDetails={defaultInviteDetails}
                     isTestAuthEnabled={false}
                     locale="en"
                     token="token-xyz"
@@ -281,6 +313,54 @@ describe("InviteAcceptanceCard", () => {
 
             expect(screen.getByText("invite.expired")).toBeInTheDocument();
             expect(screen.queryByRole("button", { name: "invite.acceptInvitation" })).not.toBeInTheDocument();
+        });
+
+        it("shows expired alert and hides auth controls for unauthenticated user when invite is expired", () => {
+            mockAuthState.status = "unauthenticated";
+
+            renderWithProviders(
+                <InviteAcceptanceCard
+                    canUseGoogleAuth
+                    inviteDetails={{
+                        boardId: "board-123",
+                        boardName: "Test Board",
+                        role: "editor",
+                        email: null,
+                        isExpired: true,
+                    }}
+                    locale="en"
+                    token="token-expired"
+                />,
+                { withThemeProvider: true },
+            );
+
+            expect(screen.getByText("invite.expired")).toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: "auth.continueWithGoogle" })).not.toBeInTheDocument();
+            expect(screen.getByRole("link", { name: "groceries.backToHome" })).toBeInTheDocument();
+        });
+
+        it("shows already accepted alert and hides auth controls for unauthenticated user when invite is accepted", () => {
+            mockAuthState.status = "unauthenticated";
+
+            renderWithProviders(
+                <InviteAcceptanceCard
+                    canUseGoogleAuth
+                    inviteDetails={{
+                        boardId: "board-123",
+                        boardName: "Test Board",
+                        role: "editor",
+                        email: null,
+                        isAccepted: true,
+                    }}
+                    locale="en"
+                    token="token-accepted"
+                />,
+                { withThemeProvider: true },
+            );
+
+            expect(screen.getByText("invite.alreadyAccepted")).toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: "auth.continueWithGoogle" })).not.toBeInTheDocument();
+            expect(screen.getByRole("link", { name: "groceries.backToHome" })).toBeInTheDocument();
         });
     });
 });

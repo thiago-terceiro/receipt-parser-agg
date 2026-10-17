@@ -156,6 +156,24 @@ export const InviteAcceptanceCard = ({
         );
     }
 
+    if (!inviteDetails) {
+        return (
+            <Card className="rounded-[28px] border-[var(--border)] shadow-[var(--shadow)]">
+                <CardHeader>
+                    <CardTitle>{translations.groceries.boards.inviteTitle}</CardTitle>
+                    <CardDescription>
+                        {translations.invite.expired}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild variant="secondary">
+                        <Link href="/" locale={locale}>{translations.groceries.backToHome}</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        );
+    }
+
     if (resolvedStatus !== "authenticated") {
         return (
             <div className="grid gap-4">

@@ -311,13 +311,16 @@ export const ensureProfile = async (
   userId: string,
   email: string | null = null,
 ) => {
-  const payload = {
+  const payload: { id: string; email?: string } = {
     id: userId,
-    email,
   };
 
+  if (email !== null) {
+    payload.email = email;
+  }
+
   const { error } = await supabase.from("profiles").upsert(payload, {
-    ignoreDuplicates: false,
+    ignoreDuplicates: email === null,
     onConflict: "id",
   });
 

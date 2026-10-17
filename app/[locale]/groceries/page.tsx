@@ -15,6 +15,15 @@ import { getSessionIdentity } from "@/lib/session";
 
 import { GroceriesSignInCard } from "./GroceriesSignInCard";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 const shouldRecoverFromRequestedBoardError = (
   requestedBoardId: string | undefined,
   error: unknown,

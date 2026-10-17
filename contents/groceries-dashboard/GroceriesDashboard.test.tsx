@@ -211,6 +211,25 @@ describe("GroceriesDashboard", () => {
         expect(screen.getByText("true")).toBeInTheDocument();
     });
 
+    it("opens the mobile detail state when a category is selected on 900px-1023px screens", async () => {
+        Object.defineProperty(window, "innerWidth", { value: 950, configurable: true });
+
+        render(
+            <GroceriesDashboard
+                activeBoard={activeBoard}
+                boards={[activeBoard, secondaryBoard]}
+                payload={makeMonthPayload()}
+                currentMonth="2026-04"
+                members={members}
+                monthOptions={monthOptions}
+            />,
+        );
+
+        expect(screen.getByText("false")).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: "select category" }));
+        expect(screen.getByText("true")).toBeInTheDocument();
+    });
+
     it("formats tracked item totals as integers in the summary cards", () => {
         render(
             <GroceriesDashboard

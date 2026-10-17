@@ -425,4 +425,115 @@ describe("ReceiptWorkspace", () => {
             await screen.findByText("The server returned an empty response."),
         ).toBeInTheDocument();
     });
+
+    it("resets available boards when unauthenticated", async () => {
+        mockAuthState.session = null;
+        mockAuthState.status = "unauthenticated";
+
+        renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        expect(screen.queryByText("Home dashboard")).not.toBeInTheDocument();
+    });
+
+    it("allows changing the currency of the extracted receipt", async () => {
+        global.fetch = jest
+            .fn()
+            .mockResolvedValueOnce(
+                createResponse(
+                    JSON.stringify({
+                        backend: "hf-api",
+                        currencyCode: "EUR",
+                        modelId: "test-model",
+                        items: [
+                            {
+                                item: "Milk",
+                                normalizedItem: "milk",
+                                category: "dairy",
+                                quantity: 1,
+                                unitPrice: 3.5,
+                                lineTotal: 3.5,
+                            },
+                        ],
+                        rawResponse: "raw-output",
+                    }),
+                ),
+            );
+
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = container.querySelector("form") as HTMLFormElement;
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        const file = new File(["image"], "receipt.png", { type: "image/png" });
+        fireEvent.change(input, { target: { files: [file] } });
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        await screen.findAllByText("Milk");
+
+        expect(screen.getByText('receipt.total {"amount":"€3.50"}')).toBeInTheDocument();
+
+        const currencyButton = screen.getByRole("button", { name: "Change currency" });
+        await userEvent.click(currencyButton);
+
+        const usdOption = screen.getByRole("option", { name: "USD" });
+        await userEvent.click(usdOption);
+
+        expect(screen.getByText('receipt.total {"amount":"$3.50"}')).toBeInTheDocument();
+    });
+
+    it("closes currency selector dropdown on Escape key", async () => {
+        global.fetch = jest
+            .fn()
+            .mockResolvedValueOnce(
+                createResponse(
+                    JSON.stringify({
+                        backend: "hf-api",
+                        currencyCode: "EUR",
+                        modelId: "test-model",
+                        items: [
+                            {
+                                item: "Bread",
+                                normalizedItem: "bread",
+                                category: "bakery",
+                                quantity: 1,
+                                unitPrice: 2.0,
+                                lineTotal: 2.0,
+                            },
+                        ],
+                        rawResponse: "raw-output",
+                    }),
+                ),
+            );
+
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = container.querySelector("form") as HTMLFormElement;
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        const file = new File(["image"], "receipt.png", { type: "image/png" });
+        fireEvent.change(input, { target: { files: [file] } });
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        await screen.findAllByText("Bread");
+
+        const currencyButton = screen.getByRole("button", { name: "Change currency" });
+        await userEvent.click(currencyButton);
+        expect(screen.getByRole("listbox", { name: "Supported currencies" })).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+        expect(screen.queryByRole("listbox", { name: "Supported currencies" })).not.toBeInTheDocument();
+    });
 });

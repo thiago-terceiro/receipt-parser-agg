@@ -2,6 +2,18 @@ export type CurrencyCode = string;
 
 export const legacyDefaultCurrencyCode: CurrencyCode = "USD";
 
+export const SUPPORTED_CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "BRL",
+  "CAD",
+  "AUD",
+  "JPY",
+  "CHF",
+  "MXN",
+] as const;
+
 export const sanitizeCurrencyCode = (
   value: unknown,
 ): CurrencyCode | null => {

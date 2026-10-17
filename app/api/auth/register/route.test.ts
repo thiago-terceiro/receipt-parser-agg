@@ -2,14 +2,14 @@
  * @jest-environment node
  */
 
-import { isTestAuthEnabled } from "@/auth";
+import { isCredentialsAuthEnabled } from "@/auth";
 import { AuthRegistrationError, registerUser } from "@/lib/auth-db";
 import { checkRegisterRateLimit } from "@/lib/rate-limit";
 
 import { POST } from "./route";
 
 jest.mock("@/auth", () => ({
-  isTestAuthEnabled: jest.fn(() => true),
+  isCredentialsAuthEnabled: jest.fn(() => true),
 }));
 
 jest.mock("@/lib/rate-limit", () => ({
@@ -45,11 +45,11 @@ const createJsonRequest = (body: unknown) => {
 describe("POST /api/auth/register", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (isTestAuthEnabled as jest.Mock).mockReturnValue(true);
+    (isCredentialsAuthEnabled as jest.Mock).mockReturnValue(true);
   });
 
   it("returns 403 when registration is disabled in production", async () => {
-    (isTestAuthEnabled as jest.Mock).mockReturnValueOnce(false);
+    (isCredentialsAuthEnabled as jest.Mock).mockReturnValueOnce(false);
     const request = createJsonRequest({ email: "user@example.com", password: "password123" });
     const response = await POST(request);
     expect(response.status).toBe(403);

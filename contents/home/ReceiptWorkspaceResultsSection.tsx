@@ -1,7 +1,8 @@
 "use client";
 
-import { LayoutDashboard } from "lucide-react";
+import { Check, ChevronDown, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,12 @@ import {
 import type { ExtractionResponse } from "@/context/ReceiptWorkspaceStateProvider";
 import { Link } from "@/i18n/navigation";
 import type { BoardSummary } from "@/lib/boards";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { formatCategoryLabel, type ReceiptItem } from "@/lib/receipt";
 import type { ReceiptUploadKind } from "@/lib/receipt-upload";
+import { cn } from "@/lib/utils";
 
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
@@ -61,6 +64,7 @@ type ReceiptWorkspaceResultsSectionProps = {
     translations: WorkspaceTranslations;
     onAddManualItem: () => void;
     onBoardChange: (boardId: string) => void;
+    onCurrencyChange?: (currencyCode: string) => void;
     onEditItem: (index: number) => void;
     onRemoveManualItem: (index: number) => void;
     onSaveGroceries: () => void;
@@ -90,10 +94,45 @@ export const ReceiptWorkspaceResultsSection = ({
     translations,
     onAddManualItem,
     onBoardChange,
+    onCurrencyChange,
     onEditItem,
     onRemoveManualItem,
     onSaveGroceries,
 }: ReceiptWorkspaceResultsSectionProps) => {
+    const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+    const currencyRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isCurrencyOpen) {
+            return;
+        }
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (currencyRef.current && !currencyRef.current.contains(event.target as Node)) {
+                setIsCurrencyOpen(false);
+            }
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setIsCurrencyOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isCurrencyOpen]);
+
+    const currencies = result
+        ? (SUPPORTED_CURRENCIES as readonly string[]).includes(result.currencyCode)
+            ? (SUPPORTED_CURRENCIES as readonly string[])
+            : [result.currencyCode, ...(SUPPORTED_CURRENCIES as readonly string[])]
+        : (SUPPORTED_CURRENCIES as readonly string[]);
+
     const dashboardPlaceholder = isBoardsLoading
         ? translations.receipt.loadingDashboards
         : availableBoards.length > 0
@@ -152,7 +191,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                 <p className="m-0 text-sm text-muted-foreground">
                                     {translations.receipt.servedBy(result.backend)}
                                 </p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <Badge
                                         variant="outline"
                                         className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
@@ -165,6 +204,54 @@ export const ReceiptWorkspaceResultsSection = ({
                                     >
                                         {translations.receipt.total(currencyFormatter.format(displayedTotal))}
                                     </Badge>
+                                    {onCurrencyChange ? (
+                                        <div ref={currencyRef} className="relative inline-block">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                aria-label="Change currency"
+                                                aria-expanded={isCurrencyOpen}
+                                                aria-haspopup="listbox"
+                                                onClick={() => setIsCurrencyOpen((prev) => !prev)}
+                                                className="h-6 gap-1 rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-[var(--surface-plain)]"
+                                            >
+                                                <span>{result.currencyCode}</span>
+                                                <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
+                                            </Button>
+                                            {isCurrencyOpen ? (
+                                                <div
+                                                    role="listbox"
+                                                    aria-label="Supported currencies"
+                                                    className="absolute right-0 top-full z-50 mt-1 max-h-48 min-w-[90px] overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-plain)] p-1 shadow-md backdrop-blur-md"
+                                                >
+                                                    {currencies.map((code) => (
+                                                        <button
+                                                            key={code}
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={code === result.currencyCode}
+                                                            onClick={() => {
+                                                                onCurrencyChange(code);
+                                                                setIsCurrencyOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-[var(--surface-accent)] hover:text-[var(--accent-dark)]",
+                                                                code === result.currencyCode
+                                                                    ? "bg-[var(--surface-plain-soft)] font-semibold text-foreground"
+                                                                    : "text-muted-foreground",
+                                                            )}
+                                                        >
+                                                            <span>{code}</span>
+                                                            {code === result.currencyCode ? (
+                                                                <Check className="size-3 text-[var(--accent-dark)]" aria-hidden="true" />
+                                                            ) : null}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
                                     {correctedCount > 0 ? (
                                         <Badge
                                             variant="outline"

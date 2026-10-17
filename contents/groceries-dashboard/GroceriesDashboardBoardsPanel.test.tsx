@@ -133,4 +133,35 @@ describe("GroceriesDashboardBoardsPanel", () => {
             `${window.location.origin}/en/invite?token=secret-token`,
         );
     });
+
+    it("renders errors inside the create board dialog when creation fails", async () => {
+        global.fetch = jest.fn().mockResolvedValue(
+            createJsonResponse({ error: "Board name is too long." }, false),
+        ) as jest.Mock;
+
+        render(
+            <GroceriesDashboardBoardsPanel
+                activeBoard={activeBoard}
+                boards={[activeBoard]}
+                members={members}
+                translations={translations}
+                onBoardActivated={jest.fn()}
+            />,
+        );
+
+        await userEvent.click(
+            screen.getByRole("button", { name: "groceries.boards.createBoard" }),
+        );
+        await userEvent.type(
+            screen.getByLabelText("groceries.boards.createBoardPlaceholder"),
+            "Invalid board",
+        );
+        await userEvent.click(
+            screen.getByRole("button", { name: "groceries.boards.createBoardSubmit" }),
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText("Board name is too long.").length).toBeGreaterThan(0);
+        });
+    });
 });

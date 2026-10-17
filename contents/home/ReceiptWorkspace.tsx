@@ -275,8 +275,20 @@ export const ReceiptWorkspace = ({
     null,
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id;
+  const previousUserIdRef = useRef<string | undefined>(currentUserId);
+
+  useEffect(() => {
+    if (
+      previousUserIdRef.current &&
+      (!currentUserId || currentUserId !== previousUserIdRef.current)
+    ) {
+      clearPersistedReceiptDraft();
+    }
+    previousUserIdRef.current = currentUserId;
+  }, [currentUserId]);
   const currencyFormatter = useMemo(
     () =>
       createCurrencyFormatter(
@@ -375,7 +387,15 @@ export const ReceiptWorkspace = ({
   ]);
 
   useEffect(() => {
-    if (!isAuthenticated || !result) {
+    if (!isAuthenticated) {
+      startTransition(() => {
+        setAvailableBoards([]);
+        setSelectedBoardId("");
+      });
+      return;
+    }
+
+    if (!result) {
       return;
     }
 
@@ -773,6 +793,13 @@ export const ReceiptWorkspace = ({
     translations.receipt,
   ]);
 
+  const handleCurrencyChange = useCallback(
+    (newCurrency: string) => {
+      setResult((prev) => (prev ? { ...prev, currencyCode: newCurrency } : null));
+    },
+    [setResult],
+  );
+
   const closeEditor = useCallback(() => {
     setEditorState(null);
   }, []);
@@ -1058,6 +1085,7 @@ export const ReceiptWorkspace = ({
         translations={translations}
         onAddManualItem={openManualItemEditor}
         onBoardChange={setSelectedBoardId}
+        onCurrencyChange={handleCurrencyChange}
         onEditItem={openEditor}
         onRemoveManualItem={removeManualItem}
         onSaveGroceries={handleSaveGroceries}

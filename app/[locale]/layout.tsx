@@ -22,6 +22,19 @@ type LocaleLayoutProps = {
 export const generateStaticParams = () =>
   routing.locales.map((locale) => ({ locale: getLocaleSegment(locale) }));
 
+const defaultSiteUrl = "https://receipt-parser-agg.vercel.app";
+
+const getMetadataBase = (): URL => {
+  const envUrl =
+    process.env.NEXTAUTH_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  try {
+    return new URL(envUrl || defaultSiteUrl);
+  } catch {
+    return new URL(defaultSiteUrl);
+  }
+};
+
 export const generateMetadata = async ({
   params,
 }: {
@@ -32,6 +45,7 @@ export const generateMetadata = async ({
   const { locale } = await params;
   if (!isLocaleSegment(locale)) {
     return {
+      metadataBase: getMetadataBase(),
       title: "Not Found",
     };
   }
@@ -42,6 +56,7 @@ export const generateMetadata = async ({
   });
 
   return {
+    metadataBase: getMetadataBase(),
     title: { default: t("title"), template: "%s | Receipt Aggregator AI" },
     description: t("description"),
   };

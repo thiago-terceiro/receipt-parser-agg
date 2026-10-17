@@ -283,7 +283,12 @@ export const GroceriesDashboard = ({
   const handleSelectCategory = useCallback(
     (category: GroceryCategorySummary) => {
       setSelectedCategory(category.category);
-      if (typeof window !== "undefined" && window.innerWidth < 900) {
+      if (
+        typeof window !== "undefined" &&
+        (window.innerWidth < 1024 ||
+          (window.matchMedia &&
+            window.matchMedia("(max-width: 1023px)").matches))
+      ) {
         setIsMobileDetailOpen(true);
       }
     },

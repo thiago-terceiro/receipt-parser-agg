@@ -93,6 +93,89 @@ describe("authOptions", () => {
       });
     });
 
+    it("enables credentials auth in production when AUTH_ENABLE_CREDENTIALS is true", () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      try {
+        (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+        delete process.env.ENABLE_TEST_AUTH;
+        process.env.AUTH_ENABLE_CREDENTIALS = "true";
+
+        expect(isCredentialsAuthEnabled()).toBe(true);
+      } finally {
+        (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
+        delete process.env.AUTH_ENABLE_CREDENTIALS;
+      }
+    });
+
+    it("enables credentials auth in production when NEXT_PUBLIC_ENABLE_CREDENTIALS_AUTH is true", () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      try {
+        (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+        delete process.env.ENABLE_TEST_AUTH;
+        process.env.NEXT_PUBLIC_ENABLE_CREDENTIALS_AUTH = "true";
+
+        expect(isCredentialsAuthEnabled()).toBe(true);
+      } finally {
+        (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
+        delete process.env.NEXT_PUBLIC_ENABLE_CREDENTIALS_AUTH;
+      }
+    });
+
+    it("rejects credentials when an existing profile exists in database (prevents account takeover)", async () => {
+      mockHasSupabaseConfig = true;
+      const mockClient = {
+        from: jest.fn().mockImplementation((table: string) => {
+          if (table === "user_credentials") {
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "profiles") {
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockImplementation((col: string, val: string) => ({
+                  maybeSingle: jest.fn().mockResolvedValue(
+                    val === "victim@example.com"
+                      ? { data: { id: "victim-profile-uuid" }, error: null }
+                      : { data: null, error: null },
+                  ),
+                })),
+              }),
+            };
+          }
+          return { select: jest.fn() };
+        }),
+      };
+      mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+      const user = await credentialsProvider.authorize({
+        username: "victim@example.com",
+        password: getCredentialsPassword(),
+      });
+
+      expect(user).toBeNull();
+      mockHasSupabaseConfig = false;
+    });
+
+    it("rejects credentials when database verification throws an error", async () => {
+      mockHasSupabaseConfig = true;
+      mockGetSupabaseServerClient.mockImplementation(() => {
+        throw new Error("Database network failure");
+      });
+
+      const user = await credentialsProvider.authorize({
+        username: "victim@example.com",
+        password: getCredentialsPassword(),
+      });
+
+      expect(user).toBeNull();
+      mockHasSupabaseConfig = false;
+    });
+
     it("rejects credentials authorization when credentials auth is disabled in production", async () => {
       const originalNodeEnv = process.env.NODE_ENV;
       const originalEnableTestAuth = process.env.ENABLE_TEST_AUTH;
@@ -336,6 +419,71 @@ describe("authOptions", () => {
       });
 
       expect(token.uid).toBe("newly-created-profile-id");
+    });
+
+    it("does not overwrite token.uid for synthetic test credentials user when profile exists", async () => {
+      const mockClient = {
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: "victim-profile-uuid" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+      const account: Account = {
+        provider: "credentials",
+        type: "credentials",
+        providerAccountId: "test-user-owner-001",
+      };
+      const user: User = {
+        id: "test-user-owner-001",
+        email: "victim@example.com",
+        name: "Test User",
+      };
+
+      const token = await authOptions.callbacks!.jwt!({
+        token: {} as JWT,
+        user,
+        account,
+      });
+
+      expect(token.uid).toBe("test-user-owner-001");
+    });
+
+    it("does not overwrite token.uid for synthetic test credentials user when account is undefined", async () => {
+      const mockClient = {
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: "victim-profile-uuid" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+      const user: User = {
+        id: "test-user-owner-001",
+        email: "victim@example.com",
+        name: "Test User",
+      };
+
+      const token = await authOptions.callbacks!.jwt!({
+        token: {} as JWT,
+        user,
+        account: undefined as unknown as Account,
+      });
+
+      expect(token.uid).toBe("test-user-owner-001");
     });
 
     it("does not query Supabase on subsequent JWT checks when token.uid is already unified", async () => {

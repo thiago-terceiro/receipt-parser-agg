@@ -156,10 +156,50 @@ A second-round adversarial audit was performed on the implementations, testing e
 4. **App Router Error Boundary Styling**: `app/global-error.tsx` imports `./globals.css` so design tokens resolve cleanly in root layout crashes.
 5. **JSON Syntax & Primitive Guarding**: All mutated API routes (`POST /api/boards`, `POST /api/invites/accept`, `POST /api/expenses`, etc.) validate that payloads are non-null objects, returning HTTP 400 Bad Request on malformed or primitive JSON rather than unhandled 500 errors.
 
-### Final Verification Status
+### Final Verification Status (Cycle 1)
 - **Type Check**: `tsc --noEmit` -> 0 errors.
 - **Linter**: `eslint .` -> 0 warnings, 0 errors.
 - **Test Suite**: `jest --runInBand` -> **45 test suites passed, 233 tests passed (100% passing)**.
 - **Production Turbopack Build**: Compiled successfully in 6.3s with 0 errors.
+
+---
+
+## 6. Principal Codebase Audit & Second-Round Top-Quality Hardening
+
+A subsequent file-by-file audit by the Principal Codebase Auditor identified 8 high-impact enhancements across authentication security, UI responsiveness, error handling, RPC authorization, and i18n parsing:
+
+1. **Decoupled Auth & Critical Account Takeover Elimination (`auth.ts`, `app/api/auth/register/route.ts`)**:
+   - Decoupled `isCredentialsAuthEnabled()` from `isTestAuthEnabled()`.
+   - In `authorize()`, when `hasSupabaseServerConfig` is active, if `getUserByEmail` or `getUserByUsername` finds an existing profile or if verification encounters an error, it immediately returns `null` and never falls through to synthetic test accounts.
+   - In `callbacks.jwt`, candidate IDs beginning with `test-user-` or `user_` never overwrite `token.uid` with an existing database profile, even when NextAuth omits `account`.
+2. **First-Time User Default Board Creation on `/` (`lib/boards-server.ts`, `contents/home/ReceiptWorkspace.tsx`)**:
+   - `listBoardsForIdentity()` now invokes `ensureDefaultBoardForIdentity()` when `boards.length === 0`, ensuring first-time users landing on `/` immediately have a default `"My groceries"` board to save extracted receipts.
+   - `ReceiptWorkspace.tsx` and `ReceiptWorkspaceStateProvider.tsx` reset available boards and selected board state when an authenticated user signs out or switches accounts.
+3. **Category Drill-Down Dead Zone Fix (`GroceriesDashboardCategoriesSection.tsx`)**:
+   - Aligned the mobile `<Dialog>` media query to `(max-width: 1023px)`, matching Tailwind's `lg` breakpoint (`1024px`) and eliminating the inactive tap zone between `900px` and `1023px`.
+4. **Modal Form Error Visibility (`GroceriesDashboardBoardsPanel.tsx`)**:
+   - Error and status alerts are now rendered directly inside the "Create board" and "Invite collaborator" `<DialogContent>` modals, ensuring immediate feedback above the form inputs.
+5. **Supabase `SECURITY DEFINER` RPC Hardening & Email Indexes (`202605170001_harden_board_rpcs_and_indexes.sql`)**:
+   - Hardened `accept_board_invite` to prevent owner role demotion on conflict.
+   - Revoked `EXECUTE` on `create_board_for_user`, `set_last_active_board`, and `accept_board_invite` from `PUBLIC, anon, authenticated` and granted strictly to `service_role`.
+   - Added indexes on `profiles(email)` and `profiles(lower(email))`.
+6. **Invite Status Exclusivity & Unauthenticated PII Redaction (`lib/boards-server.ts`, `app/[locale]/invite/page.tsx`)**:
+   - Ensured `isAccepted` and `isExpired` are mutually exclusive and handled revoked/expired tokens.
+   - Redacted `email` from invite details passed to unauthenticated visitors.
+7. **Extraction `Retry-After` Delta Seconds & Currency Override UI (`app/api/extract/route.ts`, `app/api/expenses/route.ts`, `ReceiptWorkspaceResultsSection.tsx`)**:
+   - Converted Upstash millisecond timestamps to delta seconds via `computeRetryAfterSeconds`.
+   - Prioritized client-selected `currencyCode` over LLM extraction fallback in `/api/expenses`.
+   - Added an interactive currency selector with keyboard (`Escape`) dismissal to the extracted results table header.
+8. **Quality-Weighted (`q=`) `Accept-Language` Parsing & SEO Hardening (`lib/i18n/config.ts`, `app/sitemap.ts`, `app/[locale]/groceries/page.tsx`, `scripts/shared-board-migration-utils.ts`)**:
+   - Added quality weight sorting for `Accept-Language` header ranges, supporting regional subtags (`pt-PT` -> `pt-BR`).
+   - Removed auth-gated `/groceries` from public sitemap and added `robots: { index: false, follow: false }` to `/groceries` and `/invite`.
+   - Guarded Redis migration so `email: null` records never overwrite existing `profiles.email` values.
+
+### Top-Quality Verification Status (Cycle 2)
+- **Type Check**: `tsc --noEmit` -> 0 errors.
+- **Linter**: `eslint .` -> 0 warnings, 0 errors.
+- **Test Suite**: `jest --runInBand` -> **46 test suites passed, 257 tests passed (100% passing)**.
+- **Production Turbopack Build**: Compiled successfully in 19.2s with 0 errors across 24 routes.
 - **Verdict**: Verified and production-ready.
+
 

@@ -36,6 +36,12 @@ export async function POST(request: Request) {
   try {
     identity = await requireBoardIdentity();
   } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
     const message = error instanceof Error ? error.message : "Sign in to save groceries.";
 
     return NextResponse.json(
@@ -91,7 +97,7 @@ export async function POST(request: Request) {
   }
 
   const currencyCode =
-    parsedExtraction?.currencyCode ?? sanitizeCurrencyCode(data.currencyCode);
+    sanitizeCurrencyCode(data.currencyCode) ?? parsedExtraction?.currencyCode;
 
   if (!parsedItems || parsedItems.length === 0) {
     return NextResponse.json(
@@ -161,6 +167,12 @@ export async function GET(request: Request) {
   try {
     identity = await requireBoardIdentity();
   } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
     const message = error instanceof Error ? error.message : "Sign in to view groceries.";
 
     return NextResponse.json(
@@ -190,6 +202,13 @@ export async function GET(request: Request) {
       },
     );
   } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Unable to load groceries.";
 
     return NextResponse.json({ error: message }, { status: 500 });
@@ -202,6 +221,12 @@ export async function DELETE(request: Request) {
   try {
     identity = await requireBoardIdentity();
   } catch (error) {
+    if (error instanceof BoardRouteError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode },
+      );
+    }
     const message = error instanceof Error ? error.message : "Sign in to manage groceries.";
 
     return NextResponse.json(

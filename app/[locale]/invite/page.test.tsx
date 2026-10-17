@@ -51,13 +51,13 @@ describe("InvitePage", () => {
         expect(page.props.children.props.token).toBe("invite-token");
     });
 
-    it("handles unauthenticated visitors safely without accepting", async () => {
+    it("handles unauthenticated visitors safely without accepting and redacts invitee email", async () => {
         (getSessionIdentity as jest.Mock).mockResolvedValue(null);
         (getPendingBoardInviteDetails as jest.Mock).mockResolvedValue({
             boardId: "board-123",
             boardName: "Test Board",
             role: "editor",
-            email: null,
+            email: "secret-invitee@example.com",
         });
 
         const page = await InvitePage({
@@ -68,5 +68,6 @@ describe("InvitePage", () => {
         expect(page.props.children.props.initialSignedInEmail).toBeNull();
         expect(page.props.children.props.initialStatus).toBe("unauthenticated");
         expect(page.props.children.props.token).toBe("invite-token");
+        expect(page.props.children.props.inviteDetails.email).toBeNull();
     });
 });

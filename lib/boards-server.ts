@@ -84,6 +84,10 @@ export class BoardRouteError extends Error {
         this.name = "BoardRouteError";
         this.statusCode = statusCode;
     }
+
+    get status(): number {
+        return this.statusCode;
+    }
 }
 
 const createSupabaseError = (error: { message?: string } | null, fallback: string) => {
@@ -254,20 +258,6 @@ const listBoardsForIdentityWithClient = async (
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 };
 
-export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity) => {
-    return withSpan("boards.list_for_identity", async (span) => {
-        const client = getSupabaseServerClient();
-        await ensureBoardProfile(client, identity);
-        const boards = await listBoardsForIdentityWithClient(client, identity);
-
-        span.setAttributes({
-            [observabilityAttributes.boardCount]: boards.length,
-        });
-
-        return boards;
-    });
-};
-
 export const createBoardForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     boardName: unknown,
@@ -303,6 +293,32 @@ export const createBoardForIdentity = async (
     });
 };
 
+export const ensureDefaultBoardForIdentity = async (
+    client: SupabaseClient,
+    identity: AuthenticatedBoardIdentity,
+) => {
+    await createBoardForIdentity(identity, DEFAULT_BOARD_NAME);
+    return listBoardsForIdentityWithClient(client, identity);
+};
+
+export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity) => {
+    return withSpan("boards.list_for_identity", async (span) => {
+        const client = getSupabaseServerClient();
+        await ensureBoardProfile(client, identity);
+        let boards = await listBoardsForIdentityWithClient(client, identity);
+
+        if (boards.length === 0) {
+            boards = await ensureDefaultBoardForIdentity(client, identity);
+        }
+
+        span.setAttributes({
+            [observabilityAttributes.boardCount]: boards.length,
+        });
+
+        return boards;
+    });
+};
+
 export const resolveActiveBoardForIdentity = async (
     identity: AuthenticatedBoardIdentity,
     requestedBoardId?: unknown,
@@ -321,9 +337,8 @@ export const resolveActiveBoardForIdentity = async (
         let boards = await listBoardsForIdentityWithClient(client, identity);
 
         if (boards.length === 0) {
-            await createBoardForIdentity(identity, DEFAULT_BOARD_NAME);
+            boards = await ensureDefaultBoardForIdentity(client, identity);
             profile = await ensureBoardProfile(client, identity);
-            boards = await listBoardsForIdentityWithClient(client, identity);
         }
 
         if (boards.length === 0) {
@@ -667,8 +682,11 @@ export const getPendingBoardInviteDetails = async (
                 .maybeSingle();
 
             if (existingInvite) {
-                const isExpired = new Date(existingInvite.expires_at).getTime() <= Date.now();
                 const isAccepted = existingInvite.status === "accepted";
+                const isExpired =
+                    !isAccepted &&
+                    (existingInvite.status !== "pending" ||
+                        new Date(existingInvite.expires_at).getTime() <= Date.now());
                 const { data: board } = await client
                     .from("boards")
                     .select("id, name")

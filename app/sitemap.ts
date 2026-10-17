@@ -1,18 +1,25 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl = "https://receipt-parser-agg.vercel.app";
   return [
     {
-      url: "https://receipt-parser-agg.vercel.app/en/",
+      url: `${baseUrl}/en/`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 1,
     },
     {
-      url: "https://receipt-parser-agg.vercel.app/en/groceries",
+      url: `${baseUrl}/es/`,
       lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/pt-br/`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.9,
     },
   ];
 }

@@ -379,6 +379,12 @@ const GroceriesDashboardBoardsPanelContent = ({
             </DialogDescription>
           </DialogHeader>
 
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
           <div className="grid gap-4 pt-4">
             <label className="grid gap-2 text-sm">
               <span className="font-semibold text-foreground">
@@ -413,6 +419,18 @@ const GroceriesDashboardBoardsPanelContent = ({
               {translations.groceries.boards.inviteDescription}
             </DialogDescription>
           </DialogHeader>
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {statusMessage ? (
+            <Alert>
+              <AlertDescription>{statusMessage}</AlertDescription>
+            </Alert>
+          ) : null}
 
           <div className="grid gap-4 pt-4">
             <label className="grid gap-2 text-sm">

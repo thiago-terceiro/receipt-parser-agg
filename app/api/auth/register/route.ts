@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { isTestAuthEnabled } from "@/auth";
+import { isCredentialsAuthEnabled } from "@/auth";
 import { AuthRegistrationError, registerUser } from "@/lib/auth-db";
 import {
   checkRegisterRateLimit,
@@ -10,7 +10,7 @@ import {
 export const runtime = "nodejs";
 
 export const POST = async (request: Request) => {
-  if (!isTestAuthEnabled()) {
+  if (!isCredentialsAuthEnabled()) {
     return NextResponse.json(
       { error: "Registration is disabled in production." },
       { status: 403 },

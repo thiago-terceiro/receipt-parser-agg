@@ -8,6 +8,7 @@ import {
   observabilityEvents,
   observabilityFields,
 } from "@/lib/observability-schema";
+import { createRateLimitHeaders } from "@/lib/rate-limit";
 import { getSessionIdentity } from "@/lib/session";
 
 import {
@@ -317,12 +318,7 @@ export const POST = async (request: Request) => {
       },
       {
         status: 429,
-        headers: {
-          "Retry-After": String(Math.max(rateLimit.reset, 1)),
-          "X-RateLimit-Limit": String(rateLimit.limit),
-          "X-RateLimit-Remaining": String(rateLimit.remaining),
-          "X-RateLimit-Reset": String(rateLimit.reset),
-        },
+        headers: createRateLimitHeaders(rateLimit),
       },
     );
   }

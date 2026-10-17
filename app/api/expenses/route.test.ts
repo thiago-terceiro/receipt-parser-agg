@@ -204,6 +204,47 @@ describe("app/api/expenses/route", () => {
             );
         });
 
+        it("prioritizes explicit data.currencyCode over rawResponse extraction currency", async () => {
+            mockPersistGroceriesEntries.mockResolvedValueOnce({
+                activeBoard,
+                savedCount: 1,
+            });
+
+            const request = new Request("http://localhost/api/expenses", {
+                method: "POST",
+                body: JSON.stringify({
+                    boardId: activeBoard.id,
+                    currencyCode: "BRL",
+                    rawResponse: JSON.stringify({
+                        currencyCode: "USD",
+                        items: [
+                            {
+                                item: "Coffee",
+                                normalizedItem: "coffee",
+                                category: "beverages",
+                                quantity: 1,
+                                unitPrice: 10,
+                                lineTotal: 10,
+                            },
+                        ],
+                    }),
+                }),
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(200);
+
+            expect(mockPersistGroceriesEntries).toHaveBeenCalledWith(
+                testIdentity,
+                activeBoard.id,
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        currencyCode: "BRL",
+                    }),
+                ]),
+            );
+        });
+
         it("propagates BoardRouteError status codes (e.g. 409 currency conflict)", async () => {
             mockPersistGroceriesEntries.mockRejectedValueOnce(
                 new BoardRouteError(
