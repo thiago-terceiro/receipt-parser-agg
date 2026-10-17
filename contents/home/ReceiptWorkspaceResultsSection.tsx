@@ -53,6 +53,7 @@ type ReceiptWorkspaceResultsSectionProps = {
     extractedItemCount: number;
     isAuthenticated: boolean;
     isBoardsLoading: boolean;
+    isLoading?: boolean;
     isSaving: boolean;
     locale: AppLocale;
     previewKind: ReceiptUploadKind | null;
@@ -83,6 +84,7 @@ export const ReceiptWorkspaceResultsSection = ({
     extractedItemCount,
     isAuthenticated,
     isBoardsLoading,
+    isLoading = false,
     isSaving,
     locale,
     previewKind,
@@ -150,25 +152,59 @@ export const ReceiptWorkspaceResultsSection = ({
                 </div>
                 <CardContent className="p-6 max-[640px]:p-5">
                     {previewUrl && previewKind === "image" ? (
-                        <Image
-                            className="receipt-preview"
-                            src={previewUrl}
-                            alt={translations.receipt.previewAlt}
-                            width={1200}
-                            height={1600}
-                            unoptimized
-                        />
+                        <div className="relative overflow-hidden rounded-[18px]">
+                            <Image
+                                className="receipt-preview block"
+                                src={previewUrl}
+                                alt={translations.receipt.previewAlt}
+                                width={1200}
+                                height={1600}
+                                unoptimized
+                            />
+                            {isLoading ? (
+                                <>
+                                    <div className="receipt-scan-overlay" aria-hidden="true" />
+                                    <div className="receipt-scan-laser" aria-hidden="true" />
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3.5 py-1.5 shadow-lg backdrop-blur-md">
+                                        <span className="relative flex size-2">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--primary)] opacity-75" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-[var(--primary)]" />
+                                        </span>
+                                        <span className="text-xs font-semibold tracking-wide text-foreground">
+                                            {translations.receipt.extracting}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : null}
+                        </div>
                     ) : previewUrl && previewKind === "pdf" ? (
-                        <object
-                            aria-label={translations.receipt.previewAlt}
-                            className="min-h-[420px] w-full overflow-hidden rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-muted)]"
-                            data={previewUrl}
-                            type="application/pdf"
-                        >
-                            <div className="grid min-h-[240px] place-items-center p-6 text-center text-muted-foreground">
-                                {displayedFileName ?? translations.receipt.previewAlt}
-                            </div>
-                        </object>
+                        <div className="relative overflow-hidden rounded-[18px]">
+                            <object
+                                aria-label={translations.receipt.previewAlt}
+                                className="min-h-[420px] w-full overflow-hidden rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-muted)]"
+                                data={previewUrl}
+                                type="application/pdf"
+                            >
+                                <div className="grid min-h-[240px] place-items-center p-6 text-center text-muted-foreground">
+                                    {displayedFileName ?? translations.receipt.previewAlt}
+                                </div>
+                            </object>
+                            {isLoading ? (
+                                <>
+                                    <div className="receipt-scan-overlay" aria-hidden="true" />
+                                    <div className="receipt-scan-laser" aria-hidden="true" />
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3.5 py-1.5 shadow-lg backdrop-blur-md">
+                                        <span className="relative flex size-2">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--primary)] opacity-75" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-[var(--primary)]" />
+                                        </span>
+                                        <span className="text-xs font-semibold tracking-wide text-foreground">
+                                            {translations.receipt.extracting}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : null}
+                        </div>
                     ) : (
                         <div className="grid min-h-[240px] place-items-center rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-plain-muted)] p-6 text-center text-muted-foreground">
                             {previewPlaceholderText}
@@ -282,7 +318,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     return (
                                         <article
                                             key={`mobile-${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
-                                            className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4"
+                                            className="group rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm"
                                         >
                                             <div className="flex flex-col gap-3">
                                                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -397,6 +433,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                             return (
                                                 <TableRow
                                                     key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
+                                                    className="transition-colors duration-150 hover:bg-[var(--surface-plain-soft)]"
                                                 >
                                                     <TableCell>
                                                         <div className="flex flex-wrap items-center gap-2">
@@ -505,7 +542,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     <Button
                                         type="button"
                                         onClick={onSaveGroceries}
-                                        className="max-[640px]:w-full"
+                                        className="max-[640px]:w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
                                         disabled={
                                             !isAuthenticated ||
                                             isSaving ||
@@ -520,7 +557,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     <Button
                                         asChild
                                         variant="secondary"
-                                        className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full"
+                                        className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
                                     >
                                         <Link href={dashboardHref} locale={locale}>
                                             <LayoutDashboard className="size-4" aria-hidden="true" />

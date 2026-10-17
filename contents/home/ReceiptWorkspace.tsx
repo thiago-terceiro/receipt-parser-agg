@@ -1075,6 +1075,7 @@ export const ReceiptWorkspace = ({
         extractedItemCount={extractedItemCount}
         isAuthenticated={isAuthenticated}
         isBoardsLoading={isBoardsLoading}
+        isLoading={isLoading}
         isSaving={isSaving}
         previewKind={displayedPreviewKind}
         previewPlaceholderText={previewPlaceholderText}

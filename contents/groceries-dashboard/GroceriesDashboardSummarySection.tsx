@@ -89,13 +89,15 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4"
+          className="group rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(181,82,51,0.32)] hover:bg-[var(--surface-plain)] hover:shadow-md"
         >
           <div className="flex items-center justify-between gap-3">
-            <p className="m-0 text-sm text-muted-foreground">{stat.label}</p>
-            <stat.icon className="size-4 text-[var(--accent-dark)]" aria-hidden="true" />
+            <p className="m-0 text-sm font-medium text-muted-foreground">{stat.label}</p>
+            <div className="inline-grid size-8 place-items-center rounded-xl bg-[rgba(181,82,51,0.12)] text-[var(--accent-dark)] transition-transform duration-200 group-hover:scale-105">
+              <stat.icon className="size-4" aria-hidden="true" />
+            </div>
           </div>
-          <p className="m-0 mt-3 text-[1.85rem] font-semibold tracking-[-0.04em]">
+          <p className="m-0 mt-3 text-[1.85rem] font-semibold tracking-[-0.04em] tabular-nums">
             {stat.value}
           </p>
         </div>
@@ -211,15 +213,17 @@ export const GroceriesDashboardSummarySection = ({
       </div>
 
       <div
-        className="grid gap-4 rounded-[24px] border border-[var(--border)] p-5"
+        className="grid gap-4 rounded-[24px] border border-[var(--border)] p-5 shadow-xs"
         style={{ background: "var(--progress-surface)" }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <CalendarDays className="size-4 text-[var(--accent-dark)]" aria-hidden="true" />
+            <div className="inline-grid size-7 place-items-center rounded-lg bg-[rgba(181,82,51,0.12)] text-[var(--accent-dark)]">
+              <CalendarDays className="size-4" aria-hidden="true" />
+            </div>
             <span>{translations.groceries.monthProgress}</span>
           </div>
-          <p className="m-0 text-sm text-muted-foreground">
+          <p className="m-0 text-sm font-medium text-muted-foreground tabular-nums">
             {translations.groceries.dayOf(progress.currentDay, progress.totalDays)}
           </p>
         </div>

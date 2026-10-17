@@ -153,10 +153,10 @@ export const CategorySummaryCard = ({
         onClick={() => onSelect(category)}
         aria-pressed={isActive}
         className={cn(
-          "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+          "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
           isActive
             ? "border-[var(--accent)] bg-[var(--surface-accent)] shadow-[0_0_0_4px_var(--focus-surface)]"
-            : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:bg-[var(--surface-soft)]",
+            : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:border-[rgba(181,82,51,0.36)] hover:bg-[var(--surface-soft)]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -164,16 +164,16 @@ export const CategorySummaryCard = ({
             <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-[var(--accent-dark)]">
               {formatCategoryLabel(category.category, translations.categories)}
             </p>
-            <h2 className="m-0 mt-2 text-[1.85rem] leading-none tracking-[-0.04em]">
+            <h2 className="m-0 mt-2 text-[1.85rem] leading-none tracking-[-0.04em] tabular-nums">
               {currencyFormatter.format(category.total)}
             </h2>
           </div>
           <div
-            className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)]"
+            className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)] shadow-xs transition-transform duration-200 group-hover:scale-105"
             aria-hidden="true"
           >
             <ChevronRight
-              className={cn("size-4 transition-transform", isActive && "rotate-90")}
+              className={cn("size-4 transition-transform duration-200", isActive && "rotate-90")}
             />
           </div>
         </div>
@@ -183,14 +183,16 @@ export const CategorySummaryCard = ({
             <span>
               {translations.groceries.repeatedGroups(category.uniqueItemCount)}
             </span>
-            <span>{percentFormatter.format(category.share)}</span>
+            <span className="tabular-nums">{percentFormatter.format(category.share)}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]" aria-hidden="true">
-            <div
+            <motion.div
               className="h-full rounded-full"
+              initial={false}
+              animate={{ width: `${Math.max(category.share * 100, 8)}%` }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 backgroundImage: "var(--accent-gradient)",
-                width: `${Math.max(category.share * 100, 8)}%`,
               }}
             />
           </div>

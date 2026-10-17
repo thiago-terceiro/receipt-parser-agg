@@ -256,3 +256,71 @@
     width: auto;
   }
 }
+
+@keyframes scan-laser {
+  0% {
+    top: 0%;
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: calc(100% - 4px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes scan-grid-pulse {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.receipt-scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%);
+  box-shadow: 0 0 16px 3px var(--primary), 0 0 32px 6px rgba(181, 82, 51, 0.4);
+  pointer-events: none;
+  animation: scan-laser 2.4s ease-in-out infinite alternate;
+  will-change: top, opacity;
+}
+
+.receipt-scan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(181, 82, 51, 0.08) 0%, transparent 20%, transparent 80%, rgba(181, 82, 51, 0.08) 100%),
+    repeating-linear-gradient(0deg, rgba(181, 82, 51, 0.04) 0px, rgba(181, 82, 51, 0.04) 1px, transparent 1px, transparent 12px);
+  animation: scan-grid-pulse 2s ease-in-out infinite;
+  border-radius: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .receipt-scan-laser,
+  .receipt-scan-overlay,
+  .mobile-controls-dialog[data-state="open"],
+  .mobile-controls-dialog[data-state="closed"] {
+    animation: none !important;
+  }
+}
+
