@@ -2,7 +2,6 @@
 
 import { Languages } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,33 +21,12 @@ import {
   useTranslations,
 } from "./locale-utils";
 
-const COMPACT_LOCALE_SWITCHER_QUERY = "(max-width: 980px)";
-
 export const LocaleSwitcher = () => {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const translations = useTranslations();
-  const [isCompact, setIsCompact] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-
-    const mediaQuery = window.matchMedia(COMPACT_LOCALE_SWITCHER_QUERY);
-    const updateCompactState = (event?: MediaQueryListEvent) => {
-      setIsCompact(event?.matches ?? mediaQuery.matches);
-    };
-
-    updateCompactState();
-    mediaQuery.addEventListener("change", updateCompactState);
-
-    return () => {
-      mediaQuery.removeEventListener("change", updateCompactState);
-    };
-  }, []);
 
   const switchLocale = (nextLocale: AppLocale) => {
     syncDocumentLocale(nextLocale);
@@ -63,7 +41,7 @@ export const LocaleSwitcher = () => {
       <p className="text-[0.82rem] py-1 font-bold uppercase tracking-[0.18em] text-[var(--accent-dark)] pl-2">
         {translations.common.language}
       </p>
-      {isCompact ? (
+      <div className="min-[981px]:hidden">
         <Select value={locale} onValueChange={(value) => switchLocale(value as AppLocale)}>
           <SelectTrigger
             className="min-w-[180px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)]"
@@ -87,36 +65,35 @@ export const LocaleSwitcher = () => {
             ))}
           </SelectContent>
         </Select>
-      ) : (
-        <div
-          className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] p-1"
-          role="group"
-          aria-label={translations.common.language}
-        >
-          {appLocales.map((nextLocale) => {
-            const isActive = locale === nextLocale;
+      </div>
+      <div
+        className="hidden min-[981px]:inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain-soft)] p-1"
+        role="group"
+        aria-label={translations.common.language}
+      >
+        {appLocales.map((nextLocale) => {
+          const isActive = locale === nextLocale;
 
-            return (
-              <Button
-                key={nextLocale}
-                type="button"
-                size="sm"
-                variant={isActive ? "default" : "ghost"}
-                aria-pressed={isActive}
-                onClick={() => switchLocale(nextLocale)}
-                className={cn(
-                  "rounded-full px-3",
-                  !isActive &&
-                    "text-muted-foreground hover:bg-[var(--surface-plain)] hover:text-foreground",
-                )}
-              >
-                <Languages className="size-4" />
-                <span>{localeNativeNames[nextLocale]}</span>
-              </Button>
-            );
-          })}
-        </div>
-      )}
+          return (
+            <Button
+              key={nextLocale}
+              type="button"
+              size="sm"
+              variant={isActive ? "default" : "ghost"}
+              aria-pressed={isActive}
+              onClick={() => switchLocale(nextLocale)}
+              className={cn(
+                "rounded-full px-3",
+                !isActive &&
+                  "text-muted-foreground hover:bg-[var(--surface-plain)] hover:text-foreground",
+              )}
+            >
+              <Languages className="size-4" />
+              <span>{localeNativeNames[nextLocale]}</span>
+            </Button>
+          );
+        })}
+      </div>
     </div>
   );
 };

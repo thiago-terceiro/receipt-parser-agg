@@ -152,14 +152,15 @@ export const ensureBoardProfile = async (
     identity: AuthenticatedBoardIdentity,
 ) => {
     return withSpan("boards.ensure_profile", async (span) => {
+        const normalizedEmail = identity.email ? identity.email.trim().toLowerCase() : null;
         const upsertPayload = {
             id: identity.userId,
-            email: identity.email,
+            email: normalizedEmail,
             display_name: identity.name,
             image_url: identity.image,
         };
 
-        const { data, error } = await client
+        let { data, error } = await client
             .from("profiles")
             .upsert(upsertPayload, {
                 ignoreDuplicates: false,
@@ -167,6 +168,31 @@ export const ensureBoardProfile = async (
             })
             .select("id, email, display_name, image_url, last_active_board_id")
             .single();
+
+        if (error && (error.code === "23505" || error.message?.includes("unique") || error.message?.includes("profiles_email_key"))) {
+            const { data: fallbackById } = await client
+                .from("profiles")
+                .select("id, email, display_name, image_url, last_active_board_id")
+                .eq("id", identity.userId)
+                .maybeSingle();
+
+            if (fallbackById) {
+                data = fallbackById;
+                error = null;
+            } else if (normalizedEmail) {
+                const { data: fallbackByEmail } = await client
+                    .from("profiles")
+                    .select("id, email, display_name, image_url, last_active_board_id")
+                    .eq("email", normalizedEmail)
+                    .maybeSingle();
+
+                if (fallbackByEmail) {
+                    data = fallbackByEmail;
+                    identity.userId = fallbackByEmail.id;
+                    error = null;
+                }
+            }
+        }
 
         if (error || !data) {
             throw createSupabaseError(error, "Unable to prepare the board profile.");
@@ -697,7 +723,9 @@ export const getPendingBoardInviteDetails = async (
 
 const upsertBoardMembershipFromInvite = async (
     client: SupabaseClient,
-    invite: PendingBoardInviteRecord,
+    invite: Pick<PendingBoardInviteRecord, "board_id" | "role"> & {
+        invited_by_user_id?: string | null;
+    },
     userId: string,
 ) => {
     const { data: existingMembership, error: existingMembershipError } = await client
@@ -723,7 +751,7 @@ const upsertBoardMembershipFromInvite = async (
             user_id: userId,
             role: invite.role,
             status: "active",
-            invited_by_user_id: invite.invited_by_user_id,
+            invited_by_user_id: invite.invited_by_user_id ?? null,
             joined_at: joinedAt,
         }, {
             ignoreDuplicates: false,
@@ -757,7 +785,7 @@ export const acceptBoardInviteForIdentity = async (
         if (!invite) {
             const { data: existingInvite } = await client
                 .from("board_invites")
-                .select("id, board_id, role, status, accepted_by_user_id, expires_at")
+                .select("id, board_id, role, status, accepted_by_user_id, expires_at, invited_by_user_id")
                 .eq("invite_token_hash", tokenHash)
                 .maybeSingle();
 
@@ -772,20 +800,36 @@ export const acceptBoardInviteForIdentity = async (
                         .maybeSingle();
 
                     if (existingMember || existingInvite.accepted_by_user_id === identity.userId) {
+                        if (!existingMember) {
+                            await upsertBoardMembershipFromInvite(
+                                client,
+                                existingInvite,
+                                identity.userId,
+                            );
+                        }
+
                         await client
                             .from("profiles")
                             .update({ last_active_board_id: existingInvite.board_id })
                             .eq("id", identity.userId);
 
-                        const { data: board } = await client
+                        const { data: board, error: boardError } = await client
                             .from("boards")
                             .select("id, name")
                             .eq("id", existingInvite.board_id)
                             .maybeSingle();
 
+                        if (boardError) {
+                            throw createSupabaseError(boardError, "Unable to load the board.");
+                        }
+
+                        if (!board) {
+                            throw new BoardRouteError("Board not found.", 404);
+                        }
+
                         return {
                             board_id: existingInvite.board_id as string,
-                            board_name: (board?.name as string) || "Shared Board",
+                            board_name: board.name as string,
                             role: (existingMember?.role ?? existingInvite.role) as BoardRole,
                         };
                     }
@@ -807,6 +851,61 @@ export const acceptBoardInviteForIdentity = async (
             throw new BoardRouteError("Invite token is invalid or expired.", 404);
         }
 
+        const { data: existingMember, error: memberCheckError } = await client
+            .from("board_members")
+            .select("role, status")
+            .eq("board_id", invite.board_id)
+            .eq("user_id", identity.userId)
+            .maybeSingle();
+
+        if (memberCheckError) {
+            throw createSupabaseError(
+                memberCheckError,
+                "Unable to validate board membership.",
+            );
+        }
+
+        if (existingMember && existingMember.status === "active") {
+            const { error: profileUpdateError } = await client
+                .from("profiles")
+                .update({ last_active_board_id: invite.board_id })
+                .eq("id", identity.userId);
+
+            if (profileUpdateError) {
+                throw createSupabaseError(
+                    profileUpdateError,
+                    "Unable to persist the active board selection.",
+                );
+            }
+
+            const { data: board, error: boardError } = await client
+                .from("boards")
+                .select("id, name")
+                .eq("id", invite.board_id)
+                .maybeSingle();
+
+            if (boardError) {
+                throw createSupabaseError(boardError, "Unable to load the board.");
+            }
+
+            if (!board) {
+                throw new BoardRouteError("Board not found.", 404);
+            }
+
+            const data: BoardInviteRpcRecord = {
+                board_id: invite.board_id,
+                board_name: board.name as string,
+                role: existingMember.role as BoardRole,
+            };
+
+            span.setAttributes({
+                [observabilityAttributes.inviteAccepted]: true,
+                [observabilityAttributes.inviteRole]: data.role,
+            });
+
+            return data;
+        }
+
         if (
             invite.email
             && invite.email.toLowerCase() !== (identity.email ?? "").toLowerCase()
@@ -817,16 +916,16 @@ export const acceptBoardInviteForIdentity = async (
             );
         }
 
-        await upsertBoardMembershipFromInvite(client, invite, identity.userId);
-
-        const { error: inviteUpdateError } = await client
+        const { data: updatedInvites, error: inviteUpdateError } = await client
             .from("board_invites")
             .update({
                 accepted_at: new Date().toISOString(),
                 accepted_by_user_id: identity.userId,
                 status: "accepted",
             })
-            .eq("id", invite.id);
+            .eq("id", invite.id)
+            .eq("status", "pending")
+            .select("id");
 
         if (inviteUpdateError) {
             throw createSupabaseError(
@@ -834,6 +933,15 @@ export const acceptBoardInviteForIdentity = async (
                 "Unable to finalize the board invite.",
             );
         }
+
+        if (!updatedInvites || updatedInvites.length === 0) {
+            throw new BoardRouteError(
+                "This invitation has already been accepted.",
+                409,
+            );
+        }
+
+        await upsertBoardMembershipFromInvite(client, invite, identity.userId);
 
         const { error: profileUpdateError } = await client
             .from("profiles")

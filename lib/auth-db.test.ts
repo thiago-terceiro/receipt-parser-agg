@@ -1,4 +1,9 @@
-import { AuthRegistrationError, registerUser, verifyUserCredentials } from "./auth-db";
+import {
+  AuthRegistrationError,
+  registerUser,
+  registerUserWithCredentials,
+  verifyUserCredentials,
+} from "./auth-db";
 import { hashPassword } from "./auth-passwords";
 import { getSupabaseServerClient } from "./supabase-server";
 
@@ -170,9 +175,9 @@ describe("auth-db", () => {
       expect(credsInsert).toHaveBeenCalled();
     });
 
-    it("links credentials when user already has an existing OAuth profile", async () => {
+    it("rejects registration when user already has an existing OAuth profile", async () => {
       const profileInsert = jest.fn();
-      const credsInsert = jest.fn().mockResolvedValue({ error: null });
+      const credsInsert = jest.fn();
 
       const client = {
         from: jest.fn((table: string) => {
@@ -204,20 +209,22 @@ describe("auth-db", () => {
       };
       (getSupabaseServerClient as jest.Mock).mockReturnValue(client);
 
-      const user = await registerUser({
-        email: "oauth@example.com",
-        password: "securePassword123!",
+      await expect(
+        registerUser({
+          email: "oauth@example.com",
+          password: "securePassword123!",
+        }),
+      ).rejects.toMatchObject({
+        message: "An account with this email already exists.",
+        status: 409,
       });
 
-      expect(user.id).toBe("oauth-user-id");
-      expect(user.email).toBe("oauth@example.com");
-      expect(user.name).toBe("Google User");
       expect(profileInsert).not.toHaveBeenCalled();
-      expect(credsInsert).toHaveBeenCalledWith({
-        user_id: "oauth-user-id",
-        email: "oauth@example.com",
-        password_hash: expect.stringMatching(/^scrypt:/),
-      });
+      expect(credsInsert).not.toHaveBeenCalled();
+    });
+
+    it("exports registerUserWithCredentials as an alias for registerUser", () => {
+      expect(registerUserWithCredentials).toBe(registerUser);
     });
   });
 });

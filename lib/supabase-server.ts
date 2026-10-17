@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const prefixedEnvPrefixes = ["receipt_agg_", "RECEIPT_AGG_"];
 
@@ -33,6 +33,12 @@ if (!hasSupabaseServerConfig && (supabaseUrl || supabaseServiceRoleKey)) {
     );
 }
 
+let cachedSupabaseServerClient: SupabaseClient | null = null;
+
+export const resetSupabaseServerClientForTesting = () => {
+    cachedSupabaseServerClient = null;
+};
+
 export const getSupabaseServerClient = () => {
     if (!supabaseUrl || !supabaseServiceRoleKey) {
         throw new Error(
@@ -40,15 +46,19 @@ export const getSupabaseServerClient = () => {
         );
     }
 
-    return createClient(supabaseUrl, supabaseServiceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-        global: {
-            headers: {
-                "X-Client-Info": "receipt-ai/shared-boards",
+    if (!cachedSupabaseServerClient) {
+        cachedSupabaseServerClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
             },
-        },
-    });
+            global: {
+                headers: {
+                    "X-Client-Info": "receipt-ai/shared-boards",
+                },
+            },
+        });
+    }
+
+    return cachedSupabaseServerClient;
 };

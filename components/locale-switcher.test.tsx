@@ -67,29 +67,17 @@ describe("LocaleSwitcher", () => {
         "@/components/locale-utils",
     ) as { __mockSyncDocumentLocale: jest.Mock };
 
-    const setViewportWidth = (width: number) => {
-        window.matchMedia = jest.fn().mockImplementation((query: string) => ({
-            matches: query === "(max-width: 980px)" ? width <= 980 : false,
-            media: query,
-            onchange: null,
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
-            dispatchEvent: jest.fn(),
-        }));
-    };
-
     beforeEach(() => {
         __mockSyncDocumentLocale.mockClear();
         mockSelectState.onValueChange = undefined;
         mockSelectState.value = "";
     });
 
-    it("renders a button for each app locale", () => {
-        setViewportWidth(1200);
-
+    it("renders both mobile select and desktop button group with responsive CSS classes", () => {
         render(<LocaleSwitcher />);
+
+        const desktopGroup = screen.getByRole("group", { name: "common.language" });
+        expect(desktopGroup).toHaveClass("hidden", "min-[981px]:inline-flex");
 
         expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
             "aria-pressed",
@@ -97,22 +85,15 @@ describe("LocaleSwitcher", () => {
         );
         expect(screen.getByRole("button", { name: "Español" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Português (Brasil)" })).toBeInTheDocument();
-    });
 
-    it("renders a locale dropdown at 980px and below", () => {
-        setViewportWidth(980);
-
-        render(<LocaleSwitcher />);
-
-        expect(screen.getByRole("combobox", { name: "common.language" })).toBeInTheDocument();
-        expect(screen.queryByRole("group", { name: "common.language" })).not.toBeInTheDocument();
+        const mobileCombobox = screen.getByRole("combobox", { name: "common.language" });
+        expect(mobileCombobox.closest(".min-\\[981px\\]\\:hidden")).toBeInTheDocument();
         expect(screen.getByRole("option", { name: "English" })).toBeInTheDocument();
         expect(screen.getByRole("option", { name: "Español" })).toBeInTheDocument();
         expect(screen.getByRole("option", { name: "Português (Brasil)" })).toBeInTheDocument();
     });
 
-    it("persists the locale and replaces the route", async () => {
-        setViewportWidth(1200);
+    it("persists the locale and replaces the route when desktop button is clicked", async () => {
         mockNavigationState.pathname = "/groceries";
         mockNavigationState.search = "month=2026-04";
 
@@ -127,8 +108,7 @@ describe("LocaleSwitcher", () => {
         );
     });
 
-    it("persists the locale when the compact dropdown changes", async () => {
-        setViewportWidth(980);
+    it("persists the locale when the mobile select dropdown changes", async () => {
         mockNavigationState.pathname = "/groceries";
         mockNavigationState.search = "month=2026-04";
 

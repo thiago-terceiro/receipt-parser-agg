@@ -327,7 +327,16 @@ export const POST = async (request: Request) => {
     );
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid form data request body." },
+      { status: 400 },
+    );
+  }
+
   const model = resolveRequestedModelId({
     selectedModelId: formData.get("modelId"),
   });

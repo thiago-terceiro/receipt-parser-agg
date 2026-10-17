@@ -44,7 +44,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const data = (await request.json()) as CreateExpensesPayload;
+  let data: CreateExpensesPayload;
+  try {
+    data = (await request.json()) as CreateExpensesPayload;
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 },
+    );
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 },
+    );
+  }
   let parsedExtraction = null;
 
   try {
@@ -196,7 +210,21 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const data = (await request.json()) as DeleteExpensesPayload;
+  let data: DeleteExpensesPayload;
+  try {
+    data = (await request.json()) as DeleteExpensesPayload;
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 },
+    );
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 },
+    );
+  }
 
   try {
     const result = await deleteSavedReceipt(identity, data.boardId, data.receiptId);

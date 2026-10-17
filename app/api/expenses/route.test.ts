@@ -95,6 +95,19 @@ describe("app/api/expenses/route", () => {
             expect(response.status).toBe(503);
         });
 
+        it("returns 400 when body is not valid JSON", async () => {
+            const request = new Request("http://localhost/api/expenses", {
+                method: "POST",
+                body: "invalid-json",
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
+
         it("returns 400 when items array is empty or missing", async () => {
             const request = new Request("http://localhost/api/expenses", {
                 method: "POST",
@@ -223,6 +236,33 @@ describe("app/api/expenses/route", () => {
                 error: "This board already has groceries for 2026-04 in USD.",
             });
         });
+
+        it("returns 400 when body is not valid JSON", async () => {
+            const request = new Request("http://localhost/api/expenses", {
+                method: "POST",
+                body: "invalid-json",
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
+
+        it("returns 400 when body is JSON null or not an object", async () => {
+            const request = new Request("http://localhost/api/expenses", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "null",
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
     });
 
     describe("GET /api/expenses", () => {
@@ -335,6 +375,33 @@ describe("app/api/expenses/route", () => {
             expect(response.status).toBe(404);
             await expect(response.json()).resolves.toEqual({
                 error: "Receipt not found.",
+            });
+        });
+
+        it("returns 400 when body is not valid JSON", async () => {
+            const request = new Request("http://localhost/api/expenses", {
+                method: "DELETE",
+                body: "invalid-json",
+            });
+
+            const response = await DELETE(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
+
+        it("returns 400 when body is JSON null or not an object", async () => {
+            const request = new Request("http://localhost/api/expenses", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: "null",
+            });
+
+            const response = await DELETE(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
             });
         });
     });

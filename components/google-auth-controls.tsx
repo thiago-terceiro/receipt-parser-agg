@@ -3,7 +3,7 @@
 import { KeyRound, Menu, X } from "lucide-react";
 import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { useLocale, useTranslations } from "@/components/locale-utils";
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { getPathname } from "@/i18n/navigation";
 
-const MOBILE_CONTROLS_QUERY = "(max-width: 700px)";
 
 const GoogleMark = () => (
   <span
@@ -87,7 +86,6 @@ export const GoogleAuthControls = ({
   const { data: session, status } = useSession();
   const locale = useLocale();
   const translations = useTranslations();
-  const [isMobileView, setIsMobileView] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isTestAuthActive =
@@ -144,25 +142,9 @@ export const GoogleAuthControls = ({
     void signIn("github", { callbackUrl: authCallbackUrl });
   }, [authCallbackUrl]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
 
-    const mediaQuery = window.matchMedia(MOBILE_CONTROLS_QUERY);
-    const updateMobileView = (event?: MediaQueryListEvent) => {
-      setIsMobileView(event?.matches ?? mediaQuery.matches);
-    };
 
-    updateMobileView();
-    mediaQuery.addEventListener("change", updateMobileView);
-
-    return () => {
-      mediaQuery.removeEventListener("change", updateMobileView);
-    };
-  }, []);
-
-  const renderAuthBlock = (buttonClassName: string) => (
+  const renderAuthBlock = (buttonClassName: string, prefix: "mobile" | "desktop" = "desktop") => (
     <div className="flex flex-col gap-1.5">
       {isAuthenticated ? (
         <div
@@ -225,17 +207,17 @@ export const GoogleAuthControls = ({
             type="button"
             className={buttonClassName}
             aria-expanded={isCredentialsOpen}
-            aria-controls="credentials-auth-panel"
+            aria-controls={`${prefix}-credentials-auth-panel`}
             onClick={() => setIsCredentialsOpen(!isCredentialsOpen)}
           >
             <KeyRound className="size-4" aria-hidden="true" />
-            <span>Password / Test Login</span>
+            <span>{translations.auth.credentials.buttonLabel}</span>
           </Button>
           {isCredentialsOpen ? (
             <div
-              id="credentials-auth-panel"
+              id={`${prefix}-credentials-auth-panel`}
               role="group"
-              aria-labelledby="credentials-auth-heading"
+              aria-labelledby={`${prefix}-credentials-auth-heading`}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   setIsCredentialsOpen(false);
@@ -244,8 +226,10 @@ export const GoogleAuthControls = ({
               className="mt-2 flex flex-col gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain)] p-4 shadow-md"
             >
               <div className="flex items-center justify-between">
-                <p id="credentials-auth-heading" className="m-0 text-sm font-bold text-foreground">
-                  {authMode === "signin" ? "Sign in with Password" : "Create an Account"}
+                <p id={`${prefix}-credentials-auth-heading`} className="m-0 text-sm font-bold text-foreground">
+                  {authMode === "signin"
+                    ? translations.auth.credentials.signInTitle
+                    : translations.auth.credentials.signUpTitle}
                 </p>
                 <Button
                   type="button"
@@ -253,7 +237,7 @@ export const GoogleAuthControls = ({
                   size="sm"
                   className="size-7 p-0 text-muted-foreground hover:text-foreground"
                   onClick={() => setIsCredentialsOpen(false)}
-                  aria-label="Close credentials"
+                  aria-label={translations.auth.credentials.closeAria}
                 >
                   <X className="size-4" aria-hidden="true" />
                 </Button>
@@ -262,7 +246,7 @@ export const GoogleAuthControls = ({
               {/* Mode Toggle */}
               <div
                 role="group"
-                aria-label="Authentication mode"
+                aria-label={translations.auth.credentials.modeAria}
                 className="grid grid-cols-2 gap-1 rounded-[12px] bg-[var(--surface-plain-soft)] p-1"
               >
                 <Button
@@ -277,7 +261,7 @@ export const GoogleAuthControls = ({
                     setCredentialsSuccess(null);
                   }}
                 >
-                  Sign In
+                  {translations.auth.credentials.signInTab}
                 </Button>
                 <Button
                   type="button"
@@ -293,14 +277,14 @@ export const GoogleAuthControls = ({
                     setPassword("");
                   }}
                 >
-                  Sign Up
+                  {translations.auth.credentials.signUpTab}
                 </Button>
               </div>
 
               {authMode === "signin" && isQuickSelectEnabled ? (
                 <>
                   <p className="m-0 text-xs text-muted-foreground">
-                    Quick select an account or enter custom credentials:
+                    {translations.auth.credentials.quickSelectHint}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {[
@@ -329,59 +313,69 @@ export const GoogleAuthControls = ({
 
               {authMode === "signup" ? (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold" htmlFor="credentials-name">
-                    Full Name (Optional)
+                  <label className="text-xs font-semibold" htmlFor={`${prefix}-credentials-fullname`}>
+                    {translations.auth.credentials.fullNameLabel}
                   </label>
                   <input
-                    id="credentials-name"
+                    id={`${prefix}-credentials-fullname`}
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Jane Doe"
+                    placeholder={translations.auth.credentials.fullNamePlaceholder}
                     className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
                   />
                 </div>
               ) : null}
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold" htmlFor="credentials-username">
-                  {authMode === "signup" ? "Email" : "Username or Email"}
+                <label className="text-xs font-semibold" htmlFor={`${prefix}-credentials-username`}>
+                  {authMode === "signup"
+                    ? translations.auth.credentials.emailLabel
+                    : translations.auth.credentials.usernameLabel}
                 </label>
                 <input
-                  id="credentials-username"
+                  id={`${prefix}-credentials-username`}
                   type={authMode === "signup" ? "email" : "text"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder={authMode === "signup" ? "user@example.com" : "test, partner, etc."}
+                  placeholder={
+                    authMode === "signup"
+                      ? translations.auth.credentials.emailPlaceholder
+                      : translations.auth.credentials.usernamePlaceholder
+                  }
                   className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold" htmlFor="credentials-password">
-                  Password
+                <label className="text-xs font-semibold" htmlFor={`${prefix}-credentials-password`}>
+                  {translations.auth.credentials.passwordLabel}
                 </label>
                 <input
-                  id="credentials-password"
+                  id={`${prefix}-credentials-password`}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={authMode === "signup" ? "At least 8 characters" : "password123"}
+                  placeholder={
+                    authMode === "signup"
+                      ? translations.auth.credentials.passwordSignUpPlaceholder
+                      : translations.auth.credentials.passwordPlaceholder
+                  }
                   className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
                 />
               </div>
 
               {authMode === "signup" ? (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold" htmlFor="credentials-confirm-password">
-                    Confirm Password
+                  <label className="text-xs font-semibold" htmlFor={`${prefix}-credentials-confirm`}>
+                    {translations.auth.credentials.confirmPasswordLabel}
                   </label>
                   <input
-                    id="credentials-confirm-password"
+                    id={`${prefix}-credentials-confirm`}
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
+                    placeholder={translations.auth.credentials.confirmPasswordPlaceholder}
                     className="h-10 rounded-[12px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 text-sm text-foreground outline-none focus:border-[var(--accent)]"
                   />
                 </div>
@@ -418,8 +412,8 @@ export const GoogleAuthControls = ({
                   }}
                 >
                   {authMode === "signin"
-                    ? "Don't have an account? Sign up"
-                    : "Already have an account? Sign in"}
+                    ? translations.auth.credentials.switchToSignUp
+                    : translations.auth.credentials.switchToSignIn}
                 </button>
                 <div className="flex gap-2">
                   <Button
@@ -428,7 +422,7 @@ export const GoogleAuthControls = ({
                     size="sm"
                     onClick={() => setIsCredentialsOpen(false)}
                   >
-                    Cancel
+                    {translations.common.cancel}
                   </Button>
                   <Button
                     type="button"
@@ -446,12 +440,12 @@ export const GoogleAuthControls = ({
 
                       if (authMode === "signup") {
                         if (password !== confirmPassword) {
-                          setCredentialsError("Passwords do not match.");
+                          setCredentialsError(translations.auth.credentials.passwordsDoNotMatch);
                           setIsSubmittingCredentials(false);
                           return;
                         }
                         if (password.length < 8) {
-                          setCredentialsError("Password must be at least 8 characters long.");
+                          setCredentialsError(translations.auth.credentials.passwordTooShort);
                           setIsSubmittingCredentials(false);
                           return;
                         }
@@ -470,12 +464,12 @@ export const GoogleAuthControls = ({
                           const data = await res.json().catch(() => null);
 
                           if (!res.ok) {
-                            setCredentialsError(data?.error || "Registration failed. Please try again.");
+                            setCredentialsError(data?.error || translations.auth.credentials.registrationFailed);
                             setIsSubmittingCredentials(false);
                             return;
                           }
 
-                          setCredentialsSuccess("Account created! Signing you in...");
+                          setCredentialsSuccess(translations.auth.credentials.accountCreated);
 
                           const signInRes = await signIn("credentials", {
                             username: username.trim(),
@@ -485,7 +479,7 @@ export const GoogleAuthControls = ({
                           });
 
                           if (signInRes?.error) {
-                            setCredentialsError("Account created, but sign-in failed. Please sign in manually.");
+                            setCredentialsError(translations.auth.credentials.accountCreatedSignInFailed);
                             setIsSubmittingCredentials(false);
                           } else if (signInRes?.url) {
                             window.location.href = signInRes.url;
@@ -493,7 +487,7 @@ export const GoogleAuthControls = ({
                             window.location.reload();
                           }
                         } catch {
-                          setCredentialsError("Registration failed. Please check your connection.");
+                          setCredentialsError(translations.auth.credentials.registrationNetworkError);
                           setIsSubmittingCredentials(false);
                         }
                         return;
@@ -508,7 +502,7 @@ export const GoogleAuthControls = ({
                           redirect: false,
                         });
                         if (res?.error) {
-                          setCredentialsError("Invalid username or password.");
+                          setCredentialsError(translations.auth.credentials.invalidCredentials);
                           setIsSubmittingCredentials(false);
                         } else if (res?.url) {
                           window.location.href = res.url;
@@ -516,18 +510,18 @@ export const GoogleAuthControls = ({
                           window.location.reload();
                         }
                       } catch {
-                        setCredentialsError("Sign in failed. Please check your credentials.");
+                        setCredentialsError(translations.auth.credentials.signInFailed);
                         setIsSubmittingCredentials(false);
                       }
                     }}
                   >
                     {isSubmittingCredentials
                       ? authMode === "signup"
-                        ? "Creating account..."
-                        : "Signing in..."
+                        ? translations.auth.credentials.submittingSignUp
+                        : translations.auth.credentials.submittingSignIn
                       : authMode === "signup"
-                        ? "Create Account"
-                        : "Sign in"}
+                        ? translations.auth.credentials.submitSignUp
+                        : translations.auth.credentials.submitSignIn}
                   </Button>
                 </div>
               </div>
@@ -545,10 +539,11 @@ export const GoogleAuthControls = ({
     </div>
   );
 
-  if (isMobileView) {
-    return (
+  return (
+    <>
+      {/* Mobile Controls (<981px) */}
       <section
-        className="mb-4 flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 shadow-[var(--shadow)] backdrop-blur-[14px]"
+        className="min-[981px]:hidden mb-4 flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 shadow-[var(--shadow)] backdrop-blur-[14px]"
         aria-label={translations.auth.sectionLabel}
       >
         <div className="flex items-center gap-2.5">
@@ -588,6 +583,7 @@ export const GoogleAuthControls = ({
               <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
                 {renderAuthBlock(
                   "h-11 w-full border-[var(--border)] bg-[var(--surface-plain)] font-medium text-sm",
+                  "mobile",
                 )}
               </div>
               <div className="flex flex-col gap-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
@@ -597,20 +593,20 @@ export const GoogleAuthControls = ({
           </DialogContent>
         </Dialog>
       </section>
-    );
-  }
 
-  return (
-    <section
-      className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
-      aria-label={translations.auth.sectionLabel}
-    >
-      <div className="flex flex-col gap-2">
-        {renderAuthBlock(
-          "h-11 min-w-[200px] border-[var(--border)] bg-[var(--surface-plain)] hover:bg-[var(--surface-plain-soft)] font-medium text-sm",
-        )}
-      </div>
-      {renderPreferencesBlock("flex flex-row items-center gap-4")}
-    </section>
+      {/* Desktop Controls (>=981px) */}
+      <section
+        className="hidden min-[981px]:flex mb-4 flex-wrap items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
+        aria-label={translations.auth.sectionLabel}
+      >
+        <div className="flex flex-col gap-2">
+          {renderAuthBlock(
+            "h-11 min-w-[200px] border-[var(--border)] bg-[var(--surface-plain)] hover:bg-[var(--surface-plain-soft)] font-medium text-sm",
+            "desktop",
+          )}
+        </div>
+        {renderPreferencesBlock("flex flex-row items-center gap-4")}
+      </section>
+    </>
   );
 };

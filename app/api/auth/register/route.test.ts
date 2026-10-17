@@ -2,9 +2,25 @@
  * @jest-environment node
  */
 
+import { isTestAuthEnabled } from "@/auth";
 import { AuthRegistrationError, registerUser } from "@/lib/auth-db";
+import { checkRegisterRateLimit } from "@/lib/rate-limit";
 
 import { POST } from "./route";
+
+jest.mock("@/auth", () => ({
+  isTestAuthEnabled: jest.fn(() => true),
+}));
+
+jest.mock("@/lib/rate-limit", () => ({
+  checkRegisterRateLimit: jest.fn().mockResolvedValue(null),
+  createRateLimitHeaders: jest.fn((rateLimit) => ({
+    "Retry-After": String(rateLimit.reset),
+    "X-RateLimit-Limit": String(rateLimit.limit),
+    "X-RateLimit-Remaining": String(rateLimit.remaining),
+    "X-RateLimit-Reset": String(rateLimit.reset),
+  })),
+}));
 
 jest.mock("@/lib/auth-db", () => ({
   AuthRegistrationError: class AuthRegistrationError extends Error {
@@ -29,12 +45,35 @@ const createJsonRequest = (body: unknown) => {
 describe("POST /api/auth/register", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (isTestAuthEnabled as jest.Mock).mockReturnValue(true);
+  });
+
+  it("returns 403 when registration is disabled in production", async () => {
+    (isTestAuthEnabled as jest.Mock).mockReturnValueOnce(false);
+    const request = createJsonRequest({ email: "user@example.com", password: "password123" });
+    const response = await POST(request);
+    expect(response.status).toBe(403);
+    const data = await response.json();
+    expect(data.error).toBe("Registration is disabled in production.");
+    expect(registerUser).not.toHaveBeenCalled();
   });
 
   it("returns 400 when body is not valid JSON", async () => {
     const request = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
       body: "not json",
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Invalid JSON request body.");
+  });
+
+  it("returns 400 when body is JSON null or not an object", async () => {
+    const request = new Request("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null",
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
@@ -56,6 +95,15 @@ describe("POST /api/auth/register", () => {
     expect(response.status).toBe(400);
     const data = await response.json();
     expect(data.error).toBe("Password must be at least 8 characters long.");
+  });
+
+  it("returns 400 when password exceeds 256 characters", async () => {
+    const longPassword = "a".repeat(257);
+    const request = createJsonRequest({ email: "user@example.com", password: longPassword });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Password must not exceed 256 characters.");
   });
 
   it("returns 409 when user already exists", async () => {
@@ -92,4 +140,29 @@ describe("POST /api/auth/register", () => {
       },
     });
   });
+
+  it("returns 429 when rate limit is exceeded", async () => {
+    (checkRegisterRateLimit as jest.Mock).mockResolvedValueOnce({
+      success: false,
+      limit: 5,
+      remaining: 0,
+      reset: 60,
+    });
+
+    const request = createJsonRequest({
+      email: "new@example.com",
+      password: "securePassword123!",
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(response.headers.get("X-RateLimit-Limit")).toBe("5");
+    expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+    const data = await response.json();
+    expect(data.error).toBe(
+      "Too many registration attempts. Please wait a few minutes and try again.",
+    );
+    expect(registerUser).not.toHaveBeenCalled();
+  });
 });
+

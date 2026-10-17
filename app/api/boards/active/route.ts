@@ -41,7 +41,21 @@ export async function POST(request: Request) {
     try {
         const response = await withSpan("api.boards.active.set", async () => {
             const identity = await requireBoardIdentity();
-            const payload = (await request.json()) as SetActiveBoardPayload;
+            let payload: SetActiveBoardPayload;
+            try {
+                payload = (await request.json()) as SetActiveBoardPayload;
+            } catch {
+                return NextResponse.json(
+                    { error: "Invalid JSON request body." },
+                    { status: 400 },
+                );
+            }
+            if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+                return NextResponse.json(
+                    { error: "Invalid JSON request body." },
+                    { status: 400 },
+                );
+            }
             const board = await setLastActiveBoardForIdentity(identity, payload.boardId);
 
             logInfo("Updated active board for identity.", {

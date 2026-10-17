@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { checkOtelRateLimit, createRateLimitHeaders } from "@/lib/rate-limit";
+
 export const runtime = "nodejs";
 
 export const MAX_PAYLOAD_BYTES = 256 * 1024; // 256 KB
@@ -8,6 +10,19 @@ const defaultHoneycombEndpoint = "https://api.honeycomb.io/v1/traces";
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkOtelRateLimit(request);
+    if (rateLimit && !rateLimit.success) {
+      return NextResponse.json(
+        {
+          error: "Too many telemetry requests. Please slow down.",
+        },
+        {
+          status: 429,
+          headers: createRateLimitHeaders(rateLimit),
+        },
+      );
+    }
+
     const contentLength = request.headers.get("content-length");
     if (contentLength) {
       const parsedLength = Number.parseInt(contentLength, 10);

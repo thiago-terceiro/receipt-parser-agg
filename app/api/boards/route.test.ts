@@ -124,5 +124,32 @@ describe("app/api/boards/route", () => {
                 error: "Board name is required.",
             });
         });
+
+        it("returns 400 when body is not valid JSON", async () => {
+            const request = new Request("http://localhost/api/boards", {
+                method: "POST",
+                body: "not-json",
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
+
+        it("returns 400 when body is JSON null or not an object", async () => {
+            const request = new Request("http://localhost/api/boards", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "null",
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+            await expect(response.json()).resolves.toEqual({
+                error: "Invalid JSON request body.",
+            });
+        });
     });
 });

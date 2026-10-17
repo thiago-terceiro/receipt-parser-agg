@@ -32,6 +32,41 @@ export type Messages = { metadata: Metadata } & {
     userAlt: string;
     signedInFallback: string;
     emailFallback: string;
+    credentials: {
+      buttonLabel: string;
+      signInTitle: string;
+      signUpTitle: string;
+      closeAria: string;
+      modeAria: string;
+      signInTab: string;
+      signUpTab: string;
+      quickSelectHint: string;
+      fullNameLabel: string;
+      fullNamePlaceholder: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      usernameLabel: string;
+      usernamePlaceholder: string;
+      passwordLabel: string;
+      passwordPlaceholder: string;
+      passwordSignUpPlaceholder: string;
+      confirmPasswordLabel: string;
+      confirmPasswordPlaceholder: string;
+      switchToSignUp: string;
+      switchToSignIn: string;
+      submitSignIn: string;
+      submitSignUp: string;
+      submittingSignIn: string;
+      submittingSignUp: string;
+      passwordsDoNotMatch: string;
+      passwordTooShort: string;
+      registrationFailed: string;
+      accountCreated: string;
+      accountCreatedSignInFailed: string;
+      registrationNetworkError: string;
+      invalidCredentials: string;
+      signInFailed: string;
+    };
   };
   home: {
     dashboardTitle: string;
@@ -280,6 +315,41 @@ export const createMessagesObject = (
       userAlt: t("auth.userAlt"),
       signedInFallback: t("auth.signedInFallback"),
       emailFallback: t("auth.emailFallback"),
+      credentials: {
+        buttonLabel: t("auth.credentials.buttonLabel"),
+        signInTitle: t("auth.credentials.signInTitle"),
+        signUpTitle: t("auth.credentials.signUpTitle"),
+        closeAria: t("auth.credentials.closeAria"),
+        modeAria: t("auth.credentials.modeAria"),
+        signInTab: t("auth.credentials.signInTab"),
+        signUpTab: t("auth.credentials.signUpTab"),
+        quickSelectHint: t("auth.credentials.quickSelectHint"),
+        fullNameLabel: t("auth.credentials.fullNameLabel"),
+        fullNamePlaceholder: t("auth.credentials.fullNamePlaceholder"),
+        emailLabel: t("auth.credentials.emailLabel"),
+        emailPlaceholder: t("auth.credentials.emailPlaceholder"),
+        usernameLabel: t("auth.credentials.usernameLabel"),
+        usernamePlaceholder: t("auth.credentials.usernamePlaceholder"),
+        passwordLabel: t("auth.credentials.passwordLabel"),
+        passwordPlaceholder: t("auth.credentials.passwordPlaceholder"),
+        passwordSignUpPlaceholder: t("auth.credentials.passwordSignUpPlaceholder"),
+        confirmPasswordLabel: t("auth.credentials.confirmPasswordLabel"),
+        confirmPasswordPlaceholder: t("auth.credentials.confirmPasswordPlaceholder"),
+        switchToSignUp: t("auth.credentials.switchToSignUp"),
+        switchToSignIn: t("auth.credentials.switchToSignIn"),
+        submitSignIn: t("auth.credentials.submitSignIn"),
+        submitSignUp: t("auth.credentials.submitSignUp"),
+        submittingSignIn: t("auth.credentials.submittingSignIn"),
+        submittingSignUp: t("auth.credentials.submittingSignUp"),
+        passwordsDoNotMatch: t("auth.credentials.passwordsDoNotMatch"),
+        passwordTooShort: t("auth.credentials.passwordTooShort"),
+        registrationFailed: t("auth.credentials.registrationFailed"),
+        accountCreated: t("auth.credentials.accountCreated"),
+        accountCreatedSignInFailed: t("auth.credentials.accountCreatedSignInFailed"),
+        registrationNetworkError: t("auth.credentials.registrationNetworkError"),
+        invalidCredentials: t("auth.credentials.invalidCredentials"),
+        signInFailed: t("auth.credentials.signInFailed"),
+      },
     },
     home: {
       dashboardTitle: t("home.dashboardTitle"),
@@ -533,6 +603,41 @@ export const localeMessages = {
       userAlt: "User",
       signedInFallback: "Signed in",
       emailFallback: "Google account",
+      credentials: {
+        buttonLabel: "Password / Test Login",
+        signInTitle: "Sign in with Password",
+        signUpTitle: "Create an Account",
+        closeAria: "Close credentials",
+        modeAria: "Authentication mode",
+        signInTab: "Sign In",
+        signUpTab: "Sign Up",
+        quickSelectHint: "Quick select an account or enter custom credentials:",
+        fullNameLabel: "Full Name (Optional)",
+        fullNamePlaceholder: "e.g. Jane Doe",
+        emailLabel: "Email",
+        emailPlaceholder: "user@example.com",
+        usernameLabel: "Username or Email",
+        usernamePlaceholder: "test, partner, etc.",
+        passwordLabel: "Password",
+        passwordPlaceholder: "password123",
+        passwordSignUpPlaceholder: "At least 8 characters",
+        confirmPasswordLabel: "Confirm Password",
+        confirmPasswordPlaceholder: "Re-enter password",
+        switchToSignUp: "Don't have an account? Sign up",
+        switchToSignIn: "Already have an account? Sign in",
+        submitSignIn: "Sign in",
+        submitSignUp: "Create Account",
+        submittingSignIn: "Signing in...",
+        submittingSignUp: "Creating account...",
+        passwordsDoNotMatch: "Passwords do not match.",
+        passwordTooShort: "Password must be at least 8 characters long.",
+        registrationFailed: "Registration failed. Please try again.",
+        accountCreated: "Account created! Signing you in...",
+        accountCreatedSignInFailed: "Account created, but sign-in failed. Please sign in manually.",
+        registrationNetworkError: "Registration failed. Please check your connection.",
+        invalidCredentials: "Invalid username or password.",
+        signInFailed: "Sign in failed. Please check your credentials.",
+      },
     },
     home: {
       dashboardTitle: "Groceries dashboard",
@@ -801,6 +906,41 @@ export const localeMessages = {
       userAlt: "Usuario",
       signedInFallback: "Sesión iniciada",
       emailFallback: "Cuenta de Google",
+      credentials: {
+        buttonLabel: "Contraseña / Inicio de prueba",
+        signInTitle: "Iniciar sesión con contraseña",
+        signUpTitle: "Crear una cuenta",
+        closeAria: "Cerrar credenciales",
+        modeAria: "Modo de autenticación",
+        signInTab: "Iniciar sesión",
+        signUpTab: "Registrarse",
+        quickSelectHint: "Selecciona una cuenta rápida o introduce credenciales:",
+        fullNameLabel: "Nombre completo (opcional)",
+        fullNamePlaceholder: "ej. Juan Pérez",
+        emailLabel: "Correo electrónico",
+        emailPlaceholder: "usuario@ejemplo.com",
+        usernameLabel: "Usuario o correo electrónico",
+        usernamePlaceholder: "test, partner, etc.",
+        passwordLabel: "Contraseña",
+        passwordPlaceholder: "password123",
+        passwordSignUpPlaceholder: "Al menos 8 caracteres",
+        confirmPasswordLabel: "Confirmar contraseña",
+        confirmPasswordPlaceholder: "Vuelve a escribir la contraseña",
+        switchToSignUp: "¿No tienes una cuenta? Regístrate",
+        switchToSignIn: "¿Ya tienes una cuenta? Inicia sesión",
+        submitSignIn: "Iniciar sesión",
+        submitSignUp: "Crear cuenta",
+        submittingSignIn: "Iniciando sesión...",
+        submittingSignUp: "Creando cuenta...",
+        passwordsDoNotMatch: "Las contraseñas no coinciden.",
+        passwordTooShort: "La contraseña debe tener al menos 8 caracteres.",
+        registrationFailed: "Error al registrar la cuenta. Inténtalo de nuevo.",
+        accountCreated: "¡Cuenta creada! Iniciando sesión...",
+        accountCreatedSignInFailed: "Cuenta creada, pero falló el inicio de sesión. Inicia sesión manualmente.",
+        registrationNetworkError: "Error de registro. Comprueba tu conexión.",
+        invalidCredentials: "Usuario o contraseña no válidos.",
+        signInFailed: "Error al iniciar sesión. Comprueba tus credenciales.",
+      },
     },
     home: {
       dashboardTitle: "Panel de compras",
@@ -1068,6 +1208,41 @@ export const localeMessages = {
       userAlt: "Usuário",
       signedInFallback: "Sessão iniciada",
       emailFallback: "Conta do Google",
+      credentials: {
+        buttonLabel: "Senha / Login de teste",
+        signInTitle: "Entrar com senha",
+        signUpTitle: "Criar uma conta",
+        closeAria: "Fechar credenciais",
+        modeAria: "Modo de autenticação",
+        signInTab: "Entrar",
+        signUpTab: "Cadastrar",
+        quickSelectHint: "Selecione uma conta rápida ou insira credenciais:",
+        fullNameLabel: "Nome completo (opcional)",
+        fullNamePlaceholder: "ex: Maria Silva",
+        emailLabel: "E-mail",
+        emailPlaceholder: "usuario@exemplo.com",
+        usernameLabel: "Usuário ou e-mail",
+        usernamePlaceholder: "test, partner, etc.",
+        passwordLabel: "Senha",
+        passwordPlaceholder: "password123",
+        passwordSignUpPlaceholder: "No mínimo 8 caracteres",
+        confirmPasswordLabel: "Confirmar senha",
+        confirmPasswordPlaceholder: "Digite a senha novamente",
+        switchToSignUp: "Não tem uma conta? Cadastre-se",
+        switchToSignIn: "Já tem uma conta? Entrar",
+        submitSignIn: "Entrar",
+        submitSignUp: "Criar conta",
+        submittingSignIn: "Entrando...",
+        submittingSignUp: "Criando conta...",
+        passwordsDoNotMatch: "As senhas não coincidem.",
+        passwordTooShort: "A senha deve ter no mínimo 8 caracteres.",
+        registrationFailed: "Falha ao registrar a conta. Tente novamente.",
+        accountCreated: "Conta criada! Entrando...",
+        accountCreatedSignInFailed: "Conta criada, mas falhou ao entrar. Faça login manualmente.",
+        registrationNetworkError: "Falha ao registrar. Verifique sua conexão.",
+        invalidCredentials: "Usuário ou senha inválidos.",
+        signInFailed: "Falha ao entrar. Verifique suas credenciais.",
+      },
     },
     home: {
       dashboardTitle: "Painel de compras",

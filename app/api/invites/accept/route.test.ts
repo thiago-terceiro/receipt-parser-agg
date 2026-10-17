@@ -57,6 +57,33 @@ describe("POST /api/invites/accept", () => {
         expect(data.error).toBe("Please sign in to access boards.");
     });
 
+    it("returns 400 when body is not valid JSON", async () => {
+        const request = new Request("https://example.com/api/invites/accept", {
+            method: "POST",
+            body: "invalid-json",
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toBe("Invalid JSON request body.");
+    });
+
+    it("returns 400 when body is JSON null or not an object", async () => {
+        const request = new Request("https://example.com/api/invites/accept", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "null",
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toBe("Invalid JSON request body.");
+    });
+
     it("returns 400 when invite token is missing", async () => {
         mockAcceptBoardInviteForIdentity.mockRejectedValueOnce(
             new BoardRouteError("Invite token is required.", 400),

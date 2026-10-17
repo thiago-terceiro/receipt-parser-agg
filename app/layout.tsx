@@ -30,11 +30,11 @@ const themeBootScript = `(() => {
   const theme = known.includes(storedTheme) ? storedTheme : "system";
 
   const resolvedTheme =
-    theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : theme === "system"
-        ? "light"
-        : theme;
+    theme === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : theme === "dark"
+        ? "dark"
+        : "light";
 
   // Remove existing theme-* classes
   document.documentElement.classList.forEach((c) => {

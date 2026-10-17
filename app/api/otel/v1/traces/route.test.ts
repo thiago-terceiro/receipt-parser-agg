@@ -2,7 +2,19 @@
  * @jest-environment node
  */
 
+import { checkOtelRateLimit } from "@/lib/rate-limit";
+
 import { POST } from "./route";
+
+jest.mock("@/lib/rate-limit", () => ({
+  checkOtelRateLimit: jest.fn().mockResolvedValue(null),
+  createRateLimitHeaders: jest.fn((rateLimit) => ({
+    "Retry-After": String(rateLimit.reset),
+    "X-RateLimit-Limit": String(rateLimit.limit),
+    "X-RateLimit-Remaining": String(rateLimit.remaining),
+    "X-RateLimit-Reset": String(rateLimit.reset),
+  })),
+}));
 
 describe("OTel Traces Proxy Route (/api/otel/v1/traces)", () => {
   const originalEnv = process.env;
@@ -160,6 +172,30 @@ describe("OTel Traces Proxy Route (/api/otel/v1/traces)", () => {
     const json = await response.json();
     expect(json.error).toBe("Payload too large");
   });
+
+  it("returns 429 when rate limit is exceeded", async () => {
+    (checkOtelRateLimit as jest.Mock).mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      reset: 30,
+    });
+
+    const request = new Request("http://localhost:3000/api/otel/v1/traces", {
+      method: "POST",
+      headers: { "content-type": "application/x-protobuf" },
+      body: new Uint8Array([1, 2]),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("30");
+    expect(response.headers.get("X-RateLimit-Limit")).toBe("60");
+    expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+    const json = await response.json();
+    expect(json.error).toBe("Too many telemetry requests. Please slow down.");
+  });
 });
+
 
 

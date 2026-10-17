@@ -41,7 +41,21 @@ export async function POST(request: Request) {
     try {
         const response = await withSpan("api.invites.accept.post", async () => {
             const identity = await requireBoardIdentity();
-            const payload = (await request.json()) as AcceptInvitePayload;
+            let payload: AcceptInvitePayload;
+            try {
+                payload = (await request.json()) as AcceptInvitePayload;
+            } catch {
+                return NextResponse.json(
+                    { error: "Invalid JSON request body." },
+                    { status: 400 },
+                );
+            }
+            if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+                return NextResponse.json(
+                    { error: "Invalid JSON request body." },
+                    { status: 400 },
+                );
+            }
             const invite = await acceptBoardInviteForIdentity(identity, payload.token);
 
             logInfo("Accepted board invite.", {

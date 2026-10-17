@@ -4,19 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { mockAuthState } from "@/test/mock-state";
 
-const setViewportMatch = (matches: boolean) => {
-    Object.defineProperty(window, "matchMedia", {
-        writable: true,
-        value: jest.fn().mockImplementation(() => ({
-            matches,
-            media: "(max-width: 700px)",
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            dispatchEvent: jest.fn(),
-        })),
-    });
-};
-
 jest.mock("@/components/locale-switcher", () => ({
     LocaleSwitcher: () => <div>Locale switcher</div>,
 }));
@@ -26,16 +13,13 @@ jest.mock("@/components/theme-toggle", () => ({
 }));
 
 describe("GoogleAuthControls", () => {
-    beforeEach(() => {
-        setViewportMatch(false);
-    });
-
     it("shows setup guidance when Google auth is unavailable", () => {
         render(<GoogleAuthControls canUseGoogleAuth={false} />);
 
-        expect(
-            screen.getByRole("region", { name: "auth.sectionLabel" }),
-        ).toBeInTheDocument();
+        const regions = screen.getAllByRole("region", { name: "auth.sectionLabel" });
+        expect(regions).toHaveLength(2);
+        expect(regions[0]).toHaveClass("min-[981px]:hidden");
+        expect(regions[1]).toHaveClass("hidden", "min-[981px]:flex");
         expect(
             screen.getByRole("button", { name: "auth.continueWithGoogle" }),
         ).toBeDisabled();
@@ -84,23 +68,19 @@ describe("GoogleAuthControls", () => {
     });
 
     it("shows a hamburger menu on mobile and stacks the controls inside it", async () => {
-        setViewportMatch(true);
-
         render(<GoogleAuthControls canUseGoogleAuth />);
 
         const user = userEvent.setup({ delay: null });
         const menuButton = screen.getByRole("button", { name: "auth.sectionLabel" });
-
-        expect(
-            screen.queryByRole("button", { name: "auth.continueWithGoogle" }),
-        ).not.toBeInTheDocument();
+        expect(menuButton.closest("section")).toHaveClass("min-[981px]:hidden");
 
         await user.click(menuButton);
 
         expect(screen.getByRole("heading", { name: "auth.sectionLabel" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "auth.continueWithGoogle" })).toBeInTheDocument();
-        expect(screen.getByText("Theme toggle")).toBeInTheDocument();
-        expect(screen.getByText("Locale switcher")).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: "auth.continueWithGoogle", hidden: true })).toHaveLength(2);
+        expect(screen.getAllByText("Theme toggle")).toHaveLength(2);
+        expect(screen.getAllByText("Locale switcher")).toHaveLength(2);
     });
 
     it("calls signIn for unauthenticated users when clicking GitHub", async () => {
@@ -127,7 +107,7 @@ describe("GoogleAuthControls", () => {
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={false} />);
 
         expect(
-            screen.queryByRole("button", { name: "Password / Test Login" }),
+            screen.queryByRole("button", { name: "auth.credentials.buttonLabel" }),
         ).not.toBeInTheDocument();
     });
 
@@ -135,7 +115,7 @@ describe("GoogleAuthControls", () => {
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
 
         expect(
-            screen.getByRole("button", { name: "Password / Test Login" }),
+            screen.getByRole("button", { name: "auth.credentials.buttonLabel" }),
         ).toBeInTheDocument();
     });
 
@@ -143,37 +123,37 @@ describe("GoogleAuthControls", () => {
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
         const user = userEvent.setup({ delay: null });
 
-        await user.click(screen.getByRole("button", { name: "Password / Test Login" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.buttonLabel" }));
 
-        expect(screen.getByText("Sign in with Password")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+        expect(screen.getByText("auth.credentials.signInTitle")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "auth.credentials.submitSignIn" })).toBeInTheDocument();
 
         // Switch to Sign Up
-        await user.click(screen.getByRole("button", { name: "Sign Up" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.signUpTab" }));
 
-        expect(screen.getByText("Create an Account")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Create Account" })).toBeInTheDocument();
-        expect(screen.getByLabelText("Confirm Password")).toBeInTheDocument();
+        expect(screen.getByText("auth.credentials.signUpTitle")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "auth.credentials.submitSignUp" })).toBeInTheDocument();
+        expect(screen.getByLabelText("auth.credentials.confirmPasswordLabel")).toBeInTheDocument();
 
         // Switch back to Sign In
-        await user.click(screen.getByRole("button", { name: "Sign In" }));
-        expect(screen.getByText("Sign in with Password")).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "auth.credentials.signInTab" }));
+        expect(screen.getByText("auth.credentials.signInTitle")).toBeInTheDocument();
     });
 
     it("validates password matching on sign up", async () => {
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
         const user = userEvent.setup({ delay: null });
 
-        await user.click(screen.getByRole("button", { name: "Password / Test Login" }));
-        await user.click(screen.getByRole("button", { name: "Sign Up" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.buttonLabel" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.signUpTab" }));
 
-        await user.type(screen.getByLabelText("Email"), "mismatch@example.com");
-        await user.type(screen.getByLabelText("Password"), "password123");
-        await user.type(screen.getByLabelText("Confirm Password"), "differentpass");
+        await user.type(screen.getByLabelText("auth.credentials.emailLabel"), "mismatch@example.com");
+        await user.type(screen.getByLabelText("auth.credentials.passwordLabel"), "password123");
+        await user.type(screen.getByLabelText("auth.credentials.confirmPasswordLabel"), "differentpass");
 
-        await user.click(screen.getByRole("button", { name: "Create Account" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.submitSignUp" }));
 
-        expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
+        expect(screen.getByText("auth.credentials.passwordsDoNotMatch")).toBeInTheDocument();
     });
 
     it("handles sign up registration error", async () => {
@@ -186,14 +166,14 @@ describe("GoogleAuthControls", () => {
 
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
 
-        await user.click(screen.getByRole("button", { name: "Password / Test Login" }));
-        await user.click(screen.getByRole("button", { name: "Sign Up" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.buttonLabel" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.signUpTab" }));
 
-        await user.type(screen.getByLabelText("Email"), "newuser@example.com");
-        await user.type(screen.getByLabelText("Password"), "password123");
-        await user.type(screen.getByLabelText("Confirm Password"), "password123");
+        await user.type(screen.getByLabelText("auth.credentials.emailLabel"), "newuser@example.com");
+        await user.type(screen.getByLabelText("auth.credentials.passwordLabel"), "password123");
+        await user.type(screen.getByLabelText("auth.credentials.confirmPasswordLabel"), "password123");
 
-        await user.click(screen.getByRole("button", { name: "Create Account" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.submitSignUp" }));
 
         expect(await screen.findByText("Email already registered")).toBeInTheDocument();
 
@@ -211,14 +191,14 @@ describe("GoogleAuthControls", () => {
 
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
 
-        await user.click(screen.getByRole("button", { name: "Password / Test Login" }));
-        await user.click(screen.getByRole("button", { name: "Sign Up" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.buttonLabel" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.signUpTab" }));
 
-        await user.type(screen.getByLabelText("Email"), "newuser@example.com");
-        await user.type(screen.getByLabelText("Password"), "password123");
-        await user.type(screen.getByLabelText("Confirm Password"), "password123");
+        await user.type(screen.getByLabelText("auth.credentials.emailLabel"), "newuser@example.com");
+        await user.type(screen.getByLabelText("auth.credentials.passwordLabel"), "password123");
+        await user.type(screen.getByLabelText("auth.credentials.confirmPasswordLabel"), "password123");
 
-        await user.click(screen.getByRole("button", { name: "Create Account" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.submitSignUp" }));
 
         expect(global.fetch).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
             method: "POST",
@@ -233,7 +213,7 @@ describe("GoogleAuthControls", () => {
             username: "newuser@example.com",
             password: "password123",
         }));
-        expect(await screen.findByText("Account created, but sign-in failed. Please sign in manually.")).toBeInTheDocument();
+        expect(await screen.findByText("auth.credentials.accountCreatedSignInFailed")).toBeInTheDocument();
 
         global.fetch = originalFetch;
     });
@@ -244,15 +224,46 @@ describe("GoogleAuthControls", () => {
 
         render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
 
-        await user.click(screen.getByRole("button", { name: "Password / Test Login" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.buttonLabel" }));
 
-        await user.click(screen.getByRole("button", { name: "Sign in" }));
+        await user.click(screen.getByRole("button", { name: "auth.credentials.submitSignIn" }));
 
         expect(mockAuthState.signIn).toHaveBeenCalledWith("credentials", expect.objectContaining({
             username: "test",
             password: "password123",
         }));
 
-        expect(await screen.findByText("Invalid username or password.")).toBeInTheDocument();
+        expect(await screen.findByText("auth.credentials.invalidCredentials")).toBeInTheDocument();
+    });
+
+    it("uses unique DOM IDs with prefix for desktop and mobile credentials forms", async () => {
+        const user = userEvent.setup({ delay: null });
+        render(<GoogleAuthControls canUseGoogleAuth isTestAuthEnabled={true} />);
+
+        const desktopCredButtons = screen.getAllByRole("button", { name: "auth.credentials.buttonLabel" });
+        await user.click(desktopCredButtons[0]);
+
+        expect(document.getElementById("desktop-credentials-username")).toBeInTheDocument();
+        expect(document.getElementById("desktop-credentials-password")).toBeInTheDocument();
+
+        const signUpButtons = screen.getAllByRole("button", { name: "auth.credentials.signUpTab" });
+        await user.click(signUpButtons[0]);
+
+        expect(document.getElementById("desktop-credentials-fullname")).toBeInTheDocument();
+        expect(document.getElementById("desktop-credentials-confirm")).toBeInTheDocument();
+
+        const menuButton = screen.getByRole("button", { name: "auth.sectionLabel" });
+        await user.click(menuButton);
+
+        // When mobile menu dialog is open, both desktop and mobile panels exist in DOM with distinct IDs
+        expect(document.getElementById("desktop-credentials-fullname")).toBeInTheDocument();
+        expect(document.getElementById("desktop-credentials-username")).toBeInTheDocument();
+        expect(document.getElementById("desktop-credentials-password")).toBeInTheDocument();
+        expect(document.getElementById("desktop-credentials-confirm")).toBeInTheDocument();
+
+        expect(document.getElementById("mobile-credentials-fullname")).toBeInTheDocument();
+        expect(document.getElementById("mobile-credentials-username")).toBeInTheDocument();
+        expect(document.getElementById("mobile-credentials-password")).toBeInTheDocument();
+        expect(document.getElementById("mobile-credentials-confirm")).toBeInTheDocument();
     });
 });

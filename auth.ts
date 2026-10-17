@@ -3,7 +3,7 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 
 import { verifyUserCredentials } from "@/lib/auth-db";
-import { hasSupabaseServerConfig } from "@/lib/supabase-server";
+import { getSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase-server";
 
 import type { NextAuthOptions, User } from "next-auth";
 
@@ -33,8 +33,7 @@ export const isTestAuthEnabled = () =>
   process.env.NODE_ENV !== "production" ||
   process.env.ENABLE_TEST_AUTH === "true";
 
-export const isCredentialsAuthEnabled = () =>
-  isTestAuthEnabled() || hasSupabaseServerConfig;
+export const isCredentialsAuthEnabled = () => isTestAuthEnabled();
 
 export const getCredentialsPassword = () =>
   process.env.TEST_AUTH_PASSWORD?.trim() || "password123";
@@ -63,6 +62,10 @@ const credentialsConfig = {
     password: { label: "Password", type: "password" },
   },
   async authorize(credentials: Record<string, string> | undefined): Promise<User | null> {
+    if (!isCredentialsAuthEnabled()) {
+      return null;
+    }
+
     if (!credentials?.username || !credentials.password) {
       return null;
     }
@@ -158,7 +161,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    jwt({ token, user, account }) {
+    async jwt({ token, user, account }) {
       if ((account?.provider === "google" || account?.provider === "github") && account.providerAccountId) {
         token.uid = account.providerAccountId;
       } else if (user?.id) {
@@ -167,6 +170,74 @@ export const authOptions: NextAuthOptions = {
 
       if (!token.uid && typeof token.sub === "string" && token.sub.trim()) {
         token.uid = token.sub;
+      }
+
+      // Canonical Profile ID Unification (H-2)
+      // When email is present and Supabase is configured, resolve canonical profile by email.
+      // We only execute the database query on sign-in (when user is present) or if token.uid is not yet set,
+      // avoiding redundant remote database lookups on every single subsequent request.
+      const shouldResolve =
+        hasSupabaseServerConfig && Boolean(user?.email || (!token.uid && token.email));
+      const email = (user?.email || (!token.uid && typeof token.email === "string" ? token.email : undefined))
+        ?.trim()
+        .toLowerCase();
+
+      if (shouldResolve && email) {
+        try {
+          const client = getSupabaseServerClient();
+          const { data: existingProfile } = await client
+            .from("profiles")
+            .select("id")
+            .eq("email", email)
+            .maybeSingle();
+
+          if (existingProfile?.id) {
+            token.uid = existingProfile.id;
+          } else {
+            const initialId =
+              (typeof token.uid === "string" && token.uid.trim())
+                ? token.uid
+                : `user_${Date.now()}`;
+            const displayName =
+              user?.name ||
+              (typeof token.name === "string" ? token.name : null) ||
+              email.split("@")[0];
+            const imageUrl =
+              user?.image ||
+              (typeof token.picture === "string" ? token.picture : null);
+
+            const { data: createdProfile, error: upsertError } = await client
+              .from("profiles")
+              .upsert(
+                {
+                  id: initialId,
+                  email,
+                  display_name: displayName,
+                  image_url: imageUrl,
+                },
+                { onConflict: "id" },
+              )
+              .select("id")
+              .maybeSingle();
+
+            if (createdProfile?.id) {
+              token.uid = createdProfile.id;
+            } else if (upsertError) {
+              const { data: refetched } = await client
+                .from("profiles")
+                .select("id")
+                .eq("email", email)
+                .maybeSingle();
+              if (refetched?.id) {
+                token.uid = refetched.id;
+              }
+            } else {
+              token.uid = initialId;
+            }
+          }
+        } catch (err) {
+          console.error("Failed to unify canonical profile ID in jwt callback:", err);
+        }
       }
 
       return token;

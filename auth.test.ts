@@ -1,6 +1,19 @@
+let mockHasSupabaseConfig = false;
+const mockGetSupabaseServerClient = jest.fn();
+
+jest.mock("@/lib/supabase-server", () => ({
+  get hasSupabaseServerConfig() {
+    return mockHasSupabaseConfig;
+  },
+  getSupabaseServerClient: () => mockGetSupabaseServerClient(),
+}));
+
 import {
   authOptions,
+  getAuthProviders,
   getCredentialsPassword,
+  isCredentialsAuthEnabled,
+  isTestAuthEnabled,
 } from "./auth";
 
 import type { Account, User } from "next-auth";
@@ -78,6 +91,35 @@ describe("authOptions", () => {
         name: "custom_demo",
         email: "custom_demo@receipt.local",
       });
+    });
+
+    it("rejects credentials authorization when credentials auth is disabled in production", async () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      const originalEnableTestAuth = process.env.ENABLE_TEST_AUTH;
+
+      try {
+        (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+        delete process.env.ENABLE_TEST_AUTH;
+
+        expect(isTestAuthEnabled()).toBe(false);
+        expect(isCredentialsAuthEnabled()).toBe(false);
+
+        const providers = getAuthProviders();
+        expect(providers.find((p) => p.id === "credentials")).toBeUndefined();
+
+        const user = await credentialsProvider.authorize({
+          username: "test",
+          password: getCredentialsPassword(),
+        });
+        expect(user).toBeNull();
+      } finally {
+        (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv;
+        if (originalEnableTestAuth !== undefined) {
+          process.env.ENABLE_TEST_AUTH = originalEnableTestAuth;
+        } else {
+          delete process.env.ENABLE_TEST_AUTH;
+        }
+      }
     });
   });
 
@@ -207,4 +249,110 @@ describe("authOptions", () => {
       expect(token.uid).toBe("github-98765");
     });
   });
+
+  describe("canonical profile ID unification", () => {
+    beforeEach(() => {
+      mockHasSupabaseConfig = true;
+      mockGetSupabaseServerClient.mockReset();
+    });
+
+    afterEach(() => {
+      mockHasSupabaseConfig = false;
+    });
+
+    it("unifies token.uid with canonical profile id if profile with email exists", async () => {
+      const mockClient = {
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: "canonical-profile-uuid-123" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+      const account: Account = {
+        provider: "google",
+        type: "oauth",
+        providerAccountId: "google-raw-id-999",
+      };
+      const user: User = {
+        id: "google-raw-id-999",
+        email: "user@example.com",
+        name: "Test User",
+      };
+
+      const token = await authOptions.callbacks!.jwt!({
+        token: {} as JWT,
+        user,
+        account,
+      });
+
+      expect(token.uid).toBe("canonical-profile-uuid-123");
+    });
+
+    it("creates profile and unifies token.uid if profile with email does not exist", async () => {
+      const mockClient = {
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: null,
+                error: null,
+              }),
+            }),
+          }),
+          upsert: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: "newly-created-profile-id" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      mockGetSupabaseServerClient.mockReturnValue(mockClient);
+
+      const account: Account = {
+        provider: "github",
+        type: "oauth",
+        providerAccountId: "gh-raw-id-555",
+      };
+      const user: User = {
+        id: "gh-raw-id-555",
+        email: "newuser@example.com",
+        name: "New GitHub User",
+      };
+
+      const token = await authOptions.callbacks!.jwt!({
+        token: {} as JWT,
+        user,
+        account,
+      });
+
+      expect(token.uid).toBe("newly-created-profile-id");
+    });
+
+    it("does not query Supabase on subsequent JWT checks when token.uid is already unified", async () => {
+      const existingToken: JWT = {
+        uid: "canonical-cached-123",
+        email: "user@example.com",
+      } as unknown as JWT;
+
+      const token = await authOptions.callbacks!.jwt!({
+        token: existingToken,
+        user: undefined as unknown as User,
+        account: undefined as unknown as Account,
+      });
+
+      expect(token.uid).toBe("canonical-cached-123");
+      expect(mockGetSupabaseServerClient).not.toHaveBeenCalled();
+    });
+  });
 });
+

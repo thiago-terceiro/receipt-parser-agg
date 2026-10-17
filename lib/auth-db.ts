@@ -88,6 +88,13 @@ export const registerUser = async ({
     );
   }
 
+  if (password.length > 256) {
+    throw new AuthRegistrationError(
+      "Password must not exceed 256 characters.",
+      400,
+    );
+  }
+
   if (!hasSupabaseServerConfig) {
     throw new AuthRegistrationError(
       "Database registration is not configured on the server.",
@@ -98,11 +105,18 @@ export const registerUser = async ({
   const client = getSupabaseServerClient();
 
   // Check if credentials already exist
-  const { data: existingCreds } = await client
+  const { data: existingCreds, error: credsQueryError } = await client
     .from("user_credentials")
     .select("id")
     .eq("email", normalizedEmail)
     .maybeSingle();
+
+  if (credsQueryError) {
+    throw new AuthRegistrationError(
+      `Failed to verify existing credentials: ${credsQueryError.message}`,
+      500,
+    );
+  }
 
   if (existingCreds) {
     throw new AuthRegistrationError(
@@ -112,36 +126,45 @@ export const registerUser = async ({
   }
 
   // Check if profile with email already exists (e.g. from OAuth)
-  const { data: existingProfile } = await client
+  const { data: existingProfile, error: profileQueryError } = await client
     .from("profiles")
     .select("id, display_name")
     .eq("email", normalizedEmail)
     .maybeSingle();
 
+  if (profileQueryError) {
+    throw new AuthRegistrationError(
+      `Failed to verify existing profile: ${profileQueryError.message}`,
+      500,
+    );
+  }
+
+  if (existingProfile) {
+    throw new AuthRegistrationError(
+      "An account with this email already exists.",
+      409,
+    );
+  }
+
   const passwordHash = await hashPassword(password);
-  let userId = existingProfile?.id;
-  let createdProfile = false;
-  const displayName = name?.trim() || existingProfile?.display_name || normalizedEmail.split("@")[0];
+  const userId = randomUUID();
+  const displayName = name?.trim() || normalizedEmail.split("@")[0];
 
-  if (!userId) {
-    userId = randomUUID();
-    const { error: profileError } = await client.from("profiles").insert({
-      id: userId,
-      email: normalizedEmail,
-      display_name: displayName,
-      image_url: null,
-    });
+  const { error: profileError } = await client.from("profiles").insert({
+    id: userId,
+    email: normalizedEmail,
+    display_name: displayName,
+    image_url: null,
+  });
 
-    if (profileError) {
-      if (profileError.code === "23505" || profileError.message?.includes("unique")) {
-        throw new AuthRegistrationError("An account with this email already exists.", 409);
-      }
-      throw new AuthRegistrationError(
-        `Failed to create user profile: ${profileError.message}`,
-        500,
-      );
+  if (profileError) {
+    if (profileError.code === "23505" || profileError.message?.includes("unique")) {
+      throw new AuthRegistrationError("An account with this email already exists.", 409);
     }
-    createdProfile = true;
+    throw new AuthRegistrationError(
+      `Failed to create user profile: ${profileError.message}`,
+      500,
+    );
   }
 
   const { error: credsError } = await client.from("user_credentials").insert({
@@ -151,9 +174,7 @@ export const registerUser = async ({
   });
 
   if (credsError) {
-    if (createdProfile) {
-      await client.from("profiles").delete().eq("id", userId);
-    }
+    await client.from("profiles").delete().eq("id", userId);
     if (credsError.code === "23505" || credsError.message?.includes("unique")) {
       throw new AuthRegistrationError("An account with this email already exists.", 409);
     }
@@ -169,3 +190,5 @@ export const registerUser = async ({
     name: displayName,
   };
 };
+
+export const registerUserWithCredentials = registerUser;

@@ -25,10 +25,13 @@ const mockGetSupabaseServerClient = getSupabaseServerClient as jest.Mock;
 const createMockClient = ({
     board,
     existingJoinedAt = null,
+    existingMembership = null,
     invite,
+    updatedInviteRows,
 }: {
     board?: { id: string; name: string } | null;
     existingJoinedAt?: string | null;
+    existingMembership?: { role: "owner" | "editor"; status: "active" | "removed"; joined_at?: string } | null;
     invite?: {
         id: string;
         board_id: string;
@@ -36,6 +39,7 @@ const createMockClient = ({
         invited_by_user_id: string;
         role: "editor";
     } | null;
+    updatedInviteRows?: Array<{ id: string }> | null;
 }) => {
     const profileSingle = jest.fn().mockResolvedValue({
         data: {
@@ -57,11 +61,19 @@ const createMockClient = ({
     const inviteEqStatus = jest.fn(() => ({ gt: inviteGt, maybeSingle: inviteMaybeSingle }));
     const inviteEqToken = jest.fn(() => ({ eq: inviteEqStatus, maybeSingle: inviteMaybeSingle }));
     const inviteSelect = jest.fn(() => ({ eq: inviteEqToken }));
-    const inviteUpdateEq = jest.fn().mockResolvedValue({ error: null });
+    const inviteUpdateSelect = jest.fn().mockResolvedValue({
+        data: updatedInviteRows !== undefined ? updatedInviteRows : [{ id: invite?.id ?? "invite-123" }],
+        error: null,
+    });
+    const inviteUpdateEq: jest.Mock = jest.fn();
+    inviteUpdateEq.mockImplementation(() => ({
+        eq: inviteUpdateEq,
+        select: inviteUpdateSelect,
+    }));
     const inviteUpdate = jest.fn(() => ({ eq: inviteUpdateEq }));
 
     const memberMaybeSingle = jest.fn().mockResolvedValue({
-        data: existingJoinedAt ? { joined_at: existingJoinedAt } : null,
+        data: existingMembership ?? (existingJoinedAt ? { joined_at: existingJoinedAt } : null),
         error: null,
     });
     const memberEqUser = jest.fn(() => ({ maybeSingle: memberMaybeSingle }));
@@ -106,6 +118,7 @@ const createMockClient = ({
         mocks: {
             inviteUpdate,
             inviteUpdateEq,
+            inviteUpdateSelect,
             memberUpsert,
             profileUpdate,
             profileUpdateEq,
@@ -165,7 +178,36 @@ describe("acceptBoardInviteForIdentity", () => {
             last_active_board_id: "board-123",
         });
         expect(mocks.inviteUpdateEq).toHaveBeenCalledWith("id", "invite-123");
+        expect(mocks.inviteUpdateEq).toHaveBeenCalledWith("status", "pending");
+        expect(mocks.inviteUpdateSelect).toHaveBeenCalledWith("id");
         expect(mocks.profileUpdateEq).toHaveBeenCalledWith("id", "user-123");
+    });
+
+    it("rejects with 409 when atomic invite claim updates 0 rows due to race condition", async () => {
+        const { client, mocks } = createMockClient({
+            board: { id: "board-123", name: "Shared board" },
+            invite: {
+                id: "invite-123",
+                board_id: "board-123",
+                email: "person@example.com",
+                invited_by_user_id: "owner-123",
+                role: "editor",
+            },
+            updatedInviteRows: [],
+        });
+
+        mockGetSupabaseServerClient.mockReturnValue(client);
+
+        await expect(
+            acceptBoardInviteForIdentity({
+                email: "person@example.com",
+                image: null,
+                name: "Person",
+                userId: "user-123",
+            }, "invite-token"),
+        ).rejects.toThrow(new BoardRouteError("This invitation has already been accepted.", 409));
+
+        expect(mocks.memberUpsert).not.toHaveBeenCalled();
     });
 
     it("rejects invite email mismatches before mutating membership state", async () => {
@@ -197,6 +239,122 @@ describe("acceptBoardInviteForIdentity", () => {
         expect(mocks.memberUpsert).not.toHaveBeenCalled();
         expect(mocks.inviteUpdate).not.toHaveBeenCalled();
         expect(mocks.profileUpdate).not.toHaveBeenCalled();
+    });
+
+    it("preserves owner role and does not burn invite when user is already an active member", async () => {
+        const { client, mocks } = createMockClient({
+            board: { id: "board-123", name: "Shared board" },
+            invite: {
+                id: "invite-123",
+                board_id: "board-123",
+                email: "owner@example.com",
+                invited_by_user_id: "owner-123",
+                role: "editor",
+            },
+            existingMembership: {
+                role: "owner",
+                status: "active",
+            },
+        });
+
+        mockGetSupabaseServerClient.mockReturnValue(client);
+
+        await expect(
+            acceptBoardInviteForIdentity({
+                email: "owner@example.com",
+                image: null,
+                name: "Owner User",
+                userId: "owner-123",
+            }, "invite-token"),
+        ).resolves.toEqual({
+            board_id: "board-123",
+            board_name: "Shared board",
+            role: "owner",
+        });
+
+        expect(mocks.inviteUpdate).not.toHaveBeenCalled();
+        expect(mocks.memberUpsert).not.toHaveBeenCalled();
+        expect(mocks.profileUpdate).toHaveBeenCalledWith({
+            last_active_board_id: "board-123",
+        });
+    });
+
+    it("preserves active member role even if invite is email-restricted to another user", async () => {
+        const { client, mocks } = createMockClient({
+            board: { id: "board-123", name: "Shared board" },
+            invite: {
+                id: "invite-123",
+                board_id: "board-123",
+                email: "collaborator@example.com",
+                invited_by_user_id: "owner-123",
+                role: "editor",
+            },
+            existingMembership: {
+                role: "owner",
+                status: "active",
+            },
+        });
+
+        mockGetSupabaseServerClient.mockReturnValue(client);
+
+        await expect(
+            acceptBoardInviteForIdentity({
+                email: "owner@example.com",
+                image: null,
+                name: "Owner User",
+                userId: "owner-123",
+            }, "invite-token"),
+        ).resolves.toEqual({
+            board_id: "board-123",
+            board_name: "Shared board",
+            role: "owner",
+        });
+
+        expect(mocks.inviteUpdate).not.toHaveBeenCalled();
+        expect(mocks.memberUpsert).not.toHaveBeenCalled();
+        expect(mocks.profileUpdate).toHaveBeenCalledWith({
+            last_active_board_id: "board-123",
+        });
+    });
+
+    it("proceeds with invite acceptance when user is a removed member", async () => {
+        const { client, mocks } = createMockClient({
+            board: { id: "board-123", name: "Shared board" },
+            invite: {
+                id: "invite-123",
+                board_id: "board-123",
+                email: "person@example.com",
+                invited_by_user_id: "owner-123",
+                role: "editor",
+            },
+            existingMembership: {
+                role: "editor",
+                status: "removed",
+            },
+        });
+
+        mockGetSupabaseServerClient.mockReturnValue(client);
+
+        await expect(
+            acceptBoardInviteForIdentity({
+                email: "person@example.com",
+                image: null,
+                name: "Person",
+                userId: "user-123",
+            }, "invite-token"),
+        ).resolves.toEqual({
+            board_id: "board-123",
+            board_name: "Shared board",
+            role: "editor",
+        });
+
+        expect(mocks.inviteUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                accepted_by_user_id: "user-123",
+                status: "accepted",
+            }),
+        );
+        expect(mocks.memberUpsert).toHaveBeenCalled();
     });
 
     describe("getPendingBoardInviteDetails", () => {
