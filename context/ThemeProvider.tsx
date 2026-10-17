@@ -152,12 +152,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     getStoredTheme,
     () => "system",
   );
-  const systemTheme = useSyncExternalStore(
+  const systemTheme = useSyncExternalStore<ResolvedTheme>(
     subscribeToSystemTheme,
     getSystemThemeSnapshot,
     () => "light",
   );
-  const resolvedTheme = (theme === "system" ? systemTheme : theme) as ResolvedTheme;
+  const resolvedTheme: ResolvedTheme =
+    theme === "system" ? systemTheme : theme === "dark" ? "dark" : "light";
   const isLoaded = true;
 
   const setTheme = useCallback((nextTheme: Theme) => {

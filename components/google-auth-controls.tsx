@@ -106,8 +106,8 @@ export const GoogleAuthControls = ({
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("test");
-  const [password, setPassword] = useState("password123");
+  const [username, setUsername] = useState(isQuickSelectEnabled ? "test" : "");
+  const [password, setPassword] = useState(isQuickSelectEnabled ? "password123" : "");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
   const [credentialsSuccess, setCredentialsSuccess] = useState<string | null>(null);
@@ -123,6 +123,17 @@ export const GoogleAuthControls = ({
 
   const handleAuthClick = useCallback(() => {
     if (isAuthenticated) {
+      if (typeof window !== "undefined") {
+        try {
+          Object.keys(window.localStorage).forEach((key) => {
+            if (key.startsWith("receipt-ai-groceries-dashboard")) {
+              window.localStorage.removeItem(key);
+            }
+          });
+        } catch {
+          // ignore storage clearing errors
+        }
+      }
       void signOut({ callbackUrl: authCallbackUrl });
       return;
     }
