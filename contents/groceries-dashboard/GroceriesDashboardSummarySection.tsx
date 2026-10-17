@@ -161,6 +161,11 @@ export const GroceriesDashboardSummarySection = ({
             <Link
               href={previousMonthHref}
               locale={locale}
+              prefetch={true}
+              onClick={(event) => {
+                event.preventDefault();
+                onMonthChange(previousMonth);
+              }}
             >
               {translations.groceries.previousMonth}
             </Link>
@@ -197,6 +202,11 @@ export const GroceriesDashboardSummarySection = ({
               <Link
                 href={nextMonthHref}
                 locale={locale}
+                prefetch={true}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onMonthChange(nextMonth);
+                }}
               >
                 {translations.groceries.nextMonth}
               </Link>
@@ -207,7 +217,7 @@ export const GroceriesDashboardSummarySection = ({
             variant="secondary"
             className="border-[var(--border)] bg-[var(--surface-plain)] max-[700px]:ml-auto"
           >
-            <Link href="/" locale={locale}>{translations.groceries.backToUpload}</Link>
+            <Link href="/" locale={locale} prefetch={true}>{translations.groceries.backToUpload}</Link>
           </Button>
         </div>
       </div>

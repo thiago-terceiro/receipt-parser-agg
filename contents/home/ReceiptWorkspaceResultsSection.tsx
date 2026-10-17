@@ -542,7 +542,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     <Button
                                         type="button"
                                         onClick={onSaveGroceries}
-                                        className="max-[640px]:w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
+                                        className="max-[640px]:w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
                                         disabled={
                                             !isAuthenticated ||
                                             isSaving ||
@@ -557,7 +557,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     <Button
                                         asChild
                                         variant="secondary"
-                                        className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
+                                        className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
                                     >
                                         <Link href={dashboardHref} locale={locale}>
                                             <LayoutDashboard className="size-4" aria-hidden="true" />

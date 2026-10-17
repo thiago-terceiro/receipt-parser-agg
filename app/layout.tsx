@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
 
+import { authOptions } from "@/auth";
 import { AppSessionProvider } from "@/context/AppSessionProvider";
 import {
   getHtmlLang,
@@ -59,7 +61,10 @@ const RootLayout = async ({
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
-  const cookieStore = await cookies();
+  const [cookieStore, session] = await Promise.all([
+    cookies(),
+    getServerSession(authOptions),
+  ]);
   const locale =
     getLocaleFromPreference(cookieStore.get(localeCookieName)?.value) ?? "en";
 
@@ -69,7 +74,7 @@ const RootLayout = async ({
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body>
-        <AppSessionProvider>{children}</AppSessionProvider>
+        <AppSessionProvider session={session}>{children}</AppSessionProvider>
       </body>
     </html>
   );

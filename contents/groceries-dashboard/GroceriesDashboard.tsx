@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Package2, ReceiptText, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLocale, useTranslations } from "@/components/locale-utils";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import { createCurrencyFormatter } from "@/lib/currency";
 import {
+  buildMonthOptions,
+  shiftMonthKey,
   type GroceriesMonthPayload,
   type GroceryCategorySummary,
   type MonthOption,
@@ -93,7 +95,7 @@ export const GroceriesDashboard = ({
   payload,
   currentMonth,
   members,
-  monthOptions,
+  monthOptions: _monthOptions,
 }: {
   activeBoard: BoardSummary;
   boards: BoardSummary[];
@@ -111,16 +113,38 @@ export const GroceriesDashboard = ({
     payload.categories[0]?.category ?? null,
   );
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
+  const [monthOverride, setMonthOverride] = useState<{
+    boardId: string;
+    month: string;
+    payload: GroceriesMonthPayload;
+  } | null>(null);
+  const monthCacheRef = useRef<Map<string, GroceriesMonthPayload>>(new Map());
+
+  const activePayload =
+    monthOverride &&
+    monthOverride.boardId === activeBoard.id &&
+    monthOverride.month !== payload.month
+      ? monthOverride.payload
+      : payload;
+
+  useEffect(() => {
+    monthCacheRef.current.set(`${activeBoard.id}:${payload.month}`, payload);
+  }, [activeBoard.id, payload]);
+
+  const displayedMonthOptions = useMemo(
+    () => buildMonthOptions(activePayload.month, 12, locale),
+    [activePayload.month, locale],
+  );
 
   const serverSnapshot = useMemo(
     () => ({
       activeBoard,
-      payload,
+      payload: activePayload,
       currentMonth,
       members,
-      monthOptions,
+      monthOptions: displayedMonthOptions,
     }),
-    [activeBoard, currentMonth, members, monthOptions, payload],
+    [activeBoard, activePayload, currentMonth, displayedMonthOptions, members],
   );
   const isBoardSwitchTransitioning =
     boardSwitchState?.sourceBoardId === activeBoard.id &&
@@ -137,10 +161,34 @@ export const GroceriesDashboard = ({
       : activeBoard;
   const displayedPayload = displayedSnapshot.payload;
   const displayedMembers = displayedSnapshot.members;
-  const displayedMonthOptions = displayedSnapshot.monthOptions;
   const isBoardSwitchPending = Boolean(
     isBoardSwitchTransitioning && !boardSwitchState?.snapshot,
   );
+
+  const prefetchMonth = useCallback(async (boardId: string, month: string) => {
+    const key = `${boardId}:${month}`;
+    if (monthCacheRef.current.has(key)) return;
+    try {
+      const res = await fetch(
+        `/api/expenses?boardId=${encodeURIComponent(boardId)}&month=${encodeURIComponent(month)}`,
+      );
+      if (res.ok) {
+        const data = (await res.json()) as GroceriesMonthPayload;
+        monthCacheRef.current.set(key, data);
+      }
+    } catch {
+      // background prefetch best effort
+    }
+  }, []);
+
+  useEffect(() => {
+    const prev = shiftMonthKey(activePayload.month, -1);
+    const next = shiftMonthKey(activePayload.month, 1);
+    void prefetchMonth(displayedActiveBoard.id, prev);
+    if (next <= currentMonth) {
+      void prefetchMonth(displayedActiveBoard.id, next);
+    }
+  }, [currentMonth, displayedActiveBoard.id, activePayload.month, prefetchMonth]);
 
   useEffect(() => {
     writeGroceriesDashboardSnapshot(locale, serverSnapshot);
@@ -296,16 +344,59 @@ export const GroceriesDashboard = ({
   );
 
   const handleMonthChange = useCallback(
-    (month: string) => {
-      router.push({
-        pathname: "/groceries",
-        query: {
-          board: displayedActiveBoard.id,
-          ...(month !== currentMonth ? { month } : {}),
-        },
-      });
+    async (targetMonth: string) => {
+      if (targetMonth === activePayload.month) {
+        return;
+      }
+
+      const boardId = displayedActiveBoard.id;
+      const cacheKey = `${boardId}:${targetMonth}`;
+      const cached = monthCacheRef.current.get(cacheKey);
+
+      // Silently update URL without triggering full Next.js App Router RSC unmount
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (targetMonth === currentMonth) {
+          url.searchParams.delete("month");
+        } else {
+          url.searchParams.set("month", targetMonth);
+        }
+        window.history.replaceState(null, "", url.toString());
+      }
+
+      if (cached) {
+        setMonthOverride({ boardId, month: targetMonth, payload: cached });
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/expenses?boardId=${encodeURIComponent(boardId)}&month=${encodeURIComponent(targetMonth)}`,
+        );
+        if (response.ok) {
+          const newPayload = (await response.json()) as GroceriesMonthPayload;
+          monthCacheRef.current.set(cacheKey, newPayload);
+          setMonthOverride({ boardId, month: targetMonth, payload: newPayload });
+        } else {
+          router.push({
+            pathname: "/groceries",
+            query: {
+              board: boardId,
+              ...(targetMonth !== currentMonth ? { month: targetMonth } : {}),
+            },
+          });
+        }
+      } catch {
+        router.push({
+          pathname: "/groceries",
+          query: {
+            board: boardId,
+            ...(targetMonth !== currentMonth ? { month: targetMonth } : {}),
+          },
+        });
+      }
     },
-    [currentMonth, displayedActiveBoard.id, router],
+    [activePayload.month, currentMonth, displayedActiveBoard.id, router],
   );
 
   return (
@@ -317,7 +408,7 @@ export const GroceriesDashboard = ({
           size="sm"
           className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.78rem] font-semibold text-muted-foreground hover:bg-[var(--surface-plain-soft)]"
         >
-          <Link href="/" locale={locale}>
+          <Link href="/" locale={locale} prefetch={true}>
             <Undo2 className="size-4" />
             <span>{translations.groceries.backToHome}</span>
           </Link>

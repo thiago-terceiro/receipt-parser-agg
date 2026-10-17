@@ -167,7 +167,7 @@ export const InviteAcceptanceCard = ({
                 </CardHeader>
                 <CardContent>
                     <Button asChild variant="secondary">
-                        <Link href="/" locale={locale}>{translations.groceries.backToHome}</Link>
+                        <Link href="/" locale={locale} prefetch={true}>{translations.groceries.backToHome}</Link>
                     </Button>
                 </CardContent>
             </Card>
@@ -210,7 +210,7 @@ export const InviteAcceptanceCard = ({
                             </Alert>
                         ) : null}
                         <Button asChild variant="secondary">
-                            <Link href="/" locale={locale}>{translations.groceries.backToHome}</Link>
+                            <Link href="/" locale={locale} prefetch={true}>{translations.groceries.backToHome}</Link>
                         </Button>
                     </CardContent>
                 </Card>

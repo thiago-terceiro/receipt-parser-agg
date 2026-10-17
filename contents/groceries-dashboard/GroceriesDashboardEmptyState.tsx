@@ -31,7 +31,7 @@ export const GroceriesDashboardEmptyState = ({
           </p>
           <div>
             <Button asChild>
-              <Link href="/" locale={locale}>{translations.groceries.extractReceipt}</Link>
+              <Link href="/" locale={locale} prefetch={true}>{translations.groceries.extractReceipt}</Link>
             </Button>
           </div>
         </div>

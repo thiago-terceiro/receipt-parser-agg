@@ -175,10 +175,10 @@ export const ReceiptWorkspaceUploadSection = ({
                             </Button>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>{translations.receipt.dragAndDrop}</span>
+                        <p className="m-0 text-sm leading-relaxed text-muted-foreground">
+                            <span className="font-semibold text-foreground">{translations.receipt.dragAndDrop}</span>{" "}
                             <span>{translations.receipt.clickToBrowse}</span>
-                        </div>
+                        </p>
                     )}
                 </div>
 
@@ -211,7 +211,7 @@ export const ReceiptWorkspaceUploadSection = ({
                     <Button
                         type="submit"
                         disabled={!canSubmit || isLoading}
-                        className="w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
+                        className="w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
                     >
                         {isLoading ? (
                             <>
@@ -227,7 +227,7 @@ export const ReceiptWorkspaceUploadSection = ({
                         type="button"
                         onClick={onClearSelectedFile}
                         disabled={!hasSelectedFile || isLoading}
-                        className="w-full transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
+                        className="w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
                     >
                         {translations.receipt.removeImage}
                     </Button>

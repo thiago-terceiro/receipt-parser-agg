@@ -50,7 +50,7 @@ const HomePage = async ({ params }: HomePageProps) => {
           variant="secondary"
           className="border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
         >
-          <Link href="/groceries" locale={resolvedLocale}>
+          <Link href="/groceries" locale={resolvedLocale} prefetch={true}>
             {t("openGroceriesView")}
           </Link>
         </Button>
