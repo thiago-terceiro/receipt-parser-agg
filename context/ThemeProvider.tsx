@@ -9,7 +9,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
-const THEME_STORAGE_KEY = "receipt-ai-theme";
+export const THEME_STORAGE_KEY = "receipt-ai-theme";
+export const THEME_COOKIE_NAME = "receipt-ai-theme";
 const SYSTEM_THEME_QUERY = "(prefers-color-scheme: dark)";
 
 export type Theme =
@@ -32,7 +33,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const isTheme = (value: string | null): value is Theme => {
+export const isTheme = (value: unknown): value is Theme => {
   return (
     value === "light" ||
     value === "dark" ||
@@ -146,6 +147,42 @@ const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   return resolvedTheme;
 };
 
+const disableAnimation = () => {
+  if (typeof document === "undefined") {
+    return () => {};
+  }
+
+  const css = document.createElement("style");
+  css.appendChild(
+    document.createTextNode(
+      "*,*::before,*::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}",
+    ),
+  );
+  document.head.appendChild(css);
+
+  return () => {
+    try {
+      window.getComputedStyle(document.body);
+    } catch {
+      // ignore
+    }
+
+    const cleanup = () => {
+      if (css.parentNode) {
+        document.head.removeChild(css);
+      }
+    };
+
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(cleanup);
+      });
+    } else {
+      setTimeout(cleanup, 0);
+    }
+  };
+};
+
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const theme = useSyncExternalStore<Theme>(
     subscribeToThemePreference,
@@ -162,13 +199,20 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const isLoaded = true;
 
   const setTheme = useCallback((nextTheme: Theme) => {
+    const enableAnimation = disableAnimation();
     applyThemeToDocument(nextTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    if (typeof document !== "undefined") {
+      document.cookie = `${THEME_COOKIE_NAME}=${encodeURIComponent(nextTheme)}; path=/; max-age=31536000; SameSite=Lax`;
+    }
     window.dispatchEvent(new Event("receipt-ai-theme-change"));
+    enableAnimation();
   }, []);
 
   useEffect(() => {
+    const enableAnimation = disableAnimation();
     applyThemeToDocument(theme);
+    enableAnimation();
   }, [theme, resolvedTheme]);
 
   const value = useMemo(

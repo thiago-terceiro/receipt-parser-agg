@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { ThemeProvider, useTheme } from "@/context/ThemeProvider";
+import {
+    THEME_COOKIE_NAME,
+    ThemeProvider,
+    isTheme,
+    useTheme,
+} from "@/context/ThemeProvider";
 
 describe("ThemeProvider", () => {
     it("throws when the hook is used outside the provider", () => {
@@ -62,6 +67,7 @@ describe("ThemeProvider", () => {
 
         expect(document.documentElement.dataset.theme).toBe("dark");
         expect(document.documentElement.classList.contains("dark")).toBe(true);
+        expect(document.cookie).toContain("receipt-ai-theme=dark");
         expect(window.localStorage.setItem).toHaveBeenCalledWith(
             "receipt-ai-theme",
             "dark",
@@ -71,9 +77,21 @@ describe("ThemeProvider", () => {
 
         expect(document.documentElement.dataset.theme).toBe("light");
         expect(document.documentElement.classList.contains("dark")).toBe(false);
+        expect(document.cookie).toContain("receipt-ai-theme=light");
         expect(window.localStorage.setItem).toHaveBeenCalledWith(
             "receipt-ai-theme",
             "light",
         );
+    });
+
+    it("exports valid isTheme validator and THEME_COOKIE_NAME", () => {
+        expect(THEME_COOKIE_NAME).toBe("receipt-ai-theme");
+        expect(isTheme("dark")).toBe(true);
+        expect(isTheme("light")).toBe(true);
+        expect(isTheme("system")).toBe(true);
+        expect(isTheme("purple")).toBe(true);
+        expect(isTheme("invalid")).toBe(false);
+        expect(isTheme(null)).toBe(false);
+        expect(isTheme(undefined)).toBe(false);
     });
 });

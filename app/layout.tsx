@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { AppSessionProvider } from "@/context/AppSessionProvider";
 import {
+  THEME_COOKIE_NAME,
+  isTheme,
+  type Theme,
+} from "@/context/ThemeProvider";
+import {
   getHtmlLang,
   getLocaleFromPreference,
   localeCookieName,
@@ -54,6 +59,10 @@ const themeBootScript = `(() => {
   document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
   document.documentElement.lang = documentLanguage;
   document.documentElement.style.colorScheme = resolvedTheme;
+
+  if (!document.cookie.includes("receipt-ai-theme=")) {
+    document.cookie = "receipt-ai-theme=" + encodeURIComponent(theme) + "; path=/; max-age=31536000; SameSite=Lax";
+  }
 })();`;
 
 const RootLayout = async ({
@@ -67,9 +76,32 @@ const RootLayout = async ({
   ]);
   const locale =
     getLocaleFromPreference(cookieStore.get(localeCookieName)?.value) ?? "en";
+  const themeCookie = cookieStore.get(THEME_COOKIE_NAME)?.value;
+  const initialTheme: Theme = isTheme(themeCookie) ? themeCookie : "system";
+  const isDark = initialTheme === "dark";
+  const namedThemeClass =
+    initialTheme !== "light" &&
+    initialTheme !== "dark" &&
+    initialTheme !== "system"
+      ? `theme-${initialTheme}`
+      : undefined;
+
+  const serverHtmlClass = [
+    isDark ? "dark" : undefined,
+    namedThemeClass,
+  ].filter(Boolean).join(" ");
+
+  const serverDataTheme = isDark ? "dark" : "light";
+  const serverColorScheme = isDark ? "dark" : "light";
 
   return (
-    <html lang={getHtmlLang(locale)} suppressHydrationWarning>
+    <html
+      lang={getHtmlLang(locale)}
+      className={serverHtmlClass || undefined}
+      data-theme={initialTheme === "system" ? undefined : serverDataTheme}
+      style={initialTheme === "system" ? undefined : { colorScheme: serverColorScheme }}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
