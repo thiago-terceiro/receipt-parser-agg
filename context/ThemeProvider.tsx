@@ -9,20 +9,27 @@ import {
   useSyncExternalStore,
 } from "react";
 
-export const THEME_STORAGE_KEY = "receipt-ai-theme";
-export const THEME_COOKIE_NAME = "receipt-ai-theme";
-const SYSTEM_THEME_QUERY = "(prefers-color-scheme: dark)";
+import {
+  NAMED_THEMES,
+  SYSTEM_THEME_QUERY,
+  THEME_CLASS_PREFIX,
+  THEME_COOKIE_NAME,
+  THEME_STORAGE_KEY,
+  isTheme,
+  type ResolvedTheme,
+  type Theme,
+} from "@/lib/theme";
 
-export type Theme =
-  | "light"
-  | "dark"
-  | "system"
-  | "light-blue"
-  | "yellow"
-  | "light-yellow"
-  | "green"
-  | "purple";
-type ResolvedTheme = "light" | "dark";
+export {
+  NAMED_THEMES,
+  SYSTEM_THEME_QUERY,
+  THEME_CLASS_PREFIX,
+  THEME_COOKIE_NAME,
+  THEME_STORAGE_KEY,
+  isTheme,
+  type ResolvedTheme,
+  type Theme,
+};
 
 type ThemeContextValue = {
   theme: Theme;
@@ -32,19 +39,6 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-
-export const isTheme = (value: unknown): value is Theme => {
-  return (
-    value === "light" ||
-    value === "dark" ||
-    value === "system" ||
-    value === "light-blue" ||
-    value === "yellow" ||
-    value === "light-yellow" ||
-    value === "green" ||
-    value === "purple"
-  );
-};
 
 const getSystemTheme = (): ResolvedTheme =>
   window.matchMedia(SYSTEM_THEME_QUERY).matches ? "dark" : "light";
@@ -108,15 +102,6 @@ const getSystemThemeSnapshot = (): ResolvedTheme => {
 
   return getSystemTheme();
 };
-
-const THEME_CLASS_PREFIX = "theme-";
-const NAMED_THEMES: Theme[] = [
-  "light-blue",
-  "yellow",
-  "light-yellow",
-  "green",
-  "purple",
-];
 
 const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   const resolvedTheme: ResolvedTheme =
