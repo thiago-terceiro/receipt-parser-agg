@@ -12,6 +12,8 @@ That command matches the frontend CI verification step and runs type-checking, l
 
 The frontend now supports OpenTelemetry on both the server and the browser.
 
+For the complete architectural overview and Mermaid diagrams of all moving pieces, see [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
 For a plain-language setup guide for non-developers, see [docs/honeycomb-user-guide.md](docs/honeycomb-user-guide.md).
 
 For the technical setup and verification guide for Honeycomb traces, see [docs/honeycomb-tracing-setup.md](docs/honeycomb-tracing-setup.md).
