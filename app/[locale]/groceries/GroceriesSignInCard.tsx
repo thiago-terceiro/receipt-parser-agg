@@ -17,18 +17,18 @@ export const GroceriesSignInCard = ({
     title,
 }: GroceriesSignInCardProps) => {
     return (
-        <main className="mx-auto grid w-[min(1180px,calc(100vw-32px))] gap-6 px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
-            <Card className="rounded-[30px] border-[var(--border)] bg-[var(--surface-soft)] py-0 shadow-[var(--shadow)]">
-                <CardContent className="grid min-h-[320px] place-items-center gap-4 p-8 text-center">
+        <div className="grid gap-6">
+            <Card className="rounded-[32px] border border-[var(--border)] bg-[var(--surface-soft)]/90 py-0 shadow-[var(--shadow)] backdrop-blur-[20px]">
+                <CardContent className="grid min-h-[340px] place-items-center gap-4 p-8 text-center">
                     <div className="grid gap-3 place-items-center">
-                        <h1 className="m-0 text-[2.4rem] tracking-[-0.05em]">
+                        <h1 className="m-0 text-[2.5rem] font-extrabold tracking-tight text-foreground">
                             {title}
                         </h1>
-                        <p className="m-0 max-w-[52ch] text-muted-foreground">
+                        <p className="m-0 max-w-[52ch] text-[1.02rem] leading-relaxed text-muted-foreground">
                             {description}
                         </p>
-                        <div>
-                            <Button asChild>
+                        <div className="pt-2">
+                            <Button asChild className="rounded-full h-11 px-6 font-semibold shadow-xs hover:shadow-md">
                                 <Link href="/" locale={locale}>
                                     {backToHomeLabel}
                                 </Link>
@@ -37,6 +37,6 @@ export const GroceriesSignInCard = ({
                     </div>
                 </CardContent>
             </Card>
-        </main>
+        </div>
     );
 };

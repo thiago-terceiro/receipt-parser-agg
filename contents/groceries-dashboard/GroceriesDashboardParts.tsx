@@ -155,21 +155,21 @@ export const CategorySummaryCard = ({
         className={cn(
           "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
           isActive
-            ? "border-[var(--accent)] bg-[var(--surface-accent)] shadow-[0_0_0_4px_var(--focus-surface)]"
-            : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:border-[rgba(181,82,51,0.36)] hover:bg-[var(--surface-soft)]",
+            ? "border-blue-500 bg-blue-500/10 shadow-[0_0_0_4px_var(--focus-surface)]"
+            : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:border-blue-500/35 hover:bg-[var(--surface-soft)]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-[var(--accent-dark)]">
+            <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300 font-bold">
               {formatCategoryLabel(category.category, translations.categories)}
             </p>
-            <h2 className="m-0 mt-2 text-[1.85rem] leading-none tracking-[-0.04em] tabular-nums">
+            <h2 className="m-0 mt-2 text-[1.85rem] font-bold leading-none tracking-[-0.04em] tabular-nums text-foreground">
               {currencyFormatter.format(category.total)}
             </h2>
           </div>
           <div
-            className="inline-grid size-10 place-items-center rounded-full border border-[rgba(181,82,51,0.16)] bg-[var(--surface-plain-soft)] text-[var(--accent-dark)] shadow-xs transition-transform duration-200 group-hover:scale-105"
+            className="inline-grid size-10 place-items-center rounded-full border border-blue-500/20 bg-[var(--surface-plain-soft)] text-blue-600 dark:text-blue-400 shadow-2xs transition-transform duration-200 group-hover:scale-105"
             aria-hidden="true"
           >
             <ChevronRight

@@ -98,7 +98,7 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
   const payload = buildGroceriesMonthPayload(month, entries, extractedReceipts);
 
   return (
-    <main className="mx-auto grid w-[min(1240px,calc(100vw-32px))] gap-6 px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1240px)] max-[900px]:pt-5">
+    <div className="grid gap-6">
       <GroceriesDashboard
         activeBoard={selection.activeBoard}
         payload={payload}
@@ -107,7 +107,7 @@ const GroceriesPage = async ({ params, searchParams }: GroceriesPageProps) => {
         members={members}
         monthOptions={buildMonthOptions(month, 12, resolvedLocale)}
       />
-    </main>
+    </div>
   );
 };
 

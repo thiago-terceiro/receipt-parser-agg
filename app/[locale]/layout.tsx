@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { isCredentialsAuthEnabled, isTestAuthEnabled } from "@/auth";
+import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { LocaleEffects } from "@/components/locale-utils";
 import { routing } from "@/i18n/routing";
 import {
@@ -73,12 +75,26 @@ const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
 
   setRequestLocale(resolvedLocale);
 
+  const hasGoogleAuthConfigured = Boolean(
+    process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
+  );
+  const hasGitHubAuthConfigured = Boolean(
+    (process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID) &&
+    (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
+  );
+
   return (
     <NextIntlClientProvider>
       <LocaleEffects>
-        <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
-          {children}
-        </main>
+        <div className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
+          <GoogleAuthControls
+            canUseGoogleAuth={hasGoogleAuthConfigured}
+            canUseGitHubAuth={hasGitHubAuthConfigured}
+            isCredentialsAuthEnabled={isCredentialsAuthEnabled()}
+            isTestAuthEnabled={isTestAuthEnabled()}
+          />
+          <main>{children}</main>
+        </div>
       </LocaleEffects>
     </NextIntlClientProvider>
   );

@@ -291,20 +291,20 @@ export const ReceiptWorkspaceResultsSection = ({
                                     {correctedCount > 0 ? (
                                         <Badge
                                             variant="outline"
-                                            className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-3 py-1 text-[var(--accent-dark)]"
+                                            className="border-blue-500/25 bg-blue-500/10 px-3 py-1 text-blue-700 dark:text-blue-300 font-semibold"
                                         >
                                             {translations.receipt.corrected(correctedCount)}
                                         </Badge>
                                     ) : null}
                                 </div>
                             </div>
-                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground backdrop-blur-md">
                                 <span>{translations.receipt.reviewHint}</span>
                                 <Button
                                     type="button"
                                     variant="secondary"
                                     size="sm"
-                                    className="border-[var(--border)] bg-[var(--surface-plain)]"
+                                    className="border-[var(--border)] bg-[var(--surface-plain)] rounded-full shadow-2xs hover:bg-[var(--surface-plain-soft)]"
                                     onClick={onAddManualItem}
                                 >
                                     {translations.receipt.addManualItem}
@@ -344,7 +344,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                                             {!isManualItem && editedItems[index] ? (
                                                                 <Badge
                                                                     variant="outline"
-                                                                    className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
+                                                                    className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
                                                                 >
                                                                     {translations.receipt.alerts.corrected}
                                                                 </Badge>
@@ -468,7 +468,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                                         {!isManualItem && editedItems[index] ? (
                                                             <Badge
                                                                 variant="outline"
-                                                                className="border-[rgba(181,82,51,0.24)] bg-[var(--surface-accent)] px-2.5 py-1 text-[var(--accent-dark)]"
+                                                                className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
                                                             >
                                                                 {translations.receipt.alerts.corrected}
                                                             </Badge>
@@ -512,7 +512,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     </p>
                                 </div>
                                 <div className="grid w-[240px] gap-2 max-[640px]:order-first max-[640px]:w-full">
-                                    <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+                                    <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
                                         {translations.receipt.selectDashboard}
                                     </span>
                                     <Select
@@ -521,7 +521,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                         disabled={!isAuthenticated || isSaving || isBoardsLoading || availableBoards.length === 0}
                                     >
                                         <SelectTrigger
-                                            className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]"
+                                            className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)] h-11 text-sm shadow-2xs hover:bg-[var(--surface-plain-soft)]"
                                             aria-label={translations.receipt.selectDashboard}
                                         >
                                             <SelectValue placeholder={dashboardPlaceholder} />
@@ -538,11 +538,11 @@ export const ReceiptWorkspaceResultsSection = ({
                                         <p role="alert" className="m-0 text-sm text-destructive">{boardsError}</p>
                                     ) : null}
                                 </div>
-                                <div className="flex w-full flex-wrap gap-2 min-[641px]:w-auto">
+                                <div className="flex w-full flex-wrap gap-2.5 min-[641px]:w-auto items-end">
                                     <Button
                                         type="button"
                                         onClick={onSaveGroceries}
-                                        className="max-[640px]:w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs hover:shadow-md"
+                                        className="max-[640px]:w-full h-11 rounded-full px-5 font-semibold shadow-xs hover:shadow-md"
                                         disabled={
                                             !isAuthenticated ||
                                             isSaving ||
@@ -557,7 +557,7 @@ export const ReceiptWorkspaceResultsSection = ({
                                     <Button
                                         asChild
                                         variant="secondary"
-                                        className="border-[var(--border)] bg-[var(--surface-plain)] max-[640px]:w-full transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
+                                        className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 max-[640px]:w-full h-11 rounded-full px-5 font-semibold"
                                     >
                                         <Link href={dashboardHref} locale={locale}>
                                             <LayoutDashboard className="size-4" aria-hidden="true" />

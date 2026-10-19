@@ -89,15 +89,15 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="group rounded-[22px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(181,82,51,0.32)] hover:bg-[var(--surface-plain)] hover:shadow-md"
+          className="group rounded-[24px] border border-[var(--border)] bg-[var(--surface-plain-soft)]/90 p-5 shadow-2xs transition-all duration-200 hover:-translate-y-1 hover:border-blue-500/30 hover:bg-[var(--surface-plain)] hover:shadow-md backdrop-blur-md"
         >
           <div className="flex items-center justify-between gap-3">
             <p className="m-0 text-sm font-medium text-muted-foreground">{stat.label}</p>
-            <div className="inline-grid size-8 place-items-center rounded-xl bg-[rgba(181,82,51,0.12)] text-[var(--accent-dark)] transition-transform duration-200 group-hover:scale-105">
+            <div className="inline-grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 transition-transform duration-200 group-hover:scale-110 shadow-2xs">
               <stat.icon className="size-4" aria-hidden="true" />
             </div>
           </div>
-          <p className="m-0 mt-3 text-[1.85rem] font-semibold tracking-[-0.04em] tabular-nums">
+          <p className="m-0 mt-3 text-[1.85rem] font-bold tracking-tight text-foreground tabular-nums">
             {stat.value}
           </p>
         </div>
@@ -131,22 +131,22 @@ export const GroceriesDashboardSummarySection = ({
   );
 
   return (
-    <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[var(--surface-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
+    <section className="grid gap-6 rounded-[32px] border border-[var(--border)] bg-[var(--surface-soft)] p-7 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
+          <div className="flex flex-wrap items-center gap-2 text-[0.76rem] font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
             <span>{translations.groceries.eyebrow}</span>
-            <span className="text-[var(--muted-foreground)]">
+            <span className="text-muted-foreground font-medium">
               {isCurrentMonth
                 ? translations.groceries.currentMonthView
                 : translations.groceries.historicalMonthView}
             </span>
           </div>
           <div>
-            <h1 className="m-0 text-[clamp(2.6rem,6vw,5rem)] leading-[0.92] tracking-[-0.05em] text-balance">
+            <h1 className="m-0 text-[clamp(2.6rem,6vw,4.8rem)] font-extrabold leading-[0.92] tracking-[-0.05em] text-balance text-foreground">
               {formatMonthLabel(payload.month, locale)}
             </h1>
-            <p className="m-0 mt-3 max-w-[62ch] text-[1rem] leading-7 text-muted-foreground">
+            <p className="m-0 mt-3 max-w-[62ch] text-[1.02rem] leading-7 text-muted-foreground">
               {translations.groceries.heroDescription}
             </p>
           </div>
@@ -156,7 +156,7 @@ export const GroceriesDashboardSummarySection = ({
           <Button
             asChild
             variant="secondary"
-            className="border-[var(--border)] bg-[var(--surface-plain)]"
+            className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 rounded-full h-10 px-4"
           >
             <Link
               href={previousMonthHref}
@@ -172,7 +172,7 @@ export const GroceriesDashboardSummarySection = ({
           </Button>
           <Select value={payload.month} onValueChange={onMonthChange}>
             <SelectTrigger
-              className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)]"
+              className="min-w-[210px] rounded-full border-[var(--border)] bg-[var(--surface-plain)] h-10 shadow-2xs hover:bg-[var(--surface-plain-soft)]"
               aria-label={translations.groceries.selectMonth}
             >
               <SelectValue placeholder={translations.groceries.selectMonth} />
@@ -188,7 +188,7 @@ export const GroceriesDashboardSummarySection = ({
           {nextMonthDisabled ? (
             <Button
               variant="secondary"
-              className="border-[var(--border)] bg-[var(--surface-plain-soft)]"
+              className="border-[var(--border)] bg-[var(--surface-plain-soft)] rounded-full h-10 px-4"
               disabled
             >
               {translations.groceries.nextMonth}
@@ -197,7 +197,7 @@ export const GroceriesDashboardSummarySection = ({
             <Button
               asChild
               variant="secondary"
-              className="border-[var(--border)] bg-[var(--surface-plain)]"
+              className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 rounded-full h-10 px-4"
             >
               <Link
                 href={nextMonthHref}
@@ -215,7 +215,7 @@ export const GroceriesDashboardSummarySection = ({
           <Button
             asChild
             variant="secondary"
-            className="border-[var(--border)] bg-[var(--surface-plain)] max-[700px]:ml-auto"
+            className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 max-[700px]:ml-auto rounded-full h-10 px-4"
           >
             <Link href="/" locale={locale} prefetch={true}>{translations.groceries.backToUpload}</Link>
           </Button>
@@ -223,12 +223,12 @@ export const GroceriesDashboardSummarySection = ({
       </div>
 
       <div
-        className="grid gap-4 rounded-[24px] border border-[var(--border)] p-5 shadow-xs"
+        className="grid gap-4 rounded-[26px] border border-[var(--border)] p-5 shadow-2xs backdrop-blur-md"
         style={{ background: "var(--progress-surface)" }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <div className="inline-grid size-7 place-items-center rounded-lg bg-[rgba(181,82,51,0.12)] text-[var(--accent-dark)]">
+            <div className="inline-grid size-7 place-items-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <CalendarDays className="size-4" aria-hidden="true" />
             </div>
             <span>{translations.groceries.monthProgress}</span>
@@ -246,7 +246,7 @@ export const GroceriesDashboardSummarySection = ({
             aria-valuemax={progress.totalDays}
             aria-valuenow={progress.currentDay}
             aria-valuetext={translations.groceries.dayOf(progress.currentDay, progress.totalDays)}
-            className="relative h-4 overflow-hidden rounded-full bg-[var(--progress-track)]"
+            className="relative h-3.5 overflow-hidden rounded-full bg-[var(--progress-track)]"
           >
             <motion.div
               className="absolute inset-y-0 left-0 rounded-full"
@@ -256,12 +256,12 @@ export const GroceriesDashboardSummarySection = ({
               style={{ backgroundImage: "var(--accent-gradient)" }}
             />
             <div
-              className="absolute top-1/2 z-10 size-6 -translate-y-1/2 rounded-full border-2 border-[var(--surface-plain)] bg-[var(--accent-dark)] shadow-[0_12px_24px_rgba(84,52,29,0.25)]"
-              style={{ left: `calc(${progress.progress * 100}% - 12px)` }}
+              className="absolute top-1/2 z-10 size-5.5 -translate-y-1/2 rounded-full border-2 border-[var(--surface-plain)] bg-blue-600 dark:bg-blue-500 shadow-[0_4px_14px_rgba(59,130,246,0.4)]"
+              style={{ left: `calc(${progress.progress * 100}% - 11px)` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground" aria-hidden="true">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium" aria-hidden="true">
             <span>1</span>
             <span>{Math.ceil(progress.totalDays / 2)}</span>
             <span>{progress.totalDays}</span>

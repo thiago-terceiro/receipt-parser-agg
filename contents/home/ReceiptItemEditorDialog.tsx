@@ -96,7 +96,7 @@ export const ReceiptItemEditorDialog = ({
                                 <div className="grid gap-2">
                                     <label
                                         htmlFor="receipt-editor-item-name"
-                                        className="text-[0.92rem] font-bold text-[var(--accent-dark)]"
+                                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
                                     >
                                         {translations.receipt.editor.item}
                                     </label>
@@ -105,12 +105,12 @@ export const ReceiptItemEditorDialog = ({
                                         type="text"
                                         value={editorState.itemName}
                                         onChange={onItemNameChange}
-                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
+                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                     />
                                 </div>
                             ) : item ? (
                                 <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
-                                    <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+                                    <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300 font-bold">
                                         {translations.receipt.editor.item}
                                     </p>
                                     <p className="m-0 mt-2 text-[1.05rem] font-semibold text-foreground">
@@ -120,12 +120,12 @@ export const ReceiptItemEditorDialog = ({
                             ) : null}
 
                             <div className="grid gap-2">
-                                <span className="text-[0.92rem] font-bold text-[var(--accent-dark)]">
+                                <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
                                     {translations.receipt.editor.category}
                                 </span>
                                 <Select value={editorState?.category ?? ""} onValueChange={onCategoryChange}>
                                     <SelectTrigger
-                                        className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)]"
+                                        className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)] h-11 text-sm shadow-2xs hover:bg-[var(--surface-plain-soft)]"
                                         aria-label={translations.receipt.editor.category}
                                     >
                                         <SelectValue
@@ -145,7 +145,7 @@ export const ReceiptItemEditorDialog = ({
                             <div className="grid gap-2">
                                 <label
                                     htmlFor="receipt-editor-quantity"
-                                    className="text-[0.92rem] font-bold text-[var(--accent-dark)]"
+                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
                                 >
                                     {translations.receipt.editor.quantity}
                                 </label>
@@ -157,7 +157,7 @@ export const ReceiptItemEditorDialog = ({
                                     step="0.01"
                                     value={editorState?.quantity ?? ""}
                                     onChange={onQuantityChange}
-                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
+                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                 />
                             </div>
 
@@ -165,7 +165,7 @@ export const ReceiptItemEditorDialog = ({
                                 <div className="grid gap-2">
                                     <label
                                         htmlFor="receipt-editor-unit-price"
-                                        className="text-[0.92rem] font-bold text-[var(--accent-dark)]"
+                                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
                                     >
                                         {translations.receipt.editor.unitPrice}
                                     </label>
@@ -177,7 +177,7 @@ export const ReceiptItemEditorDialog = ({
                                         step="0.01"
                                         value={editorState.unitPrice}
                                         onChange={onUnitPriceChange}
-                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--accent)]"
+                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                     />
                                 </div>
                             ) : item ? (
@@ -194,21 +194,21 @@ export const ReceiptItemEditorDialog = ({
                                 </Alert>
                             ) : null}
 
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex flex-wrap justify-end gap-2.5 pt-2">
                                 {!isManualEditor && hasCorrection ? (
-                                    <Button type="button" variant="ghost" onClick={onReset}>
+                                    <Button type="button" variant="ghost" className="rounded-full h-10 px-4" onClick={onReset}>
                                         {translations.receipt.editor.reset}
                                     </Button>
                                 ) : null}
                                 <Button
                                     type="button"
                                     variant="secondary"
-                                    className="border-[var(--border)] bg-[var(--surface-plain)]"
+                                    className="border-[var(--border)] bg-[var(--surface-plain)] rounded-full h-10 px-4 shadow-2xs hover:bg-[var(--surface-plain-soft)]"
                                     onClick={onClose}
                                 >
                                     {translations.common.cancel}
                                 </Button>
-                                <Button type="button" onClick={onApply}>
+                                <Button type="button" className="rounded-full h-10 px-5 font-semibold" onClick={onApply}>
                                     {actionLabel}
                                 </Button>
                             </div>

@@ -98,10 +98,10 @@ export const GroceriesDashboardRecentReceiptsSection = ({
     receiptPendingDelete?.sourceFileName || translations.groceries.untitledReceipt;
 
   return (
-    <section className="grid gap-4 rounded-[30px] border border-[var(--border)] bg-[var(--surface-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-[16px]">
+    <section className="grid gap-5 rounded-[32px] border border-[var(--border)] bg-[var(--surface-soft)] p-7 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-2">
-          <p className="m-0 text-[0.78rem] uppercase tracking-[0.22em] text-[var(--accent-dark)]">
+          <p className="m-0 text-[0.76rem] font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
             {translations.groceries.recentExtractions}
           </p>
           <p className="m-0 max-w-[70ch] text-sm leading-6 text-muted-foreground">
@@ -110,7 +110,7 @@ export const GroceriesDashboardRecentReceiptsSection = ({
         </div>
         <Badge
           variant="outline"
-          className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1"
+          className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-3 py-1 font-semibold"
         >
           {receipts.length} {translations.groceries.stats.receiptsSaved.toLowerCase()}
         </Badge>
@@ -126,7 +126,7 @@ export const GroceriesDashboardRecentReceiptsSection = ({
         {receipts.map((receipt) => (
           <Card
             key={receipt.id}
-            className="rounded-[24px] border-[var(--border)] bg-[var(--surface-plain-soft)] py-0 shadow-none"
+            className="group rounded-[24px] border border-[var(--border)] bg-[var(--surface-plain-soft)]/90 py-0 shadow-2xs hover:shadow-md hover:border-blue-500/30 hover:-translate-y-0.5 transition-all duration-200 backdrop-blur-md"
           >
             <CardContent className="grid gap-4 p-5">
               <div className="flex items-start justify-between gap-3">

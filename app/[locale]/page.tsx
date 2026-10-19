@@ -1,7 +1,6 @@
+import { ArrowRight, LayoutDashboard } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { isCredentialsAuthEnabled, isTestAuthEnabled } from "@/auth";
-import { GoogleAuthControls } from "@/components/google-auth-controls";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { getLocaleFromSegment } from "@/lib/i18n/config";
@@ -20,43 +19,41 @@ const HomePage = async ({ params }: HomePageProps) => {
   const resolvedLocale = getLocaleFromSegment(locale);
   setRequestLocale(resolvedLocale);
   const t = await getTranslations({ locale: resolvedLocale, namespace: "home" });
-  const hasGoogleAuthConfigured = Boolean(
-    process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
-  );
-  const hasGitHubAuthConfigured = Boolean(
-    (process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID) &&
-    (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
-  );
 
   return (
-    <main className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">
-      <GoogleAuthControls
-        canUseGoogleAuth={hasGoogleAuthConfigured}
-        canUseGitHubAuth={hasGitHubAuthConfigured}
-        isCredentialsAuthEnabled={isCredentialsAuthEnabled()}
-        isTestAuthEnabled={isTestAuthEnabled()}
-      />
-      <section className="mb-4 flex items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px] max-[900px]:flex-col max-[900px]:items-stretch">
-        <div className="grid gap-1">
-          <p className="m-0 text-[1rem] font-bold">
-            {t("dashboardTitle")}
-          </p>
-          <p className="m-0 text-[0.9rem] leading-[1.5] text-muted-foreground">
-            {t("dashboardDescription")}
-          </p>
-        </div>
+    <div className="grid gap-2">
+      <section className="group mb-5 flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-6 py-4.5 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200 hover:border-blue-500/25 hover:shadow-[var(--shadow-hover)] max-[900px]:flex-col max-[900px]:items-stretch">
+        <Link
+          href="/groceries"
+          locale={resolvedLocale}
+          prefetch={true}
+          className="flex flex-1 items-center gap-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+        >
+          <div className="inline-grid size-11 shrink-0 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] text-blue-600 dark:text-blue-400 shadow-2xs transition-transform duration-200 group-hover:scale-105">
+            <LayoutDashboard className="size-5" aria-hidden="true" />
+          </div>
+          <div className="grid gap-0.5 text-left">
+            <p className="m-0 text-[1rem] font-bold text-foreground transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400">
+              {t("dashboardTitle")}
+            </p>
+            <p className="m-0 text-[0.88rem] leading-[1.5] text-muted-foreground">
+              {t("dashboardDescription")}
+            </p>
+          </div>
+        </Link>
         <Button
           asChild
           variant="secondary"
-          className="border-[var(--border)] bg-[var(--surface-plain)] max-[900px]:w-full"
+          className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 max-[900px]:w-full rounded-full h-10 px-5 gap-2 shrink-0"
         >
           <Link href="/groceries" locale={resolvedLocale} prefetch={true}>
-            {t("openGroceriesView")}
+            <span>{t("openGroceriesView")}</span>
+            <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </Button>
       </section>
       <ReceiptWorkspace availableModels={dropdownAvailableModels} />
-    </main>
+    </div>
   );
 };
 

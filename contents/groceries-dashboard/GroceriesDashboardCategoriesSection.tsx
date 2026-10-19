@@ -71,7 +71,7 @@ export const GroceriesDashboardCategoriesSection = ({
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   className="sticky top-6"
                 >
-                  <Card className="rounded-[30px] border-[rgba(181,82,51,0.2)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)]">
+                  <Card className="rounded-[30px] border border-[var(--border)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)] backdrop-blur-[20px]">
                     <CardContent className="p-6">
                       <MemoizedCategoryDetails
                         category={active}

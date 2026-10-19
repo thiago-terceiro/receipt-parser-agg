@@ -276,20 +276,20 @@ const GroceriesDashboardBoardsPanelContent = ({
   };
 
   return (
-    <section className="grid gap-4 rounded-[28px] border border-[var(--border)] bg-[var(--surface-plain)] p-5 shadow-[var(--shadow)]">
+    <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[var(--surface-plain)]/90 p-6 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-[0.78rem] uppercase tracking-[0.2em] text-[var(--accent-dark)]">
+          <div className="flex flex-wrap items-center gap-2 text-[0.76rem] font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
             <span>{translations.groceries.boards.sectionLabel}</span>
             <Badge
               variant="outline"
-              className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+              className="border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-blue-700 dark:text-blue-300 font-semibold"
             >
               {getRoleLabel(translations, activeBoard.role)}
             </Badge>
           </div>
           <div>
-            <h2 className="m-0 text-[1.55rem] font-semibold tracking-[-0.04em]">
+            <h2 className="m-0 text-[1.65rem] font-bold tracking-tight text-foreground">
               {activeBoard.name}
             </h2>
             <p className="m-0 mt-1 text-sm text-muted-foreground">
@@ -301,7 +301,7 @@ const GroceriesDashboardBoardsPanelContent = ({
         <div className="flex flex-wrap items-center gap-2 max-[760px]:w-full">
           <Select value={activeBoard.id} onValueChange={handleBoardChange}>
             <SelectTrigger
-              className="min-w-[220px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] max-[760px]:w-full"
+              className="min-w-[220px] rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] h-10 shadow-2xs hover:bg-[var(--surface-plain)] max-[760px]:w-full"
               aria-label={translations.groceries.boards.selectBoard}
             >
               <SelectValue placeholder={translations.groceries.boards.selectBoard} />

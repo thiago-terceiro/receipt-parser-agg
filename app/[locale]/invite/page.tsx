@@ -67,7 +67,7 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
         : null;
 
     return (
-        <main className="mx-auto grid w-[min(900px,calc(100vw-32px))] gap-6 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),900px)] max-[900px]:pt-5">
+        <div className="mx-auto grid w-[min(900px,100%)] gap-6">
             <InviteAcceptanceCard
                 canUseGoogleAuth={hasGoogleAuthConfigured}
                 canUseGitHubAuth={hasGitHubAuthConfigured}
@@ -79,7 +79,7 @@ const InvitePage = async ({ params, searchParams }: InvitePageProps) => {
                 locale={resolvedLocale}
                 token={token}
             />
-        </main>
+        </div>
     );
 };
 

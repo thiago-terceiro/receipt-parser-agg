@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { getPathname } from "@/i18n/navigation";
+import { getPathname, Link } from "@/i18n/navigation";
 
 
 const GoogleMark = () => (
@@ -543,22 +543,26 @@ export const GoogleAuthControls = ({
     <>
       {/* Mobile Controls (<981px) */}
       <section
-        className="min-[981px]:hidden mb-4 flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 shadow-[var(--shadow)] backdrop-blur-[14px]"
+        className="min-[981px]:hidden mb-4 flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200"
         aria-label={translations.auth.sectionLabel}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-xl bg-[var(--accent)] font-bold text-sm text-[#fffaf3] shadow-sm">
+        <Link
+          href="/"
+          locale={locale}
+          className="flex items-center gap-2.5 rounded-xl transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+        >
+          <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 font-bold text-sm text-white shadow-xs shadow-blue-500/25">
             R
           </div>
           <span className="font-bold text-base tracking-tight text-foreground">
             Receipt AI
           </span>
           {isAuthenticated ? (
-            <span className="ml-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            <span className="ml-1 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-2.5 py-0.5 text-xs font-semibold text-muted-foreground shadow-2xs">
               {session.user?.name?.split(" ")[0]}
             </span>
           ) : null}
-        </div>
+        </Link>
 
         <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <DialogTrigger asChild>
@@ -566,27 +570,27 @@ export const GoogleAuthControls = ({
               type="button"
               variant="secondary"
               size="icon"
-              className="size-10 rounded-full border-[var(--border)] bg-[var(--surface-plain)] shadow-sm hover:bg-[var(--surface-plain-soft)]"
+              className="size-10 rounded-full border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)]"
               aria-label={translations.auth.sectionLabel}
             >
               <Menu className="size-5 text-foreground" />
             </Button>
           </DialogTrigger>
           <DialogContent
-            className="mobile-controls-dialog fixed left-3 right-3 top-3 w-auto max-w-none rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-2xl"
+            className="mobile-controls-dialog fixed left-3 right-3 top-3 w-auto max-w-none rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-2xl backdrop-blur-[24px]"
             aria-describedby={undefined}
           >
             <DialogHeader className="pr-10">
               <DialogTitle className="text-xl font-bold">{translations.auth.sectionLabel}</DialogTitle>
             </DialogHeader>
             <div className="mt-4 flex flex-col gap-4">
-              <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
+              <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-2xs">
                 {renderAuthBlock(
                   "h-11 w-full border-[var(--border)] bg-[var(--surface-plain)] font-medium text-sm",
                   "mobile",
                 )}
               </div>
-              <div className="flex flex-col gap-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-sm">
+              <div className="flex flex-col gap-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-2xs">
                 {renderPreferencesBlock("flex flex-col gap-4")}
               </div>
             </div>
@@ -596,14 +600,29 @@ export const GoogleAuthControls = ({
 
       {/* Desktop Controls (>=981px) */}
       <section
-        className="hidden min-[981px]:flex mb-4 flex-wrap items-center justify-between gap-4 rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-[14px]"
+        className="hidden min-[981px]:flex mb-4 flex-wrap items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-5 py-3.5 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200"
         aria-label={translations.auth.sectionLabel}
       >
-        <div className="flex flex-col gap-2">
-          {renderAuthBlock(
-            "h-11 min-w-[200px] border-[var(--border)] bg-[var(--surface-plain)] hover:bg-[var(--surface-plain-soft)] font-medium text-sm",
-            "desktop",
-          )}
+        <div className="flex items-center gap-3.5">
+          <Link
+            href="/"
+            locale={locale}
+            className="flex items-center gap-2.5 rounded-xl transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
+          >
+            <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 font-bold text-sm text-white shadow-xs shadow-blue-500/25">
+              R
+            </div>
+            <span className="font-bold text-base tracking-tight text-foreground">
+              Receipt AI
+            </span>
+          </Link>
+          <div className="h-5 w-px bg-[var(--border)] mx-1" aria-hidden="true" />
+          <div className="flex flex-col gap-2">
+            {renderAuthBlock(
+              "h-10 min-w-[200px] border-[var(--border)] bg-[var(--surface-plain)] hover:bg-[var(--surface-plain-soft)] font-medium text-sm",
+              "desktop",
+            )}
+          </div>
         </div>
         {renderPreferencesBlock("flex flex-row items-center gap-4")}
       </section>

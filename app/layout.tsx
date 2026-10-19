@@ -4,14 +4,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { AppSessionProvider } from "@/context/AppSessionProvider";
 import {
-  THEME_COOKIE_NAME,
-  resolveServerTheme,
-} from "@/lib/theme";
-import {
   getHtmlLang,
   getLocaleFromPreference,
   localeCookieName,
 } from "@/lib/i18n/config";
+import {
+  THEME_COOKIE_NAME,
+  resolveServerTheme,
+} from "@/lib/theme";
 
 import "./globals.css";
 
@@ -88,6 +88,12 @@ const RootLayout = async ({
       suppressHydrationWarning
     >
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body>
