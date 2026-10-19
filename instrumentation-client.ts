@@ -119,6 +119,17 @@ const initializeBrowserTelemetry = () => {
         sdk.start();
         window.__receiptAiBrowserOtelStarted__ = true;
 
+        const handleVisibilityOrPageHide = () => {
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+                void sdk.forceFlush();
+            }
+        };
+
+        window.addEventListener("visibilitychange", handleVisibilityOrPageHide);
+        window.addEventListener("pagehide", () => {
+            void sdk.forceFlush();
+        });
+
         if (browserDebugMode) {
             console.info("Browser telemetry initialized.", {
                 collectorEndpoint,

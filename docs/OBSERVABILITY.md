@@ -151,7 +151,7 @@ All spans and events follow strict naming conventions to facilitate clean querie
 
 | Span Name | File / Location | What It Measures |
 | :--- | :--- | :--- |
-| `receipt.extract.huggingface_chat_completion` | `app/api/extract/route.ts` | Multimodal model inference latency (sending base64 image/PDF prompt to AI provider). |
+| `receipt.extract.ai_inference` | `app/api/extract/route.ts` | Vendor-neutral multimodal model inference latency (sending base64 image/PDF prompt to AI provider). |
 | `receipt.extract.parse_items` | `app/api/extract/route.ts` | Time spent validating, sanitizing, and categorizing raw JSON returned by the model. |
 | `boards.require_identity` | `lib/boards-server.ts` | Session verification and identity extraction from NextAuth cookies. |
 | `boards.ensure_profile` | `lib/boards-server.ts` | Checking user existence and auto-creating default boards on first sign-in. |
@@ -159,6 +159,7 @@ All spans and events follow strict naming conventions to facilitate clean querie
 | `boards.require_access` | `lib/boards-server.ts` | Verifying user role permissions (owner, editor, viewer) for a target board. |
 | `auth.get_session_identity` | `lib/session.ts` | Fast token decoding and session caching. |
 | `invite.page.details` | `app/[locale]/invite/page.tsx` | SSR lookup of invite metadata without burning the single-use token on GET. |
+| `db.<table_name>.<operation>` | `lib/observability.ts` | Standardized database operations (`select`, `insert`, `update`, `delete`, `rpc`). |
 
 ---
 
@@ -166,14 +167,31 @@ All spans and events follow strict naming conventions to facilitate clean querie
 
 Spans are enriched with standardized attributes defined in [`lib/observability-schema.ts`](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/lib/observability-schema.ts):
 
-### Key Attributes
+### OpenTelemetry GenAI Semantic Conventions
+* `gen_ai.system`: AI provider backend (`"featherless"`, `"huggingface"`, `"gemini"`).
+* `gen_ai.request.model`: Model requested (e.g. `"meta-llama/Llama-3.2-11B-Vision-Instruct"`).
+* `gen_ai.response.model`: Model returned by the inference server.
+* `gen_ai.usage.input_tokens`: Exact prompt/image tokens consumed.
+* `gen_ai.usage.output_tokens`: Exact completion tokens generated.
+* `gen_ai.usage.total_tokens`: Total token footprint for calculating USD cost per receipt.
+* `gen_ai.response.finish_reasons`: Stop reason (`"stop"`, `"length"` for token truncation, etc.).
+
+### Database Semantic Conventions
+* `db.system`: Database engine (`"postgresql"`).
+* `db.collection.name`: Table targeted (`"boards"`, `"board_members"`, `"expenses"`).
+* `db.operation`: Operation performed (`"select"`, `"insert"`, `"update"`, `"delete"`, `"rpc"`).
+* `db.response.returned_rows`: Number of rows returned by query.
+
+### Application & Receipt Attributes
 * `app.name`: Service identifier (`"receipt-ai"`).
 * `app.runtime`: Runtime environment (`"browser"` or `"nextjs"`).
-* `app.receipt.model`: Name of the model invoked (e.g. `"featherless/meta-llama-3.2-11b-vision-instruct"`).
+* `app.receipt.model`: Name of the model invoked.
 * `app.receipt.provider`: Inference provider name.
 * `app.receipt.item_count`: Number of line items identified in the receipt.
 * `app.receipt.max_output_tokens`: Configured token ceiling.
 * `app.receipt.raw_response_length`: Size in characters of raw model output.
+* `app.receipt.file_size_bytes`: Original uploaded image/PDF file size in bytes.
+* `app.receipt.mime_type`: Uploaded file MIME type (`"image/jpeg"`, `"image/png"`, `"application/pdf"`).
 * `app.board.user_role`: User privilege on current board (`"owner"`, `"editor"`, `"viewer"`).
 * `app.http.status_code`: HTTP status returned for the operation.
 
@@ -210,7 +228,7 @@ sequenceDiagram
     Note over ServerExtract: Start span: api.extract (Child of ui.receipt.extract_submit)
 
     ServerExtract->>ServerExtract: boards.require_identity
-    ServerExtract->>AIProvider: Send image + prompt<br/>Start span: receipt.extract.huggingface_chat_completion
+    ServerExtract->>AIProvider: Send image + prompt<br/>Start span: receipt.extract.ai_inference
     activate AIProvider
     AIProvider-->>ServerExtract: Return JSON completion
     deactivate AIProvider
@@ -278,15 +296,20 @@ Once data arrives in Honeycomb, use these queries in **Query Builder**:
 
 ### 2. Identify AI Inference Latency Distribution
 * **Calculation**: `P95(duration_ms)`, `AVG(duration_ms)`, `MAX(duration_ms)`
-* **Filter**: `name = receipt.extract.huggingface_chat_completion`
-* **Group By**: `app.receipt.model`
+* **Filter**: `name = receipt.extract.ai_inference`
+* **Group By**: `gen_ai.request.model`
 
-### 3. Track Extraction Errors & Token Overflows
+### 3. Track Token Usage & Inference Cost
+* **Calculation**: `SUM(gen_ai.usage.total_tokens)`, `AVG(gen_ai.usage.input_tokens)`, `AVG(gen_ai.usage.output_tokens)`
+* **Filter**: `name = receipt.extract.ai_inference`
+* **Group By**: `gen_ai.system`
+
+### 4. Track Extraction Errors & Token Overflows
 * **Calculation**: `COUNT`
 * **Filter**: `error = true` or `event = ui.receipt.extract_failed`
 * **Group By**: `error.message`
 
-### 4. Monitor Rate Limiting (429 Status)
+### 5. Monitor Rate Limiting (429 Status)
 * **Calculation**: `COUNT`
 * **Filter**: `app.http.status_code = 429`
 
@@ -295,3 +318,39 @@ Once data arrives in Honeycomb, use these queries in **Query Builder**:
 ## 10. Related Guides & Documentation
 * [Honeycomb Tracing Setup Guide](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/docs/honeycomb-tracing-setup.md) - In-depth technical guide for verifying trace delivery and collector relays.
 * [Honeycomb User Guide](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/docs/honeycomb-user-guide.md) - Plain-language step-by-step setup guide for non-developers.
+
+---
+
+## 11. Known Trade-offs & Production Scaling Architecture
+
+The current observability implementation is engineered for rapid iteration, zero external infrastructure dependencies, and client credential safety. As transaction volume scales toward high-throughput production, the following architectural evolutions and trade-offs apply:
+
+### 11.1 The "Vercel Tax" vs. Dedicated Edge Ingestion
+* **The Current Trade-off**: Routing browser spans through [`/api/otel/v1/traces`](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/app/api/otel/v1/traces/route.ts) completely eliminates client API key leakage. However, on Vercel, every browser telemetry batch constitutes a billable serverless function invocation accompanied by a Redis rate-limiter check.
+* **Production Evolution**: At high scale, telemetry ingestion should be offloaded from Next.js serverless lambdas to a zero-cost-at-rest Edge Worker (e.g., Cloudflare Worker with strict CORS) or a dedicated OpenTelemetry Collector container on Fly.io or GCP Cloud Run ([`otel-collector-config.yaml`](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/otel-collector-config.yaml)).
+* **Tab Closure Safeguards**: Client-side spans are explicitly flushed via `sdk.forceFlush()` registered on `visibilitychange` (`hidden`) and `pagehide`, ensuring spans are not dropped when users rapidly navigate away or close tabs.
+
+### 11.2 GenAI Token Economics & Truncation Detection
+* **Standardized Conventions**: By adopting OpenTelemetry's `gen_ai.*` semantic conventions (`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.total_tokens`), teams can calculate precise USD cost per receipt extraction directly in Honeycomb.
+* **Distinguishing Truncations from Failures**: Tracking `gen_ai.response.finish_reasons` immediately flags receipts that truncated due to max token limits (e.g., extremely long itemized supermarket slips) versus genuine schema validation errors.
+
+### 11.3 Database Observability: Application-Perceived Latency vs. Postgres RLS Execution
+* **What Spans Measure**: Standard HTTP spans or database wrapper spans (`db.<table_name>.<operation>`) measure the application's perceived round-trip time:
+  $$\text{Application Latency} = \text{Next.js egress} + \text{Network transit} + \text{PostgREST parsing} + \text{PostgreSQL RLS evaluation} + \text{Serialization} + \text{Ingress}$$
+* **Isolating Postgres Engine Time**: A client wrapper cannot isolate PostgreSQL CPU execution time from network transit. To analyze whether latency originates from slow PostgreSQL Row-Level Security (RLS) sequential scans or network transit:
+  1. Inspect Supabase's built-in `pg_stat_statements` dashboard for raw server-side query execution metrics.
+  2. Call `.explain()` on complex PostgREST queries during query optimization and index tuning.
+
+### 11.4 Sampling Strategy: MVP Full Retention vs. Tail-Based Refinery
+* **Why `SAMPLE_RATE = 1` for MVP**: During initial rollout and development, 100% trace capture ensures zero blind spots when diagnosing rare edge-case bugs.
+* **Production Scaling**: Under high volume, 100% browser sampling exhausts ingest quotas. The production scaling policy transitions to:
+  - **100% Retention** on errors (`error = true`), 429 rate limit events, and AI extraction calls (`api.extract`).
+  - **Head-sampling down to 5% (`0.05`)** on routine 200 OK browser navigation and board clicks.
+  - **Tail-based sampling** via Honeycomb Refinery or an OpenTelemetry Collector to preserve anomalous and high-latency traces while shedding repetitive successful traces.
+
+### 11.5 PII Defense & Telemetry Sanitization
+* **Data Minimization**: Receipt images contain personal items, payment card fragments, and merchant locations.
+* **Active Scrubbing**: All error recording via `recordSpanError` and structured logging via `logInfo`/`logError` automatically route through a PII scrubber in [`lib/observability.ts`](file:///c:/Users/thiag/Documents/projects/antigravity/receipt-parser-agg/lib/observability.ts). It redacts payment card numbers (`[REDACTED_CARD]`), emails (`[REDACTED_EMAIL]`), bearer tokens, and truncates exception strings longer than 500 characters to prevent unparsed JSON blobs from entering Honeycomb.
+
+### 11.6 Vendor-Neutral AI Span Architecture
+* The primary AI inference span is standardized as `receipt.extract.ai_inference` rather than being hardcoded to a specific vendor. The underlying model and provider are dynamically parameterized via `app.receipt.provider`, `gen_ai.system`, and `gen_ai.request.model`, ensuring continuous historical telemetry across model migrations between Gemini, Featherless, and HuggingFace.

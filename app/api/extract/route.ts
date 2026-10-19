@@ -65,7 +65,9 @@ class RequestValidationError extends Error {
 
 type UploadedReceiptData = {
   fileName: string | null;
+  fileSizeBytes: number;
   imageUrls: string[];
+  mimeType: string;
   sourceType: "image" | "pdf";
 };
 
@@ -172,25 +174,33 @@ const getUploadedReceiptData = async (
   }
 
   const fileName = file.name?.trim() || null;
+  const fileSizeBytes = bytes.byteLength;
+  const mimeType = file.type || (isPdfReceiptUpload(file) ? "application/pdf" : "image/jpeg");
 
   if (isPdfReceiptUpload(file)) {
     return {
       fileName,
+      fileSizeBytes,
       imageUrls: await renderPdfToImageDataUrls(bytes),
+      mimeType,
       sourceType: "pdf",
     };
   }
 
   return {
     fileName,
-    imageUrls: [buildDataUrl(bytes, file.type || "image/jpeg")],
+    fileSizeBytes,
+    imageUrls: [buildDataUrl(bytes, mimeType)],
+    mimeType,
     sourceType: "image",
   };
 };
 
 const extractReceiptFromImageUrl = async (options: {
   fileName: string | null;
+  fileSizeBytes?: number;
   imageUrl: string;
+  mimeType?: string;
   model: string;
   pageCount: number;
   pageNumber: number;
@@ -207,16 +217,20 @@ const extractReceiptFromImageUrl = async (options: {
   );
 
   const response = await withSpan(
-    "receipt.extract.huggingface_chat_completion",
+    "receipt.extract.ai_inference",
     async (span) => {
       span.setAttributes({
         [observabilityAttributes.receiptModel]: options.model,
         [observabilityAttributes.receiptProvider]: options.provider,
         [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
         [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+        [observabilityAttributes.genAiSystem]: options.provider,
+        [observabilityAttributes.genAiRequestModel]: options.model,
+        ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
+        ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
       });
 
-      return inferenceClient!.chatCompletion({
+      const completion = await inferenceClient!.chatCompletion({
         provider: options.provider as never,
         model: options.model,
         messages: [
@@ -241,6 +255,40 @@ const extractReceiptFromImageUrl = async (options: {
         max_tokens: defaultMaxOutputTokens,
         temperature: 0,
       });
+
+      const completionWithUsage = completion as {
+        choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+        model?: string;
+        usage?: {
+          completion_tokens?: number;
+          prompt_tokens?: number;
+          total_tokens?: number;
+        };
+      };
+
+      if (completionWithUsage.model) {
+        span.setAttribute(observabilityAttributes.genAiResponseModel, completionWithUsage.model);
+      }
+
+      const choiceFinishReason = completionWithUsage.choices?.[0]?.finish_reason;
+      if (choiceFinishReason) {
+        span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [choiceFinishReason]);
+      }
+
+      if (completionWithUsage.usage) {
+        const { prompt_tokens, completion_tokens, total_tokens } = completionWithUsage.usage;
+        if (typeof prompt_tokens === "number") {
+          span.setAttribute(observabilityAttributes.genAiUsageInputTokens, prompt_tokens);
+        }
+        if (typeof completion_tokens === "number") {
+          span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, completion_tokens);
+        }
+        if (typeof total_tokens === "number") {
+          span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, total_tokens);
+        }
+      }
+
+      return completion;
     },
     {
       [observabilityAttributes.receiptOperation]: "extract",
@@ -337,13 +385,17 @@ export const POST = async (request: Request) => {
     selectedModelId: formData.get("modelId"),
   });
   let fileName: string | null;
+  let fileSizeBytes: number | undefined;
   let imageUrls: string[];
+  let mimeType: string | undefined;
   let sourceType: "image" | "pdf";
 
   try {
     const upload = await getUploadedReceiptData(formData);
     fileName = upload.fileName;
+    fileSizeBytes = upload.fileSizeBytes;
     imageUrls = upload.imageUrls;
+    mimeType = upload.mimeType;
     sourceType = upload.sourceType;
   } catch (error) {
     if (error instanceof RequestValidationError) {
@@ -378,7 +430,9 @@ export const POST = async (request: Request) => {
         const pageNumber = i + offset + 1;
         return extractReceiptFromImageUrl({
           fileName,
+          fileSizeBytes,
           imageUrl,
+          mimeType,
           model,
           pageCount: imageUrls.length,
           pageNumber,
