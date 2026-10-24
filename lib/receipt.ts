@@ -75,8 +75,8 @@ export type AvailableModel = {
 
 export type ModelCatalogSource = "router" | "hub-api" | "fallback";
 
-const fallbackModelId = "Qwen/Qwen2.5-VL-7B-Instruct";
-const additionalDropdownModelId = "Qwen/Qwen3-VL-8B-Instruct";
+const fallbackModelId = "gemini-flash-latest";
+const additionalDropdownModelId = "gemini-3.8-flash";
 const maxModelIdLength = 128;
 const fallbackMaxOutputTokens = 1600;
 const maxOutputTokensUpperBound = 4096;
@@ -113,9 +113,14 @@ export const sanitizeModelId = (value: unknown): string | null => {
 };
 
 export const defaultModelId =
-  sanitizeModelId(process.env.HF_MODEL_ID) ?? fallbackModelId;
+  sanitizeModelId(process.env.GEMINI_MODEL_ID) ??
+  sanitizeModelId(process.env.HF_MODEL_ID) ??
+  fallbackModelId;
 
-export const defaultProvider = process.env.HF_PROVIDER?.trim() || "auto";
+export const defaultProvider =
+  process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY
+    ? "gemini"
+    : process.env.HF_PROVIDER?.trim() || "auto";
 
 export const parseMaxOutputTokens = (
   value: unknown,
@@ -143,14 +148,29 @@ export const fallbackAvailableModels: AvailableModel[] = [
   {
     id: defaultModelId,
     label: `${defaultModelId} (env default)`,
-    providers: defaultProvider === "auto" ? [] : [defaultProvider],
+    providers: [defaultProvider],
+  },
+  {
+    id: "gemini-flash-latest",
+    label: "gemini-flash-latest",
+    providers: ["gemini"],
+  },
+  {
+    id: "gemini-3.8-flash",
+    label: "gemini-3.8-flash",
+    providers: ["gemini"],
+  },
+  {
+    id: "gemini-3.5-flash",
+    label: "gemini-3.5-flash",
+    providers: ["gemini"],
   },
 ];
 
 const getModelEntry = (model: AvailableModel) => [model.id, model] as const;
 
 export const isLikelyVisionModelId = (modelId: string): boolean =>
-  /(^|[/-])(vl|vision|llava|internvl|pixtral|idefics|minicpm-v)([/-]|$)/i.test(
+  /(^|[/-])(gemini|vl|vision|llava|internvl|pixtral|idefics|minicpm-v)([/-]|$)/i.test(
     modelId,
   );
 
@@ -224,8 +244,8 @@ export const dropdownAvailableModels: AvailableModel[] = Array.from(
       ...fallbackAvailableModels,
       {
         id: additionalDropdownModelId,
-        label: "Qwen3-VL-8B-Instruct",
-        providers: [],
+        label: "gemini-3.8-flash",
+        providers: ["gemini"],
       },
     ].map(getModelEntry),
   ).values(),

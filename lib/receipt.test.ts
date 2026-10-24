@@ -24,6 +24,8 @@ describe("receipt helpers", () => {
         expect(
             getModelCapabilityHint("Qwen/Qwen2.5-VL-7B-Instruct"),
         ).toBeNull();
+        expect(getModelCapabilityHint("gemini-flash-latest")).toBeNull();
+        expect(getModelCapabilityHint("gemini-3.8-flash")).toBeNull();
     });
 
     test("surfaces truncation hints for incomplete json", () => {

@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 import { InferenceClient } from "@huggingface/inference";
 import { NextResponse } from "next/server";
 
@@ -33,8 +34,22 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const hfToken = process.env.HF_TOKEN;
-const inferenceClient = hfToken ? new InferenceClient(hfToken) : null;
+const getGeminiClient = (): GoogleGenAI | null => {
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.GOOGLE_API_KEY;
+  return apiKey ? new GoogleGenAI({ apiKey }) : null;
+};
+
+const getInferenceClient = (): InferenceClient | null => {
+  const token = process.env.HF_TOKEN;
+  return token ? new InferenceClient(token) : null;
+};
+
+const isGeminiModel = (modelId: string): boolean =>
+  modelId.startsWith("gemini") || modelId.includes("gemini");
+
 const defaultPdfPageLimit = 5;
 const defaultPdfRenderScale = 3;
 
@@ -216,98 +231,186 @@ const extractReceiptFromImageUrl = async (options: {
     options.pageCount,
   );
 
-  const response = await withSpan(
-    "receipt.extract.ai_inference",
-    async (span) => {
-      span.setAttributes({
-        [observabilityAttributes.receiptModel]: options.model,
-        [observabilityAttributes.receiptProvider]: options.provider,
-        [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
-        [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
-        [observabilityAttributes.genAiSystem]: options.provider,
-        [observabilityAttributes.genAiRequestModel]: options.model,
-        ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
-        ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
-      });
-
-      const completion = await inferenceClient!.chatCompletion({
-        provider: options.provider as never,
-        model: options.model,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: options.imageUrl },
-              },
-              {
-                type: "text",
-                text: buildReceiptPrompt(),
-              },
-            ] satisfies ChatMessageContent,
-          },
-        ],
-        response_format: {
-          type: "json_object",
-          json_schema: receiptItemsJsonSchema,
-        },
-        max_tokens: defaultMaxOutputTokens,
-        temperature: 0,
-      });
-
-      const completionWithUsage = completion as {
-        choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
-        model?: string;
-        usage?: {
-          completion_tokens?: number;
-          prompt_tokens?: number;
-          total_tokens?: number;
-        };
-      };
-
-      if (completionWithUsage.model) {
-        span.setAttribute(observabilityAttributes.genAiResponseModel, completionWithUsage.model);
-      }
-
-      const choiceFinishReason = completionWithUsage.choices?.[0]?.finish_reason;
-      if (choiceFinishReason) {
-        span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [choiceFinishReason]);
-      }
-
-      if (completionWithUsage.usage) {
-        const { prompt_tokens, completion_tokens, total_tokens } = completionWithUsage.usage;
-        if (typeof prompt_tokens === "number") {
-          span.setAttribute(observabilityAttributes.genAiUsageInputTokens, prompt_tokens);
-        }
-        if (typeof completion_tokens === "number") {
-          span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, completion_tokens);
-        }
-        if (typeof total_tokens === "number") {
-          span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, total_tokens);
-        }
-      }
-
-      return completion;
-    },
-    {
-      [observabilityAttributes.receiptOperation]: "extract",
-    },
+  const geminiClient = getGeminiClient();
+  const inferenceClient = getInferenceClient();
+  const useGemini = Boolean(
+    geminiClient &&
+      (options.provider === "gemini" ||
+        isGeminiModel(options.model) ||
+        !inferenceClient),
   );
+  const effectiveProvider = useGemini ? "gemini" : options.provider;
 
-  const finishReason = response.choices?.[0]?.finish_reason;
-  const rawResponse = response.choices?.[0]?.message?.content;
+  let finishReason: string | undefined;
+  let rawResponse: string | undefined;
+
+  if (useGemini && geminiClient) {
+    const response = await withSpan(
+      "receipt.extract.ai_inference",
+      async (span) => {
+        span.setAttributes({
+          [observabilityAttributes.receiptModel]: options.model,
+          [observabilityAttributes.receiptProvider]: "gemini",
+          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+          [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+          [observabilityAttributes.genAiSystem]: "gemini",
+          [observabilityAttributes.genAiRequestModel]: options.model,
+          ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
+          ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
+        });
+
+        const base64Data = options.imageUrl.replace(/^data:[^;]+;base64,/, "");
+        const inlineMimeType = options.mimeType && options.mimeType.startsWith("image/") ? options.mimeType : "image/jpeg";
+
+        const geminiResult = await geminiClient.models.generateContent({
+          model: options.model,
+          contents: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: inlineMimeType,
+              },
+            },
+            buildReceiptPrompt(),
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: receiptItemsJsonSchema.schema,
+            maxOutputTokens: defaultMaxOutputTokens,
+            temperature: 0,
+          },
+        });
+
+        if (geminiResult.modelVersion) {
+          span.setAttribute(observabilityAttributes.genAiResponseModel, geminiResult.modelVersion);
+        }
+
+        const candidate = geminiResult.candidates?.[0];
+        const candidateFinishReason = candidate?.finishReason;
+        if (candidateFinishReason) {
+          span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [candidateFinishReason]);
+        }
+
+        const usage = geminiResult.usageMetadata;
+        if (usage) {
+          if (typeof usage.promptTokenCount === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageInputTokens, usage.promptTokenCount);
+          }
+          if (typeof usage.candidatesTokenCount === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, usage.candidatesTokenCount);
+          }
+          if (typeof usage.totalTokenCount === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, usage.totalTokenCount);
+          }
+        }
+
+        return geminiResult;
+      },
+      {
+        [observabilityAttributes.receiptOperation]: "extract",
+      },
+    );
+
+    finishReason = response.candidates?.[0]?.finishReason;
+    rawResponse = response.text ?? "";
+  } else {
+    if (!inferenceClient) {
+      throw new Error("No AI provider is configured on the server.");
+    }
+
+    const response = await withSpan(
+      "receipt.extract.ai_inference",
+      async (span) => {
+        span.setAttributes({
+          [observabilityAttributes.receiptModel]: options.model,
+          [observabilityAttributes.receiptProvider]: options.provider,
+          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+          [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+          [observabilityAttributes.genAiSystem]: options.provider,
+          [observabilityAttributes.genAiRequestModel]: options.model,
+          ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
+          ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
+        });
+
+        const completion = await inferenceClient.chatCompletion({
+          provider: options.provider as never,
+          model: options.model,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: options.imageUrl },
+                },
+                {
+                  type: "text",
+                  text: buildReceiptPrompt(),
+                },
+              ] satisfies ChatMessageContent,
+            },
+          ],
+          response_format: {
+            type: "json_object",
+            json_schema: receiptItemsJsonSchema,
+          },
+          max_tokens: defaultMaxOutputTokens,
+          temperature: 0,
+        });
+
+        const completionWithUsage = completion as {
+          choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+          model?: string;
+          usage?: {
+            completion_tokens?: number;
+            prompt_tokens?: number;
+            total_tokens?: number;
+          };
+        };
+
+        if (completionWithUsage.model) {
+          span.setAttribute(observabilityAttributes.genAiResponseModel, completionWithUsage.model);
+        }
+
+        const choiceFinishReason = completionWithUsage.choices?.[0]?.finish_reason;
+        if (choiceFinishReason) {
+          span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [choiceFinishReason]);
+        }
+
+        if (completionWithUsage.usage) {
+          const { prompt_tokens, completion_tokens, total_tokens } = completionWithUsage.usage;
+          if (typeof prompt_tokens === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageInputTokens, prompt_tokens);
+          }
+          if (typeof completion_tokens === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, completion_tokens);
+          }
+          if (typeof total_tokens === "number") {
+            span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, total_tokens);
+          }
+        }
+
+        return completion;
+      },
+      {
+        [observabilityAttributes.receiptOperation]: "extract",
+      },
+    );
+
+    finishReason = response.choices?.[0]?.finish_reason;
+    rawResponse = response.choices?.[0]?.message?.content;
+  }
 
   logExtractionDiagnostics({
     model: options.model,
-    provider: options.provider,
+    provider: effectiveProvider,
     finishReason,
     maxOutputTokens: defaultMaxOutputTokens,
     sourceLabel,
     rawResponse: typeof rawResponse === "string" ? rawResponse : null,
   });
 
-  if (finishReason === "length") {
+  if (finishReason === "length" || finishReason === "MAX_TOKENS") {
     throw new Error(
       `${sourceLabel} output hit the ${defaultMaxOutputTokens}-token limit. Increase HF_MAX_OUTPUT_TOKENS.`,
     );
@@ -348,9 +451,12 @@ export const GET = async () => {
 };
 
 export const POST = async (request: Request) => {
-  if (!inferenceClient) {
+  const geminiClient = getGeminiClient();
+  const inferenceClient = getInferenceClient();
+
+  if (!geminiClient && !inferenceClient) {
     return NextResponse.json(
-      { error: "HF_TOKEN is not configured on the server." },
+      { error: "Neither GEMINI_API_KEY nor HF_TOKEN is configured on the server." },
       { status: 500 },
     );
   }
@@ -472,8 +578,13 @@ export const POST = async (request: Request) => {
       });
     }
 
+    const isGemini = Boolean(
+      geminiClient &&
+        (provider === "gemini" || isGeminiModel(model) || !inferenceClient),
+    );
+
     return NextResponse.json({
-      backend: "vercel-hf-route",
+      backend: isGemini ? "gemini" : "vercel-hf-route",
       currencyCode,
       modelId: model,
       items,

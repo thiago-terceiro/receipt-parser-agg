@@ -13,7 +13,13 @@ export type SessionIdentity = {
 
 export const getSessionIdentity = async (): Promise<SessionIdentity | null> => {
     return withSpan("auth.get_session_identity", async (span) => {
-        const session = await getServerSession(authOptions);
+        let session = null;
+        try {
+            session = await getServerSession(authOptions);
+        } catch {
+            session = null;
+        }
+
         const userId =
             (session?.user as { id?: string } | undefined)?.id?.trim() || null;
         const email = session?.user?.email?.trim().toLowerCase() || null;

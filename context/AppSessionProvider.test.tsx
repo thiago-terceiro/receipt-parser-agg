@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { AppSessionProvider } from "@/context/AppSessionProvider";
 import { useReceiptWorkspaceState } from "@/context/ReceiptWorkspaceStateProvider";
 import { useTheme } from "@/context/ThemeProvider";
+import { defaultModelId } from "@/lib/receipt";
 
 describe("AppSessionProvider", () => {
     it("composes the session, workspace, and theme providers", () => {
@@ -24,6 +25,6 @@ describe("AppSessionProvider", () => {
             </AppSessionProvider>,
         );
 
-        expect(screen.getByText(/Qwen\/Qwen2.5-VL-7B-Instructsystem/)).toBeInTheDocument();
+        expect(screen.getByText(new RegExp(`${defaultModelId}system`))).toBeInTheDocument();
     });
 });

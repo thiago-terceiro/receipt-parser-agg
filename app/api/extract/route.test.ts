@@ -7,6 +7,17 @@ let GET: typeof import("./route").GET;
 let maxDuration: typeof import("./route").maxDuration;
 
 const mockChatCompletion = jest.fn();
+const mockGenerateContent = jest.fn();
+
+jest.mock("@google/genai", () => {
+  return {
+    GoogleGenAI: jest.fn().mockImplementation(() => ({
+      models: {
+        generateContent: mockGenerateContent,
+      },
+    })),
+  };
+});
 
 jest.mock("@huggingface/inference", () => {
   return {
@@ -36,7 +47,11 @@ describe("app/api/extract/route", () => {
   const originalEnv = process.env;
 
   beforeAll(async () => {
-    process.env.HF_TOKEN = "mock-hf-token";
+    process.env = {
+      ...originalEnv,
+      GEMINI_API_KEY: "mock-gemini-key",
+      HF_TOKEN: "mock-hf-token",
+    };
     const route = await import("./route");
     POST = route.POST;
     GET = route.GET;
@@ -63,38 +78,77 @@ describe("app/api/extract/route", () => {
     expect(Array.isArray(data.availableModels)).toBe(true);
   });
 
+  it("extracts receipt via Google Gemini and returns backend='gemini'", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Organic Milk",
+            category: "dairy",
+            quantity: 2,
+            unitPrice: 1.5,
+            lineTotal: 3.0,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+      modelVersion: "gemini-3.8-flash",
+      usageMetadata: {
+        promptTokenCount: 120,
+        candidatesTokenCount: 45,
+        totalTokenCount: 165,
+      },
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    formData.append("modelId", "gemini-flash-latest");
+
+    const request = new Request("http://localhost:3000/api/extract", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.backend).toBe("gemini");
+    expect(data.currencyCode).toBe("EUR");
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0].item).toBe("Organic Milk");
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
   it("parallelizes multi-page PDF extractions in batches of 2", async () => {
     let activeCalls = 0;
     let maxConcurrent = 0;
 
-    mockChatCompletion.mockImplementation(async () => {
+    mockGenerateContent.mockImplementation(async () => {
       activeCalls += 1;
       maxConcurrent = Math.max(maxConcurrent, activeCalls);
-      // Small delay to verify concurrency
       await new Promise((resolve) => setTimeout(resolve, 20));
       activeCalls -= 1;
 
       return {
-        choices: [
-          {
-            finish_reason: "stop",
-            message: {
-              content: JSON.stringify({
-                currencyCode: "EUR",
-                items: [
-                  {
-                    item: "Bread",
-                    normalizedItem: "bread",
-                    category: "bakery",
-                    quantity: 1,
-                    unitPrice: 2.0,
-                    lineTotal: 2.0,
-                  },
-                ],
-              }),
+        text: JSON.stringify({
+          currencyCode: "EUR",
+          items: [
+            {
+              name: "Bread",
+              category: "bakery",
+              quantity: 1,
+              unitPrice: 2.0,
+              lineTotal: 2.0,
             },
-          },
-        ],
+          ],
+        }),
+        candidates: [{ finishReason: "STOP" }],
+        modelVersion: "gemini-flash-latest",
       };
     });
 
@@ -114,51 +168,20 @@ describe("app/api/extract/route", () => {
     expect(response.status).toBe(200);
 
     const data = await response.json();
-    expect(data.backend).toBe("vercel-hf-route");
+    expect(data.backend).toBe("gemini");
     expect(data.currencyCode).toBe("EUR");
-    // 3 pages extracted
-    expect(mockChatCompletion).toHaveBeenCalledTimes(3);
-    // Concurrency capped at 2
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
     expect(maxConcurrent).toBeLessThanOrEqual(2);
-    // 3 items merged (1 from each page)
     expect(data.items).toHaveLength(3);
   });
 
-  it("returns 502 when a page extraction is rejected", async () => {
-    let callIndex = 0;
-    mockChatCompletion.mockImplementation(async () => {
-      callIndex += 1;
-      if (callIndex === 2) {
-        throw new Error("Inference API error on page 2");
-      }
-      return {
-        choices: [
-          {
-            finish_reason: "stop",
-            message: {
-              content: JSON.stringify({
-                currencyCode: "EUR",
-                items: [
-                  {
-                    item: "Milk",
-                    normalizedItem: "milk",
-                    category: "dairy",
-                    quantity: 1,
-                    unitPrice: 3.0,
-                    lineTotal: 3.0,
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      };
-    });
+  it("returns 502 when an extraction call is rejected", async () => {
+    mockGenerateContent.mockRejectedValueOnce(new Error("Gemini API service unavailable"));
 
     const formData = new FormData();
     formData.append(
       "file",
-      new File([new Uint8Array([1, 2, 3])], "receipt.pdf", { type: "application/pdf" }),
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
     );
 
     const request = new Request("http://localhost:3000/api/extract", {
@@ -170,6 +193,54 @@ describe("app/api/extract/route", () => {
     expect(response.status).toBe(502);
 
     const data = await response.json();
-    expect(data.error).toContain("Inference API error on page 2");
+    expect(data.error).toContain("Gemini API service unavailable");
+  });
+
+  it("falls back to Hugging Face when GEMINI_API_KEY is unset and HF_TOKEN is present", async () => {
+    delete process.env.GEMINI_API_KEY;
+
+    mockChatCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: {
+            content: JSON.stringify({
+              currencyCode: "USD",
+              items: [
+                {
+                  item: "Coffee",
+                  normalizedItem: "coffee",
+                  category: "beverages",
+                  quantity: 1,
+                  unitPrice: 4.5,
+                  lineTotal: 4.5,
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+
+    const request = new Request("http://localhost:3000/api/extract", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.backend).toBe("vercel-hf-route");
+    expect(data.currencyCode).toBe("USD");
+    expect(mockChatCompletion).toHaveBeenCalledTimes(1);
+
+    process.env.GEMINI_API_KEY = "mock-gemini-key";
   });
 });
