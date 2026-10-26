@@ -101,6 +101,9 @@ export const ReceiptWorkspaceUploadSection = ({
                 className="min-w-0 flex flex-col gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)] p-6 shadow-sm transition-all duration-200"
                 onSubmit={onSubmit}
             >
+                <label htmlFor="receipt-file" className="sr-only">
+                    {translations.receipt.dropImage}
+                </label>
                 <input
                     id="receipt-file"
                     name="receipt-file"
@@ -114,7 +117,6 @@ export const ReceiptWorkspaceUploadSection = ({
                 <div
                     role="button"
                     tabIndex={0}
-                    aria-label={hasSelectedFile ? `${translations.receipt.fileReady}: ${selectedFileName ?? ""}` : translations.receipt.dropImage}
                     onClick={onDropzoneClick}
                     onKeyDown={onDropzoneKeyDown}
                     onDragOver={onDropzoneDragOver}

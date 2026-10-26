@@ -8,3 +8,10 @@ coverage/
 next-env.d.ts
 scratch/
 .vercel
+
+# Test & Tooling Artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+storybook-static/

@@ -1,5 +1,8 @@
 import "@testing-library/jest-dom";
+import { toHaveNoViolations } from "jest-axe";
 import React from "react";
+
+expect.extend(toHaveNoViolations);
 
 if (typeof global.Request === "undefined" && typeof globalThis.Request !== "undefined") {
     global.Request = globalThis.Request;
