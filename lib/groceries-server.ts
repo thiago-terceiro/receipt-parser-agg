@@ -152,7 +152,7 @@ export const loadGroceriesMonthData = async (
     const selection = await resolveBoardSelection(identity, requestedBoardId);
 
     if (hasSupabaseServerConfig && identity?.userId) {
-        const client = getSupabaseServerClient();
+        const client = getSupabaseServerClient(identity);
         const activeBoardId = selection.activeBoard.id;
         const [entries, extractedReceipts] = await Promise.all([
             loadSupabaseGroceriesEntriesForBoard(client, activeBoardId, month),
@@ -184,7 +184,7 @@ export const loadGroceriesDashboardData = async (
     const selection = await resolveBoardSelection(identity, requestedBoardId);
 
     if (hasSupabaseServerConfig && identity?.userId) {
-        const client = getSupabaseServerClient();
+        const client = getSupabaseServerClient(identity);
         const activeBoardId = selection.activeBoard.id;
         const [entries, extractedReceipts, members] = await Promise.all([
             loadSupabaseGroceriesEntriesForBoard(client, activeBoardId, month),
@@ -336,7 +336,7 @@ const loadSupabaseGroceriesEntries = async (
     requestedBoardId?: unknown,
 ) => {
     const selection = await resolveBoardSelection(identity, requestedBoardId);
-    const client = getSupabaseServerClient();
+    const client = getSupabaseServerClient(identity);
 
     return loadSupabaseGroceriesEntriesForBoard(
         client,
@@ -379,7 +379,7 @@ const loadSupabaseExtractedReceipts = async (
     requestedBoardId?: unknown,
 ) => {
     const selection = await resolveBoardSelection(identity, requestedBoardId);
-    const client = getSupabaseServerClient();
+    const client = getSupabaseServerClient(identity);
 
     return loadSupabaseExtractedReceiptsForBoard(
         client,

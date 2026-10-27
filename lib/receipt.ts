@@ -27,6 +27,10 @@ export const receiptItemsJsonSchema = {
         type: "string",
         pattern: "^[A-Z]{3}$",
       },
+      purchaseDate: {
+        type: "string",
+        description: "Purchase date in YYYY-MM-DD format if visible on the receipt, or empty string if not found.",
+      },
       items: {
         type: "array",
         items: {
@@ -47,7 +51,7 @@ export const receiptItemsJsonSchema = {
       },
     },
     additionalProperties: false,
-    required: ["currencyCode", "items"],
+    required: ["currencyCode", "purchaseDate", "items"],
   },
 } as const;
 
@@ -64,6 +68,7 @@ export type ReceiptItem = {
 
 export type ParsedReceiptExtraction = {
   currencyCode: CurrencyCode;
+  purchaseDate?: string | null;
   items: ReceiptItem[];
 };
 
@@ -252,20 +257,21 @@ export const dropdownAvailableModels: AvailableModel[] = Array.from(
 );
 
 export const buildReceiptPrompt =
-  () => `Extract all grocery items from this receipt.
+  () => `Extract all grocery items and the purchase date from this receipt.
 
 Return a JSON object in this format:
 {
   "currencyCode": "EUR",
-    "items": [
-        {
-            "name": "item name",
-            "category": "produce",
-            "quantity": 2,
-            "unitPrice": 1.99,
-            "lineTotal": 3.98
-        }
-    ]
+  "purchaseDate": "2026-04-15",
+  "items": [
+      {
+          "name": "item name",
+          "category": "produce",
+          "quantity": 2,
+          "unitPrice": 1.99,
+          "lineTotal": 3.98
+      }
+  ]
 }
 
 Allowed categories:
@@ -276,6 +282,7 @@ Rules:
 - Exclude totals, taxes, discounts, loyalty lines, and payment rows.
 - Normalize abbreviated names into readable grocery names.
 - currencyCode must be the 3-letter ISO 4217 code shown or implied by the receipt total, such as USD, EUR, or BRL.
+- purchaseDate must be the date of purchase shown on the receipt in YYYY-MM-DD format (e.g. 2026-04-15), or empty string "" if not visible.
 - quantity must be a positive number. Use 1 when uncertain.
 - unitPrice and lineTotal must be numbers.
 - category must be one of the allowed categories.`;
@@ -351,6 +358,28 @@ export const sanitizeCategory = (value: unknown): GroceryCategory | null => {
   return groceryCategorySet.has(normalized) ? normalized : null;
 };
 
+export const sanitizePurchaseDate = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  if (parsed.toISOString().slice(0, 10) !== trimmed) {
+    return null;
+  }
+
+  return trimmed;
+};
+
 const parseReceiptJson = (rawResponse: string): unknown => {
   const trimmed = rawResponse.trim();
   if (!trimmed) {
@@ -398,7 +427,11 @@ export const parseReceiptExtraction = (
   const parsed = parseReceiptJson(rawResponse);
   const extraction = Array.isArray(parsed)
     ? null
-    : (parsed as { currencyCode?: unknown; items?: unknown });
+    : (parsed as {
+        currencyCode?: unknown;
+        purchaseDate?: unknown;
+        items?: unknown;
+      });
   const items = Array.isArray(parsed) ? parsed : extraction?.items;
 
   if (!Array.isArray(items)) {
@@ -414,8 +447,11 @@ export const parseReceiptExtraction = (
     );
   }
 
+  const purchaseDate = sanitizePurchaseDate(extraction?.purchaseDate);
+
   return {
     currencyCode,
+    purchaseDate,
     items: items.map(parseReceiptItem),
   };
 };

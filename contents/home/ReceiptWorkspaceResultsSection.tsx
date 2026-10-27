@@ -59,6 +59,7 @@ type ReceiptWorkspaceResultsSectionProps = {
     previewKind: ReceiptUploadKind | null;
     previewPlaceholderText: string;
     previewUrl: string | null;
+    purchaseDate?: string;
     result: ExtractionResponse | null;
     saveMessage: string | null;
     selectedBoardId: string;
@@ -67,7 +68,9 @@ type ReceiptWorkspaceResultsSectionProps = {
     onBoardChange: (boardId: string) => void;
     onCurrencyChange?: (currencyCode: string) => void;
     onEditItem: (index: number) => void;
-    onRemoveManualItem: (index: number) => void;
+    onPurchaseDateChange?: (date: string) => void;
+    onRemoveItem?: (index: number) => void;
+    onRemoveManualItem?: (index: number) => void;
     onSaveGroceries: () => void;
 };
 
@@ -90,6 +93,7 @@ export const ReceiptWorkspaceResultsSection = ({
     previewKind,
     previewPlaceholderText,
     previewUrl,
+    purchaseDate,
     result,
     saveMessage,
     selectedBoardId,
@@ -98,6 +102,8 @@ export const ReceiptWorkspaceResultsSection = ({
     onBoardChange,
     onCurrencyChange,
     onEditItem,
+    onPurchaseDateChange,
+    onRemoveItem,
     onRemoveManualItem,
     onSaveGroceries,
 }: ReceiptWorkspaceResultsSectionProps) => {
@@ -390,12 +396,18 @@ export const ReceiptWorkspaceResultsSection = ({
                                                     >
                                                         {translations.receipt.alerts.adjust}
                                                     </Button>
-                                                    {isManualItem ? (
+                                                    {onRemoveItem || isManualItem ? (
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => onRemoveManualItem(manualIndex)}
+                                                            onClick={() => {
+                                                                if (onRemoveItem) {
+                                                                    onRemoveItem(index);
+                                                                } else if (onRemoveManualItem) {
+                                                                    onRemoveManualItem(manualIndex);
+                                                                }
+                                                            }}
                                                         >
                                                             {translations.receipt.alerts.remove}
                                                         </Button>
@@ -482,12 +494,18 @@ export const ReceiptWorkspaceResultsSection = ({
                                                         >
                                                             {translations.receipt.alerts.adjust}
                                                         </Button>
-                                                        {isManualItem ? (
+                                                        {onRemoveItem || isManualItem ? (
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => onRemoveManualItem(manualIndex)}
+                                                                onClick={() => {
+                                                                    if (onRemoveItem) {
+                                                                        onRemoveItem(index);
+                                                                    } else if (onRemoveManualItem) {
+                                                                        onRemoveManualItem(manualIndex);
+                                                                    }
+                                                                }}
                                                             >
                                                                 {translations.receipt.alerts.remove}
                                                             </Button>
@@ -510,6 +528,19 @@ export const ReceiptWorkspaceResultsSection = ({
                                             ? translations.receipt.saveSignedIn
                                             : translations.receipt.saveSignedOut}
                                     </p>
+                                </div>
+                                <div className="grid w-[180px] gap-2 max-[640px]:w-full">
+                                    <label htmlFor="receipt-purchase-date" className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
+                                        {translations.receipt.purchaseDate}
+                                    </label>
+                                    <input
+                                        id="receipt-purchase-date"
+                                        type="date"
+                                        value={purchaseDate ?? ""}
+                                        onChange={(event) => onPurchaseDateChange?.(event.target.value)}
+                                        disabled={isSaving}
+                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-sm text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)] disabled:opacity-50"
+                                    />
                                 </div>
                                 <div className="grid w-[240px] gap-2 max-[640px]:order-first max-[640px]:w-full">
                                     <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">

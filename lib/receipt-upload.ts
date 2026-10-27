@@ -51,6 +51,10 @@ export const getReceiptPreviewKindFromDataUrl = (
         return "pdf";
     }
 
+    if (normalizedValue.startsWith("data:image/svg")) {
+        return null;
+    }
+
     if (normalizedValue.startsWith("data:image/")) {
         return "image";
     }
@@ -60,11 +64,22 @@ export const getReceiptPreviewKindFromDataUrl = (
 
 export const isImageReceiptUpload = (file: ReceiptUploadLike): boolean => {
     const mimeType = normalizeMimeType(file.type);
+    const fileName = normalizeFileName(file.name);
+
+    if (
+        mimeType.startsWith("image/svg") ||
+        mimeType.includes("svg") ||
+        fileName.endsWith(".svg") ||
+        fileName.endsWith(".svgz")
+    ) {
+        return false;
+    }
+
     if (mimeType.startsWith("image/")) {
         return true;
     }
 
-    return !mimeType && imageFileExtensionPattern.test(normalizeFileName(file.name));
+    return !mimeType && imageFileExtensionPattern.test(fileName);
 };
 
 export const isPdfReceiptUpload = (file: ReceiptUploadLike): boolean => {
@@ -87,8 +102,11 @@ export const mergeReceiptExtractions = (
         throw new Error("At least one receipt extraction is required.");
     }
 
+    const purchaseDate = extractions.find((e) => e.purchaseDate)?.purchaseDate ?? null;
+
     return {
         currencyCode: extractions[0].currencyCode,
+        purchaseDate,
         items: extractions.flatMap((extraction) => extraction.items),
     };
 };

@@ -303,7 +303,7 @@ export const ensureDefaultBoardForIdentity = async (
 
 export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity) => {
     return withSpan("boards.list_for_identity", async (span) => {
-        const client = getSupabaseServerClient();
+        const client = getSupabaseServerClient(identity);
         await ensureBoardProfile(client, identity);
         let boards = await listBoardsForIdentityWithClient(client, identity);
 
@@ -332,7 +332,7 @@ export const resolveActiveBoardForIdentity = async (
             throw new BoardRouteError("Board id is invalid.", 400);
         }
 
-        const client = getSupabaseServerClient();
+        const client = getSupabaseServerClient(identity);
         let profile = await ensureBoardProfile(client, identity);
         let boards = await listBoardsForIdentityWithClient(client, identity);
 
@@ -430,7 +430,7 @@ export const requireBoardAccess = async (
             throw new BoardRouteError("Board id is invalid.", 400);
         }
 
-        const client = getSupabaseServerClient();
+        const client = getSupabaseServerClient(identity);
         await ensureBoardProfile(client, identity);
 
         const membership = await loadMembership(client, identity, boardId);
@@ -467,9 +467,9 @@ export const setLastActiveBoardForIdentity = async (
     boardId: unknown,
 ) => {
     return withSpan("boards.set_last_active", async () => {
-        const { board, client } = await requireBoardAccess(identity, boardId);
+        const { board } = await requireBoardAccess(identity, boardId);
 
-        const { error } = await client.rpc("set_last_active_board", {
+        const { error } = await getSupabaseServerClient().rpc("set_last_active_board", {
             p_board_id: board.id,
             p_user_id: identity.userId,
         });
@@ -748,7 +748,7 @@ const upsertBoardMembershipFromInvite = async (
 ) => {
     const { data: existingMembership, error: existingMembershipError } = await client
         .from("board_members")
-        .select("joined_at")
+        .select("role, joined_at")
         .eq("board_id", invite.board_id)
         .eq("user_id", userId)
         .maybeSingle();
@@ -760,6 +760,11 @@ const upsertBoardMembershipFromInvite = async (
         );
     }
 
+    const membershipRole =
+        (existingMembership as { role?: string } | null)?.role === "owner"
+            ? "owner"
+            : invite.role;
+
     const joinedAt = (existingMembership as { joined_at?: string | null } | null)?.joined_at
         ?? new Date().toISOString();
     const { error } = await client
@@ -767,7 +772,7 @@ const upsertBoardMembershipFromInvite = async (
         .upsert({
             board_id: invite.board_id,
             user_id: userId,
-            role: invite.role,
+            role: membershipRole,
             status: "active",
             invited_by_user_id: invite.invited_by_user_id ?? null,
             joined_at: joinedAt,
@@ -959,7 +964,19 @@ export const acceptBoardInviteForIdentity = async (
             );
         }
 
-        await upsertBoardMembershipFromInvite(client, invite, identity.userId);
+        try {
+            await upsertBoardMembershipFromInvite(client, invite, identity.userId);
+        } catch (membershipError) {
+            await client
+                .from("board_invites")
+                .update({
+                    status: "pending",
+                    accepted_at: null,
+                    accepted_by_user_id: null,
+                })
+                .eq("id", invite.id);
+            throw membershipError;
+        }
 
         const { error: profileUpdateError } = await client
             .from("profiles")

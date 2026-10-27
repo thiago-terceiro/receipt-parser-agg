@@ -268,6 +268,7 @@ describe("ReceiptWorkspace", () => {
             ],
             sourceFileName: "receipt.png",
             modelId: "test-model",
+            purchaseDate: expect.any(String),
         });
 
         expect(await screen.findByText(/receipt.saveSuccess/)).toBeInTheDocument();
@@ -382,7 +383,9 @@ describe("ReceiptWorkspace", () => {
         await screen.findAllByText("Milk");
         await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
 
-        const quantityInput = screen.getByRole("spinbutton");
+        const quantityInput = screen.getByRole("spinbutton", {
+            name: "receipt.editor.quantity",
+        });
         await userEvent.clear(quantityInput);
         await userEvent.type(quantityInput, "0");
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.apply" }));
@@ -535,5 +538,118 @@ describe("ReceiptWorkspace", () => {
 
         fireEvent.keyDown(document, { key: "Escape" });
         expect(screen.queryByRole("listbox", { name: "Supported currencies" })).not.toBeInTheDocument();
+    });
+
+    it("supports adjusting an extracted item's name and unit price", async () => {
+        global.fetch = jest.fn().mockResolvedValue(
+            createResponse(
+                JSON.stringify({
+                    backend: "hf-api",
+                    currencyCode: "EUR",
+                    modelId: "test-model",
+                    items: [
+                        {
+                            item: "Oat Mlk",
+                            normalizedItem: "oat mlk",
+                            category: "beverages",
+                            quantity: 1,
+                            unitPrice: 2.5,
+                            lineTotal: 2.5,
+                        },
+                    ],
+                    rawResponse: "raw-output",
+                }),
+            ),
+        );
+
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = container.querySelector("form") as HTMLFormElement;
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        fireEvent.change(input, {
+            target: { files: [new File(["image"], "receipt.png", { type: "image/png" })] },
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        await screen.findAllByText("Oat Mlk");
+
+        await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
+
+        const itemInput = screen.getByRole("textbox", { name: "receipt.editor.item" });
+        await userEvent.clear(itemInput);
+        await userEvent.type(itemInput, "Oat Milk");
+
+        const unitPriceInput = screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" });
+        await userEvent.clear(unitPriceInput);
+        await userEvent.type(unitPriceInput, "2.99");
+
+        await userEvent.click(screen.getByRole("button", { name: "receipt.editor.apply" }));
+
+        expect((await screen.findAllByText("Oat Milk"))[0]).toBeInTheDocument();
+        expect(screen.queryByText("Oat Mlk")).not.toBeInTheDocument();
+        expect(screen.getByText('receipt.total {"amount":"€2.99"}')).toBeInTheDocument();
+    });
+
+    it("supports removing an extracted item from the list", async () => {
+        global.fetch = jest.fn().mockResolvedValue(
+            createResponse(
+                JSON.stringify({
+                    backend: "hf-api",
+                    currencyCode: "EUR",
+                    modelId: "test-model",
+                    items: [
+                        {
+                            item: "Spurious Item",
+                            normalizedItem: "spurious item",
+                            category: "other",
+                            quantity: 1,
+                            unitPrice: 10,
+                            lineTotal: 10,
+                        },
+                        {
+                            item: "Real Milk",
+                            normalizedItem: "real milk",
+                            category: "dairy",
+                            quantity: 1,
+                            unitPrice: 2,
+                            lineTotal: 2,
+                        },
+                    ],
+                    rawResponse: "raw-output",
+                }),
+            ),
+        );
+
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = container.querySelector("form") as HTMLFormElement;
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        fireEvent.change(input, {
+            target: { files: [new File(["image"], "receipt.png", { type: "image/png" })] },
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("receipt.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        await screen.findAllByText("Spurious Item");
+
+        const removeButtons = screen.getAllByRole("button", { name: "receipt.alerts.remove" });
+        await userEvent.click(removeButtons[0]);
+
+        await waitFor(() => {
+            expect(screen.queryByText("Spurious Item")).not.toBeInTheDocument();
+        });
+        expect(screen.getAllByText("Real Milk")[0]).toBeInTheDocument();
+        expect(screen.getByText('receipt.total {"amount":"€2.00"}')).toBeInTheDocument();
     });
 });

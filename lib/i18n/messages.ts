@@ -113,6 +113,7 @@ export type Messages = { metadata: Metadata } & {
     selectDashboard: string;
     loadingDashboards: string;
     noDashboardsAvailable: string;
+    purchaseDate: string;
     resultPlaceholder: string;
     table: {
       item: string;
@@ -396,6 +397,7 @@ export const createMessagesObject = (
       selectDashboard: t("receipt.selectDashboard"),
       loadingDashboards: t("receipt.loadingDashboards"),
       noDashboardsAvailable: t("receipt.noDashboardsAvailable"),
+      purchaseDate: t("receipt.purchaseDate"),
       resultPlaceholder: t("receipt.resultPlaceholder"),
       table: {
         item: t("receipt.table.item"),
@@ -679,7 +681,7 @@ export const localeMessages = {
       total: "{amount} total",
       corrected: "{count} corrected",
       reviewHint:
-        "Review the AI picks before saving. Use Adjust on any row to override category or quantity.",
+        "Review the AI picks before saving. Use Adjust on any row to edit name, category, quantity, or price.",
       saveCardTitle: "Save these groceries into the month view",
       saveSignedIn:
         "Persist this categorized receipt and open the dashboard to inspect totals and repeated items.",
@@ -693,6 +695,7 @@ export const localeMessages = {
       selectDashboard: "Select Dashboard",
       loadingDashboards: "Loading dashboards...",
       noDashboardsAvailable: "No dashboards available",
+      purchaseDate: "Purchase date",
       resultPlaceholder:
         "Extracted categorized groceries and the raw model response will appear here.",
       table: {
@@ -706,7 +709,7 @@ export const localeMessages = {
       editor: {
         title: "Adjust extracted grocery",
         description:
-          "Override the AI-picked category or quantity before this receipt is saved into the monthly dashboard.",
+          "Correct the item name, category, quantity, or unit price before this receipt is saved into the monthly dashboard.",
         manualTitle: "Add manual grocery",
         manualDescription:
           "Use this when the extraction missed a line. The manual row will be saved with the rest of the receipt.",
@@ -982,7 +985,7 @@ export const localeMessages = {
       total: "{amount} total",
       corrected: "{count} corregidos",
       reviewHint:
-        "Revisa las selecciones de la IA antes de guardar. Usa Ajustar en cualquier fila para sobrescribir la categoría o la cantidad.",
+        "Revisa las selecciones de la IA antes de guardar. Usa Ajustar en cualquier fila para editar nombre, categoría, cantidad o precio.",
       saveCardTitle: "Guarda estas compras en la vista mensual",
       saveSignedIn:
         "Guarda este recibo categorizado y abre el panel para revisar totales y artículos repetidos.",
@@ -996,6 +999,7 @@ export const localeMessages = {
       selectDashboard: "Seleccionar panel",
       loadingDashboards: "Cargando paneles...",
       noDashboardsAvailable: "No hay paneles disponibles",
+      purchaseDate: "Fecha de compra",
       resultPlaceholder:
         "Las compras categorizadas extraídas y la respuesta sin procesar del modelo aparecerán aquí.",
       table: {
@@ -1009,7 +1013,7 @@ export const localeMessages = {
       editor: {
         title: "Ajustar compra extraída",
         description:
-          "Sobrescribe la categoría o la cantidad elegida por la IA antes de guardar este recibo en el panel mensual.",
+          "Corrige el nombre, categoría, cantidad o precio unitario antes de guardar este recibo en el panel mensual.",
         manualTitle: "Agregar compra manual",
         manualDescription:
           "Úsalo cuando la extracción haya omitido una línea. La fila manual se guardará con el resto del recibo.",
@@ -1284,7 +1288,7 @@ export const localeMessages = {
       total: "{amount} no total",
       corrected: "{count} corrigidos",
       reviewHint:
-        "Revise as escolhas da IA antes de salvar. Use Ajustar em qualquer linha para sobrescrever categoria ou quantidade.",
+        "Revise as escolhas da IA antes de salvar. Use Ajustar em qualquer linha para editar nome, categoria, quantidade ou preço.",
       saveCardTitle: "Salve estas compras na visão mensal",
       saveSignedIn:
         "Persista este recibo categorizado e abra o painel para conferir totais e itens repetidos.",
@@ -1298,6 +1302,7 @@ export const localeMessages = {
       selectDashboard: "Selecionar painel",
       loadingDashboards: "Carregando painéis...",
       noDashboardsAvailable: "Nenhum painel disponível",
+      purchaseDate: "Data da compra",
       resultPlaceholder:
         "As compras categorizadas extraídas e a resposta bruta do modelo aparecerão aqui.",
       table: {
@@ -1311,7 +1316,7 @@ export const localeMessages = {
       editor: {
         title: "Ajustar compra extraída",
         description:
-          "Sobrescreva a categoria ou a quantidade escolhida pela IA antes de salvar este recibo no painel mensal.",
+          "Corrija o nome do item, categoria, quantidade ou preço unitário antes de salvar este recibo no painel mensal.",
         manualTitle: "Adicionar compra manual",
         manualDescription:
           "Use isto quando a extração perder uma linha. A linha manual será salva junto com o restante do recibo.",

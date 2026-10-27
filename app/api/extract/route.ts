@@ -586,6 +586,7 @@ export const POST = async (request: Request) => {
     return NextResponse.json({
       backend: isGemini ? "gemini" : "vercel-hf-route",
       currencyCode,
+      purchaseDate: extractionResult.purchaseDate ?? null,
       modelId: model,
       items,
       rawResponse,

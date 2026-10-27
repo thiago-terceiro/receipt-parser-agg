@@ -63,6 +63,7 @@ type PersistedReceiptDraft = {
   fileSize: number;
   manualItems?: ReceiptItem[];
   previewDataUrl: string;
+  purchaseDate?: string;
   result: ExtractionResponse;
   selectedBoardId?: string;
   selectedModelId: string;
@@ -105,6 +106,9 @@ const isExtractionResponse = (value: unknown): value is ExtractionResponse => {
     typeof value.currencyCode === "string" &&
     typeof value.modelId === "string" &&
     typeof value.rawResponse === "string" &&
+    (value.purchaseDate === undefined ||
+      value.purchaseDate === null ||
+      typeof value.purchaseDate === "string") &&
     value.items.every(isReceiptItem)
   );
 };
@@ -156,6 +160,7 @@ const isPersistedReceiptDraft = (
     typeof value.fileSize === "number" &&
     (value.manualItems === undefined || isReceiptItemsArray(value.manualItems)) &&
     typeof value.previewDataUrl === "string" &&
+    (value.purchaseDate === undefined || typeof value.purchaseDate === "string") &&
     (value.selectedBoardId === undefined || typeof value.selectedBoardId === "string") &&
     typeof value.selectedModelId === "string" &&
     isEditedItemsRecord(value.editedItems) &&
@@ -268,6 +273,11 @@ export const ReceiptWorkspace = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [userPurchaseDate, setUserPurchaseDate] = useState<string>("");
+  const purchaseDate =
+    userPurchaseDate ||
+    result?.purchaseDate ||
+    (result ? new Date().toISOString().slice(0, 10) : "");
   const [savedReceipt, setSavedReceipt] = useState<SavedReceiptState | null>(
     null,
   );
@@ -367,6 +377,11 @@ export const ReceiptWorkspace = ({
     startTransition(() => {
       setSelectedModelId(persistedDraft.selectedModelId);
       setResult(persistedDraft.result);
+      setUserPurchaseDate(
+        persistedDraft.purchaseDate ??
+          persistedDraft.result.purchaseDate ??
+          new Date().toISOString().slice(0, 10),
+      );
       setEditedItems(persistedDraft.editedItems);
       setManualItems(persistedDraft.manualItems ?? []);
       setSelectedBoardId(persistedDraft.selectedBoardId ?? "");
@@ -477,6 +492,7 @@ export const ReceiptWorkspace = ({
       fileSize,
       manualItems,
       previewDataUrl,
+      purchaseDate,
       result,
       selectedBoardId,
       selectedModelId,
@@ -485,6 +501,7 @@ export const ReceiptWorkspace = ({
     editedItems,
     file,
     manualItems,
+    purchaseDate,
     restoredDraft,
     result,
     saveMessage,
@@ -495,6 +512,7 @@ export const ReceiptWorkspace = ({
   const resetWorkspaceState = useCallback(() => {
     clearPersistedReceiptDraft();
     setResult(null);
+    setUserPurchaseDate("");
     setError(null);
     setBoardsError(null);
     setAvailableBoards([]);
@@ -658,6 +676,9 @@ export const ReceiptWorkspace = ({
           [observabilityAttributes.receiptItemCount]: extraction.items.length,
         });
         setResult(extraction);
+        setUserPurchaseDate(
+          extraction.purchaseDate ?? new Date().toISOString().slice(0, 10),
+        );
       } catch (requestError) {
         logWarn("Receipt extraction failed in browser.", {
           [observabilityFields.event]: observabilityEvents.uiReceiptExtractFailed,
@@ -716,6 +737,7 @@ export const ReceiptWorkspace = ({
               items: displayedItems,
               sourceFileName: displayedFileName,
               modelId: result.modelId,
+              purchaseDate: purchaseDate || result.purchaseDate || undefined,
             }),
           });
 
@@ -788,6 +810,7 @@ export const ReceiptWorkspace = ({
     displayedItems,
     displayedFileName,
     locale,
+    purchaseDate,
     result,
     selectedBoardId,
     translations.receipt,
@@ -860,9 +883,17 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const category = sanitizeCategory(editorState.category);
-    const quantity = parsePositiveDecimal(editorState.quantity);
+    const itemName = editorState.itemName.trim();
+    if (!itemName) {
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidItemName }
+          : current,
+      );
+      return;
+    }
 
+    const category = sanitizeCategory(editorState.category);
     if (!category) {
       setEditorState((current) =>
         current
@@ -872,10 +903,21 @@ export const ReceiptWorkspace = ({
       return;
     }
 
+    const quantity = parsePositiveDecimal(editorState.quantity);
     if (quantity === null) {
       setEditorState((current) =>
         current
           ? { ...current, error: translations.receipt.errors.invalidQuantity }
+          : current,
+      );
+      return;
+    }
+
+    const unitPrice = parsePositiveDecimal(editorState.unitPrice);
+    if (unitPrice === null) {
+      setEditorState((current) =>
+        current
+          ? { ...current, error: translations.receipt.errors.invalidUnitPrice }
           : current,
       );
       return;
@@ -897,32 +939,15 @@ export const ReceiptWorkspace = ({
         ...current,
         [editorState.index as number]: {
           ...sourceItem,
+          item: itemName,
+          normalizedItem: normalizeItemName(itemName),
           category,
           quantity,
-          lineTotal: Number((sourceItem.unitPrice * quantity).toFixed(2)),
+          unitPrice,
+          lineTotal: Number((unitPrice * quantity).toFixed(2)),
         },
       }));
       closeEditor();
-      return;
-    }
-
-    const itemName = editorState.itemName.trim();
-    if (!itemName) {
-      setEditorState((current) =>
-        current
-          ? { ...current, error: translations.receipt.errors.invalidItemName }
-          : current,
-      );
-      return;
-    }
-
-    const unitPrice = parsePositiveDecimal(editorState.unitPrice);
-    if (unitPrice === null) {
-      setEditorState((current) =>
-        current
-          ? { ...current, error: translations.receipt.errors.invalidUnitPrice }
-          : current,
-      );
       return;
     }
 
@@ -992,6 +1017,46 @@ export const ReceiptWorkspace = ({
       );
     },
     [setManualItems],
+  );
+
+  const handleRemoveItem = useCallback(
+    (index: number) => {
+      if (index < extractedItemCount) {
+        setResult((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            items: prev.items.filter((_, i) => i !== index),
+          };
+        });
+        setEditedItems((current) => {
+          const next: Record<number, ReceiptItem> = {};
+          for (const [keyStr, val] of Object.entries(current)) {
+            const keyNum = Number(keyStr);
+            if (keyNum < index) {
+              next[keyNum] = val;
+            } else if (keyNum > index) {
+              next[keyNum - 1] = val;
+            }
+          }
+          return next;
+        });
+        setEditorState((current) => {
+          if (current?.mode === "adjust") {
+            if (current.index === index) return null;
+            if (current.index !== null && current.index > index) {
+              return { ...current, index: current.index - 1 };
+            }
+          }
+          return current;
+        });
+        return;
+      }
+
+      const manualIndex = index - extractedItemCount;
+      removeManualItem(manualIndex);
+    },
+    [extractedItemCount, removeManualItem, setEditedItems, setResult],
   );
 
   const handleEditorCategoryChange = useCallback((category: string) => {
@@ -1080,6 +1145,7 @@ export const ReceiptWorkspace = ({
         previewKind={displayedPreviewKind}
         previewPlaceholderText={previewPlaceholderText}
         previewUrl={displayedPreviewUrl}
+        purchaseDate={purchaseDate}
         result={result}
         saveMessage={saveMessage}
         selectedBoardId={selectedBoardId}
@@ -1088,6 +1154,8 @@ export const ReceiptWorkspace = ({
         onBoardChange={setSelectedBoardId}
         onCurrencyChange={handleCurrencyChange}
         onEditItem={openEditor}
+        onPurchaseDateChange={setUserPurchaseDate}
+        onRemoveItem={handleRemoveItem}
         onRemoveManualItem={removeManualItem}
         onSaveGroceries={handleSaveGroceries}
       />

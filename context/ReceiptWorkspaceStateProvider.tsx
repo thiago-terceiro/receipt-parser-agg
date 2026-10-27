@@ -16,6 +16,7 @@ import type { ReceiptItem } from "@/lib/receipt";
 export type ExtractionResponse = {
   backend: string;
   currencyCode: CurrencyCode;
+  purchaseDate?: string | null;
   modelId: string;
   items: ReceiptItem[];
   rawResponse: string;

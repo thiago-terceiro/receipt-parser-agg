@@ -23,12 +23,34 @@ describe("receipt upload helpers", () => {
         expect(
             isSupportedReceiptUpload({ name: "notes.txt", type: "text/plain" }),
         ).toBe(false);
+        expect(
+            isImageReceiptUpload({ name: "receipt.svg", type: "image/svg+xml" }),
+        ).toBe(false);
+        expect(
+            isImageReceiptUpload({ name: "receipt.svg", type: "image/svg+xml; charset=utf-8" }),
+        ).toBe(false);
+        expect(
+            isImageReceiptUpload({ name: "receipt.svg", type: "image/svg" }),
+        ).toBe(false);
+        expect(
+            isImageReceiptUpload({ name: "vector.svgz", type: "image/svgz" }),
+        ).toBe(false);
+        expect(
+            isImageReceiptUpload({ name: "receipt.svg", type: "" }),
+        ).toBe(false);
+        expect(
+            isSupportedReceiptUpload({ name: "receipt.svg", type: "image/svg+xml" }),
+        ).toBe(false);
+        expect(
+            isSupportedReceiptUpload({ name: "receipt.png", type: "image/svg+xml; charset=utf-8" }),
+        ).toBe(false);
     });
 
-    it("merges multi-page receipt extractions by concatenating page items", () => {
+    it("merges multi-page receipt extractions by concatenating page items and preserving purchaseDate", () => {
         const merged = mergeReceiptExtractions([
             {
                 currencyCode: "EUR",
+                purchaseDate: "2026-04-12",
                 items: [
                     {
                         item: "Milk",
@@ -42,6 +64,7 @@ describe("receipt upload helpers", () => {
             },
             {
                 currencyCode: "EUR",
+                purchaseDate: null,
                 items: [
                     {
                         item: "Bread",
@@ -56,6 +79,7 @@ describe("receipt upload helpers", () => {
         ]);
 
         expect(merged.currencyCode).toBe("EUR");
+        expect(merged.purchaseDate).toBe("2026-04-12");
         expect(merged.items).toHaveLength(2);
         expect(merged.items.map((item) => item.item)).toEqual(["Milk", "Bread"]);
     });

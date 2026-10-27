@@ -75,6 +75,9 @@ export default defineConfig([
     "build/**",
     "coverage/**",
     "scratch/**",
+    "storybook-static/**",
+    "test-results/**",
+    "playwright-report/**",
     "next-env.d.ts",
   ]),
 ]);

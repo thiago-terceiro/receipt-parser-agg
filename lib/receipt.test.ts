@@ -52,6 +52,7 @@ describe("receipt helpers", () => {
             ),
         ).toEqual({
             currencyCode: "EUR",
+            purchaseDate: null,
             items: [
                 {
                     item: "Milk",
@@ -63,5 +64,65 @@ describe("receipt helpers", () => {
                 },
             ],
         });
+    });
+
+    test("parses extraction with purchase date", () => {
+        expect(
+            parseReceiptExtraction(
+                JSON.stringify({
+                    currencyCode: "USD",
+                    purchaseDate: "2026-04-15",
+                    items: [
+                        {
+                            name: "Apples",
+                            category: "produce",
+                            quantity: 1,
+                            unitPrice: 4.99,
+                            lineTotal: 4.99,
+                        },
+                    ],
+                }),
+            ),
+        ).toEqual({
+            currencyCode: "USD",
+            purchaseDate: "2026-04-15",
+            items: [
+                {
+                    item: "Apples",
+                    normalizedItem: "apples",
+                    category: "produce",
+                    quantity: 1,
+                    unitPrice: 4.99,
+                    lineTotal: 4.99,
+                },
+            ],
+        });
+    });
+
+    test("handles invalid and impossible purchase dates gracefully", () => {
+        const createPayload = (purchaseDate: unknown) =>
+            JSON.stringify({
+                currencyCode: "USD",
+                purchaseDate,
+                items: [
+                    {
+                        name: "Apples",
+                        category: "produce",
+                        quantity: 1,
+                        unitPrice: 4.99,
+                        lineTotal: 4.99,
+                    },
+                ],
+            });
+
+        // Impossible calendar dates must evaluate to null purchaseDate
+        expect(parseReceiptExtraction(createPayload("2026-02-31")).purchaseDate).toBeNull();
+        expect(parseReceiptExtraction(createPayload("2026-02-29")).purchaseDate).toBeNull(); // 2026 is not leap
+        expect(parseReceiptExtraction(createPayload("2026-04-31")).purchaseDate).toBeNull(); // April has 30 days
+        expect(parseReceiptExtraction(createPayload("invalid-date")).purchaseDate).toBeNull();
+        expect(parseReceiptExtraction(createPayload("")).purchaseDate).toBeNull();
+
+        // Valid leap year date must be accepted
+        expect(parseReceiptExtraction(createPayload("2024-02-29")).purchaseDate).toBe("2024-02-29");
     });
 });

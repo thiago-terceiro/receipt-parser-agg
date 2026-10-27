@@ -53,7 +53,7 @@ type ReceiptItemEditorDialogProps = {
 };
 
 export const ReceiptItemEditorDialog = ({
-    currencyFormatter,
+    currencyFormatter: _currencyFormatter,
     editorState,
     hasCorrection,
     item,
@@ -92,32 +92,21 @@ export const ReceiptItemEditorDialog = ({
                         </DialogHeader>
 
                         <div className="mt-4 grid gap-4">
-                            {isManualEditor ? (
-                                <div className="grid gap-2">
-                                    <label
-                                        htmlFor="receipt-editor-item-name"
-                                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
-                                    >
-                                        {translations.receipt.editor.item}
-                                    </label>
-                                    <input
-                                        id="receipt-editor-item-name"
-                                        type="text"
-                                        value={editorState.itemName}
-                                        onChange={onItemNameChange}
-                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
-                                    />
-                                </div>
-                            ) : item ? (
-                                <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3">
-                                    <p className="m-0 text-[0.76rem] uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300 font-bold">
-                                        {translations.receipt.editor.item}
-                                    </p>
-                                    <p className="m-0 mt-2 text-[1.05rem] font-semibold text-foreground">
-                                        {item.item}
-                                    </p>
-                                </div>
-                            ) : null}
+                            <div className="grid gap-2">
+                                <label
+                                    htmlFor="receipt-editor-item-name"
+                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
+                                >
+                                    {translations.receipt.editor.item}
+                                </label>
+                                <input
+                                    id="receipt-editor-item-name"
+                                    type="text"
+                                    value={editorState.itemName}
+                                    onChange={onItemNameChange}
+                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
+                                />
+                            </div>
 
                             <div className="grid gap-2">
                                 <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
@@ -161,32 +150,24 @@ export const ReceiptItemEditorDialog = ({
                                 />
                             </div>
 
-                            {isManualEditor ? (
-                                <div className="grid gap-2">
-                                    <label
-                                        htmlFor="receipt-editor-unit-price"
-                                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
-                                    >
-                                        {translations.receipt.editor.unitPrice}
-                                    </label>
-                                    <input
-                                        id="receipt-editor-unit-price"
-                                        type="number"
-                                        inputMode="decimal"
-                                        min="0.01"
-                                        step="0.01"
-                                        value={editorState.unitPrice}
-                                        onChange={onUnitPriceChange}
-                                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
-                                    />
-                                </div>
-                            ) : item ? (
-                                <div className="rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft-muted)] px-4 py-3 text-sm text-muted-foreground">
-                                    {translations.receipt.editor.unitPriceFixed(
-                                        currencyFormatter.format(item.unitPrice),
-                                    )}
-                                </div>
-                            ) : null}
+                            <div className="grid gap-2">
+                                <label
+                                    htmlFor="receipt-editor-unit-price"
+                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
+                                >
+                                    {translations.receipt.editor.unitPrice}
+                                </label>
+                                <input
+                                    id="receipt-editor-unit-price"
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={editorState.unitPrice}
+                                    onChange={onUnitPriceChange}
+                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
+                                />
+                            </div>
 
                             {editorState?.error ? (
                                 <Alert variant="destructive">
