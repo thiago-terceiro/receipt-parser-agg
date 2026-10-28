@@ -1,0 +1,15 @@
+# Receipt Parser & Aggregator AI
+> An AI-first multimodal web platform and API for extracting, parsing, and tracking receipt expenses and shared grocery budgets using Google Gemini Flash vision models and Supabase PostgreSQL.
+
+## Core Capabilities
+- [Receipt OCR & Extraction API](/docs/api/extract): High-speed multimodal receipt extraction endpoint powered by Google Gemini 3.8 Flash with structured JSON schemas and ISO 4217 currency normalization.
+- [Shared Grocery Boards API](/docs/api/boards): Multi-tenant collaborative grocery budgeting system with role-based member permissions and real-time synchronization.
+- [Remote MCP Tooling](/docs/mcp): Model Context Protocol endpoints exposing receipt analysis and budget management tools directly to autonomous agents.
+
+## Technical Documentation
+- [System Architecture & Tenancy](/docs/architecture): Overview of Next.js 16 App Router, React 19 Server Components, Supabase Row-Level Security, and Upstash Redis rate limiting.
+- [JSON Schemas & Formats](/docs/schemas): Formal specifications for receipt line items, merchant metadata, and board membership objects.
+- [Security & Defense In Depth](/docs/security): Input validation, zero-width injection sanitization, PII redaction (PAN/CVV masking), and timing-safe authentication.
+
+## Full Context Compilation
+- [Complete Technical Manual](/llms-full.txt): Complete concatenated documentation, API definitions, schemas, and usage examples for single-turn agent ingestion.

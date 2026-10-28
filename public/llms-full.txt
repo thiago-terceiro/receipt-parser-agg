@@ -1,0 +1,135 @@
+# Receipt Parser & Aggregator AI — Complete Technical Manual (llms-full.txt)
+> Version 0.1.0 | Updated October 2026 | Optimized for Autonomous Agents and Reasoning Engines
+
+---
+
+## 1. System Overview
+
+Receipt Parser & Aggregator AI (`receipt-parser-agg`) is a modern web application and API platform designed to automate receipt digitization, item categorization, and collaborative household grocery budgeting.
+
+### Key Technical Specs:
+- **Framework**: Next.js 16 (App Router, Turbopack, React 19 Server Components)
+- **Multimodal AI**: Google Gemini 3.8 Flash (via `@google/genai` SDK) with structured `responseJsonSchema`
+- **Database & Auth**: Supabase PostgreSQL with Row-Level Security (RLS) and NextAuth.js
+- **Rate Limiting**: Upstash Redis sliding-window algorithm
+- **Observability**: OpenTelemetry standard semantic conventions forwarded to Honeycomb
+- **Styling**: Tailwind CSS v4 with zero-runtime CSS variables
+
+---
+
+## 2. API Reference & Endpoints
+
+### 2.1 Multimodal Receipt Extraction (`POST /api/extract`)
+Uploads a receipt image (PNG, JPEG, WebP) or document (PDF) and extracts structured receipt items.
+
+- **URL**: `/api/extract`
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+- **Parameters**:
+  - `file` (File, required): Image or PDF file (max 10 MB, PDFs up to 5 pages).
+  - `modelId` (string, optional): Model identifier. Defaults to `gemini-flash-latest` (aliased to `gemini-3.8-flash`).
+- **Rate Limits**:
+  - Unauthenticated: 10 requests / 10-minute sliding window.
+  - Authenticated: 30 requests / 10-minute sliding window.
+
+#### Response Schema (`200 OK`):
+```json
+{
+  "backend": "gemini",
+  "currencyCode": "EUR",
+  "purchaseDate": "2026-10-24T14:32:00Z",
+  "modelId": "gemini-flash-latest",
+  "items": [
+    {
+      "name": "Organic Whole Milk 1L",
+      "price": 1.49,
+      "quantity": 2,
+      "category": "Dairy",
+      "confidence": 0.98
+    },
+    {
+      "name": "Sourdough Bread",
+      "price": 3.20,
+      "quantity": 1,
+      "category": "Bakery",
+      "confidence": 0.95
+    }
+  ],
+  "rawResponse": "{\"currencyCode\":\"EUR\",...}"
+}
+```
+
+#### Error Codes:
+- `400 Bad Request`: Missing file, unsupported MIME type, or invalid multipart form.
+- `413 Payload Too Large`: Upload exceeds the 10 MB limit or PDF exceeds 5 pages.
+- `429 Too Many Requests`: Rate limit exceeded. Returns `Retry-After` header.
+- `502 Bad Gateway`: Upstream AI model error or temporary capacity spike.
+
+---
+
+### 2.2 Shared Boards API (`/api/boards`)
+Manages multi-tenant collaborative boards for receipt expenses.
+
+- **`GET /api/boards`**: Lists all active boards where the authenticated user has membership (`owner`, `editor`, `viewer`).
+- **`POST /api/boards`**: Creates a new board (`{ "name": "Family Groceries" }`). Automatically assigns the caller as `owner`.
+- **`GET /api/boards/[boardId]`**: Retrieves board summary, total spent, and members.
+- **`POST /api/boards/[boardId]/invites`**: Generates a cryptographically hashed invite link (`{ "email": "roommate@example.com", "role": "editor" }`).
+- **`POST /api/invites/accept`**: Accepts a pending board invite token.
+
+---
+
+### 2.3 Remote Model Context Protocol Server (`/api/mcp/sse`)
+Provides an agent-native interface compliant with Anthropic's Model Context Protocol (MCP).
+
+- **Transport**: Server-Sent Events (`GET /api/mcp/sse`) + JSON-RPC HTTP POST (`POST /api/mcp/messages`).
+- **Available Tools**:
+  1. `extract_receipt`: Directly extract items from base64 image or PDF data.
+  2. `list_boards`: Query accessible shared boards.
+  3. `get_board_summary`: Fetch grocery items and total spend for a specific board.
+
+---
+
+## 3. Data Schemas
+
+### 3.1 Receipt Line Item (`ReceiptItem`)
+```typescript
+export interface ReceiptItem {
+  id?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  category: "Produce" | "Dairy" | "Meat" | "Bakery" | "Beverages" | "Pantry" | "Household" | "Personal Care" | "Other";
+  confidence?: number;
+  notes?: string;
+}
+```
+
+### 3.2 Board Summary (`BoardSummary`)
+```typescript
+export interface BoardSummary {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  role: "owner" | "editor" | "viewer";
+  memberCount: number;
+  totalExpenses: number;
+  currencyCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+## 4. Security, RLS & Defense-in-Depth
+
+1. **Row-Level Security (PostgreSQL)**:
+   - All tables enforce Row-Level Security (`FORCE ROW LEVEL SECURITY`).
+   - Query access verifies active board membership using short-circuiting `EXISTS` clauses on indexed foreign keys.
+   - `public.user_credentials` has zero public RLS policies; access is isolated strictly to backend `service_role` routines.
+2. **PII and Payment Card Masking**:
+   - The multimodal prompt explicitly forbids models from extracting, logging, or storing Primary Account Numbers (PANs), CVVs, expiration dates, or bank identifiers.
+3. **Indirect Prompt Injection Neutralization**:
+   - Uploaded OCR texts and user strings are stripped of zero-width control characters and delimited inside isolated semantic XML tags.
+4. **Streaming Payload Limits**:
+   - Edge routes stream request chunks and abort on payload size overflow (256 KB for telemetry, 10 MB for uploads).
