@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, LoaderCircle, Plus, Share2, Users } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -523,7 +523,7 @@ const GroceriesDashboardBoardsPanelContent = ({
   );
 };
 
-export const GroceriesDashboardBoardsPanel = (
+export const GroceriesDashboardBoardsPanel = memo((
   props: GroceriesDashboardBoardsPanelProps,
 ) => {
   return (
@@ -532,4 +532,6 @@ export const GroceriesDashboardBoardsPanel = (
       {...props}
     />
   );
-};
+});
+
+GroceriesDashboardBoardsPanel.displayName = "GroceriesDashboardBoardsPanel";

@@ -12,6 +12,7 @@ const imageFileExtensionPattern =
 const pdfFileExtensionPattern = /\.pdf$/i;
 
 export const receiptUploadAccept = "image/*,application/pdf";
+export const maxReceiptFileSizeBytes = 10 * 1024 * 1024; // 10 MB
 
 const normalizeFileName = (fileName: string | null | undefined): string =>
     (fileName ?? "").trim().toLowerCase();

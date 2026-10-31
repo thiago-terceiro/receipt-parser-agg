@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,7 @@ type GroceriesDashboardRecentReceiptsSectionProps = {
   dateTimeFormatter: Intl.DateTimeFormat;
 };
 
-export const GroceriesDashboardRecentReceiptsSection = ({
+export const GroceriesDashboardRecentReceiptsSection = memo(({
   boardId,
   receipts,
   translations,
@@ -232,4 +232,6 @@ export const GroceriesDashboardRecentReceiptsSection = ({
       </Dialog>
     </section>
   );
-};
+});
+
+GroceriesDashboardRecentReceiptsSection.displayName = "GroceriesDashboardRecentReceiptsSection";

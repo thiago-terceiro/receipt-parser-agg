@@ -35,12 +35,14 @@ import {
 } from "@/lib/receipt-upload";
 
 import {
+  EditorFormValues,
   EditorState,
   ReceiptItemEditorDialog,
 } from "./ReceiptItemEditorDialog";
 import { ReceiptWorkspaceResultsSection } from "./ReceiptWorkspaceResultsSection";
 import { ReceiptWorkspaceUploadSection } from "./ReceiptWorkspaceUploadSection";
 import {
+  parsePositiveDecimal,
   sanitizeCategory,
   normalizeItemName,
   type AvailableModel,
@@ -136,16 +138,6 @@ const isBoardSummary = (value: unknown): value is BoardSummary => {
     typeof value.updatedAt === "string" &&
     (typeof value.archivedAt === "string" || value.archivedAt === null)
   );
-};
-
-const parsePositiveDecimal = (value: string): number | null => {
-  const parsedValue = Number(value);
-
-  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    return null;
-  }
-
-  return Number(parsedValue.toFixed(2));
 };
 
 const isPersistedReceiptDraft = (
@@ -878,12 +870,12 @@ export const ReceiptWorkspace = ({
     });
   }, []);
 
-  const applyCorrection = useCallback(() => {
+  const applyCorrection = useCallback((values?: EditorFormValues) => {
     if (!editorState) {
       return;
     }
 
-    const itemName = editorState.itemName.trim();
+    const itemName = (values?.itemName ?? editorState.itemName).trim();
     if (!itemName) {
       setEditorState((current) =>
         current
@@ -893,7 +885,9 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const category = sanitizeCategory(editorState.category);
+    const category = values
+      ? sanitizeCategory(values.category)
+      : sanitizeCategory(editorState.category);
     if (!category) {
       setEditorState((current) =>
         current
@@ -903,8 +897,10 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const quantity = parsePositiveDecimal(editorState.quantity);
-    if (quantity === null) {
+    const quantity = values
+      ? values.quantity
+      : parsePositiveDecimal(editorState.quantity);
+    if (quantity === null || !Number.isFinite(quantity) || quantity <= 0) {
       setEditorState((current) =>
         current
           ? { ...current, error: translations.receipt.errors.invalidQuantity }
@@ -913,8 +909,10 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const unitPrice = parsePositiveDecimal(editorState.unitPrice);
-    if (unitPrice === null) {
+    const unitPrice = values
+      ? values.unitPrice
+      : parsePositiveDecimal(editorState.unitPrice);
+    if (unitPrice === null || !Number.isFinite(unitPrice) || unitPrice <= 0) {
       setEditorState((current) =>
         current
           ? { ...current, error: translations.receipt.errors.invalidUnitPrice }
@@ -1059,42 +1057,6 @@ export const ReceiptWorkspace = ({
     [extractedItemCount, removeManualItem, setEditedItems, setResult],
   );
 
-  const handleEditorCategoryChange = useCallback((category: string) => {
-    setEditorState((current) =>
-      current ? { ...current, category, error: null } : current,
-    );
-  }, []);
-
-  const handleEditorItemNameChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const itemName = event.target.value;
-      setEditorState((current) =>
-        current ? { ...current, itemName, error: null } : current,
-      );
-    },
-    [],
-  );
-
-  const handleEditorQuantityChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const quantity = event.target.value;
-      setEditorState((current) =>
-        current ? { ...current, quantity, error: null } : current,
-      );
-    },
-    [],
-  );
-
-  const handleEditorUnitPriceChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const unitPrice = event.target.value;
-      setEditorState((current) =>
-        current ? { ...current, unitPrice, error: null } : current,
-      );
-    },
-    [],
-  );
-
   const hasEditorCorrection =
     editorState?.mode === "adjust" &&
     editorState.index !== null &&
@@ -1167,12 +1129,8 @@ export const ReceiptWorkspace = ({
         item={editingItem}
         translations={translations}
         onApply={applyCorrection}
-        onCategoryChange={handleEditorCategoryChange}
         onClose={closeEditor}
-        onItemNameChange={handleEditorItemNameChange}
-        onQuantityChange={handleEditorQuantityChange}
         onReset={resetCorrection}
-        onUnitPriceChange={handleEditorUnitPriceChange}
       />
     </>
   );

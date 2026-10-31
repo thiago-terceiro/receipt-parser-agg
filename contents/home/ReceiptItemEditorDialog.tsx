@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent } from "react";
+import { memo, useEffect, useState, type ChangeEvent } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import type { Messages } from "@/lib/i18n/messages";
 import {
     formatCategoryLabel,
     groceryCategories,
+    parsePositiveDecimal,
+    sanitizeCategory,
     type ReceiptItem,
 } from "@/lib/receipt";
 
@@ -35,6 +37,13 @@ export type EditorState = {
     error: string | null;
 };
 
+export type EditorFormValues = {
+    itemName: string;
+    category: string;
+    quantity: number;
+    unitPrice: number;
+};
+
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
 type ReceiptItemEditorDialogProps = {
@@ -43,16 +52,16 @@ type ReceiptItemEditorDialogProps = {
     hasCorrection: boolean;
     item: ReceiptItem | null;
     translations: WorkspaceTranslations;
-    onApply: () => void;
-    onCategoryChange: (category: string) => void;
+    onApply: (values?: EditorFormValues) => void;
+    onCategoryChange?: (category: string) => void;
     onClose: () => void;
-    onItemNameChange: (event: ChangeEvent<HTMLInputElement>) => void;
-    onQuantityChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    onItemNameChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+    onQuantityChange?: (event: ChangeEvent<HTMLInputElement>) => void;
     onReset: () => void;
-    onUnitPriceChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    onUnitPriceChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 };
 
-export const ReceiptItemEditorDialog = ({
+export const ReceiptItemEditorDialog = memo(({
     currencyFormatter: _currencyFormatter,
     editorState,
     hasCorrection,
@@ -66,12 +75,86 @@ export const ReceiptItemEditorDialog = ({
     onReset,
     onUnitPriceChange,
 }: ReceiptItemEditorDialogProps) => {
+    const [localItemName, setLocalItemName] = useState(editorState?.itemName ?? "");
+    const [localCategory, setLocalCategory] = useState(editorState?.category ?? "");
+    const [localQuantity, setLocalQuantity] = useState(editorState?.quantity ?? "");
+    const [localUnitPrice, setLocalUnitPrice] = useState(editorState?.unitPrice ?? "");
+    const [localError, setLocalError] = useState<string | null>(editorState?.error ?? null);
+
+    // Synchronize local form buffer when editorState opens or targets a new item
+    useEffect(() => {
+        if (editorState) {
+            setLocalItemName(editorState.itemName);
+            setLocalCategory(editorState.category);
+            setLocalQuantity(editorState.quantity);
+            setLocalUnitPrice(editorState.unitPrice);
+            setLocalError(editorState.error ?? null);
+        }
+    }, [editorState]);
+
     const isManualEditor = editorState?.mode !== "adjust";
     const actionLabel = editorState?.mode === "add-manual"
         ? translations.receipt.editor.addManual
         : editorState?.mode === "edit-manual"
             ? translations.receipt.editor.saveManual
             : translations.receipt.editor.apply;
+
+    const handleItemNameChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setLocalItemName(e.target.value);
+        setLocalError(null);
+        onItemNameChange?.(e);
+    };
+
+    const handleCategoryChange = (val: string) => {
+        setLocalCategory(val);
+        setLocalError(null);
+        onCategoryChange?.(val);
+    };
+
+    const handleQuantityChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setLocalQuantity(e.target.value);
+        setLocalError(null);
+        onQuantityChange?.(e);
+    };
+
+    const handleUnitPriceChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setLocalUnitPrice(e.target.value);
+        setLocalError(null);
+        onUnitPriceChange?.(e);
+    };
+
+    const handleApply = () => {
+        const trimmedItemName = localItemName.trim();
+        if (!trimmedItemName) {
+            setLocalError(translations.receipt.errors.invalidItemName);
+            return;
+        }
+
+        const sanitizedCat = sanitizeCategory(localCategory);
+        if (!sanitizedCat) {
+            setLocalError(translations.receipt.errors.invalidCategory);
+            return;
+        }
+
+        const parsedQty = parsePositiveDecimal(localQuantity);
+        if (parsedQty === null) {
+            setLocalError(translations.receipt.errors.invalidQuantity);
+            return;
+        }
+
+        const parsedPrice = parsePositiveDecimal(localUnitPrice);
+        if (parsedPrice === null) {
+            setLocalError(translations.receipt.errors.invalidUnitPrice);
+            return;
+        }
+
+        onApply({
+            itemName: trimmedItemName,
+            category: sanitizedCat,
+            quantity: parsedQty,
+            unitPrice: parsedPrice,
+        });
+    };
 
     return (
         <Dialog open={editorState !== null} onOpenChange={(open) => !open && onClose()}>
@@ -102,8 +185,8 @@ export const ReceiptItemEditorDialog = ({
                                 <input
                                     id="receipt-editor-item-name"
                                     type="text"
-                                    value={editorState.itemName}
-                                    onChange={onItemNameChange}
+                                    value={localItemName}
+                                    onChange={handleItemNameChange}
                                     className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                 />
                             </div>
@@ -112,7 +195,7 @@ export const ReceiptItemEditorDialog = ({
                                 <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
                                     {translations.receipt.editor.category}
                                 </span>
-                                <Select value={editorState?.category ?? ""} onValueChange={onCategoryChange}>
+                                <Select value={localCategory} onValueChange={handleCategoryChange}>
                                     <SelectTrigger
                                         className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)] h-11 text-sm shadow-2xs hover:bg-[var(--surface-plain-soft)]"
                                         aria-label={translations.receipt.editor.category}
@@ -123,7 +206,7 @@ export const ReceiptItemEditorDialog = ({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {groceryCategories.map((category) => (
-                                            <SelectItem key={category} value={category}>
+                                             <SelectItem key={category} value={category}>
                                                 {formatCategoryLabel(category, translations.categories)}
                                             </SelectItem>
                                         ))}
@@ -144,8 +227,8 @@ export const ReceiptItemEditorDialog = ({
                                     inputMode="decimal"
                                     min="0.01"
                                     step="0.01"
-                                    value={editorState?.quantity ?? ""}
-                                    onChange={onQuantityChange}
+                                    value={localQuantity}
+                                    onChange={handleQuantityChange}
                                     className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                 />
                             </div>
@@ -163,15 +246,15 @@ export const ReceiptItemEditorDialog = ({
                                     inputMode="decimal"
                                     min="0.01"
                                     step="0.01"
-                                    value={editorState.unitPrice}
-                                    onChange={onUnitPriceChange}
+                                    value={localUnitPrice}
+                                    onChange={handleUnitPriceChange}
                                     className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
                                 />
                             </div>
 
-                            {editorState?.error ? (
+                            {localError ? (
                                 <Alert variant="destructive">
-                                    <AlertDescription>{editorState.error}</AlertDescription>
+                                    <AlertDescription>{localError}</AlertDescription>
                                 </Alert>
                             ) : null}
 
@@ -189,7 +272,7 @@ export const ReceiptItemEditorDialog = ({
                                 >
                                     {translations.common.cancel}
                                 </Button>
-                                <Button type="button" className="rounded-full h-10 px-5 font-semibold" onClick={onApply}>
+                                <Button type="button" className="rounded-full h-10 px-5 font-semibold" onClick={handleApply}>
                                     {actionLabel}
                                 </Button>
                             </div>
@@ -199,4 +282,6 @@ export const ReceiptItemEditorDialog = ({
             </DialogContent>
         </Dialog>
     );
-};
+});
+
+ReceiptItemEditorDialog.displayName = "ReceiptItemEditorDialog";

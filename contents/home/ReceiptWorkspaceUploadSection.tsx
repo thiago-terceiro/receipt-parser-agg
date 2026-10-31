@@ -2,6 +2,7 @@
 
 import { Check, FileText, Loader2, UploadCloud, X } from "lucide-react";
 import {
+    memo,
     type ChangeEvent,
     type DragEvent,
     type FormEvent,
@@ -48,7 +49,7 @@ type ReceiptWorkspaceUploadSectionProps = {
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export const ReceiptWorkspaceUploadSection = ({
+export const ReceiptWorkspaceUploadSection = memo(({
     availableModels,
     canSubmit,
     error,
@@ -259,4 +260,6 @@ export const ReceiptWorkspaceUploadSection = ({
             </form>
         </section>
     );
-};
+});
+
+ReceiptWorkspaceUploadSection.displayName = "ReceiptWorkspaceUploadSection";

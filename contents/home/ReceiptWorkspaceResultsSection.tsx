@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ type ReceiptWorkspaceResultsSectionProps = {
     onSaveGroceries: () => void;
 };
 
-export const ReceiptWorkspaceResultsSection = ({
+export const ReceiptWorkspaceResultsSection = memo(({
     availableBoards,
     boardsError,
     correctedCount,
@@ -611,4 +611,6 @@ export const ReceiptWorkspaceResultsSection = ({
             </Card>
         </section>
     );
-};
+});
+
+ReceiptWorkspaceResultsSection.displayName = "ReceiptWorkspaceResultsSection";

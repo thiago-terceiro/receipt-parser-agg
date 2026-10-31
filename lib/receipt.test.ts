@@ -1,6 +1,7 @@
 import {
     getModelCapabilityHint,
     parseMaxOutputTokens,
+    parsePositiveDecimal,
     parseReceiptExtraction,
     parseReceiptItems,
 } from "@/lib/receipt";
@@ -124,5 +125,14 @@ describe("receipt helpers", () => {
 
         // Valid leap year date must be accepted
         expect(parseReceiptExtraction(createPayload("2024-02-29")).purchaseDate).toBe("2024-02-29");
+    });
+
+    test("parses positive decimal values correctly", () => {
+        expect(parsePositiveDecimal("4.99")).toBe(4.99);
+        expect(parsePositiveDecimal("10")).toBe(10);
+        expect(parsePositiveDecimal("0")).toBeNull();
+        expect(parsePositiveDecimal("-5")).toBeNull();
+        expect(parsePositiveDecimal("abc")).toBeNull();
+        expect(parsePositiveDecimal("")).toBeNull();
     });
 });

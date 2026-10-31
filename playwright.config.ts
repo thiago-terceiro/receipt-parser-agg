@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npx pnpm dev",
+    command: process.platform === "win32" ? "corepack.cmd pnpm dev" : "corepack pnpm dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

@@ -2,7 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -106,7 +106,7 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
   );
 };
 
-export const GroceriesDashboardSummarySection = ({
+export const GroceriesDashboardSummarySection = memo(({
   boardId,
   payload,
   currentMonth,
@@ -272,4 +272,6 @@ export const GroceriesDashboardSummarySection = ({
       <StatsGrid stats={statCards} />
     </section>
   );
-};
+});
+
+GroceriesDashboardSummarySection.displayName = "GroceriesDashboardSummarySection";

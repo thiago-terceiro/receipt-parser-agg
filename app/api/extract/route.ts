@@ -28,18 +28,35 @@ import {
 import {
   isPdfReceiptUpload,
   isSupportedReceiptUpload,
+  maxReceiptFileSizeBytes,
   mergeReceiptExtractions,
 } from "../../../lib/receipt-upload";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+let cachedGeminiClient: GoogleGenAI | null = null;
+let cachedGeminiApiKey: string | null = null;
+
 const getGeminiClient = (): GoogleGenAI | null => {
   const apiKey =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_GENAI_API_KEY ||
     process.env.GOOGLE_API_KEY;
-  return apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+  if (!apiKey) {
+    cachedGeminiClient = null;
+    cachedGeminiApiKey = null;
+    return null;
+  }
+
+  if (cachedGeminiClient && cachedGeminiApiKey === apiKey) {
+    return cachedGeminiClient;
+  }
+
+  cachedGeminiApiKey = apiKey;
+  cachedGeminiClient = new GoogleGenAI({ apiKey });
+  return cachedGeminiClient;
 };
 
 const getInferenceClient = (): InferenceClient | null => {
@@ -180,6 +197,13 @@ const getUploadedReceiptData = async (
     throw new RequestValidationError(
       "Uploaded file must be an image or PDF.",
       400,
+    );
+  }
+
+  if (file.size > maxReceiptFileSizeBytes) {
+    throw new RequestValidationError(
+      `Uploaded file exceeds the maximum allowed size of ${maxReceiptFileSizeBytes / (1024 * 1024)} MB.`,
+      413,
     );
   }
 
@@ -451,6 +475,14 @@ export const GET = async () => {
 };
 
 export const POST = async (request: Request) => {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 12 * 1024 * 1024) {
+    return NextResponse.json(
+      { error: "Request payload exceeds 10 MB limit." },
+      { status: 413 },
+    );
+  }
+
   const geminiClient = getGeminiClient();
   const inferenceClient = getInferenceClient();
 

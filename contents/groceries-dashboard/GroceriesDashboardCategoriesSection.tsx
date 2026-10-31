@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { memo } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -29,7 +30,7 @@ type GroceriesDashboardCategoriesSectionProps = {
   onMobileDialogOpenChange: (open: boolean) => void;
 };
 
-export const GroceriesDashboardCategoriesSection = ({
+export const GroceriesDashboardCategoriesSection = memo(({
   categories,
   activeCategory,
   active,
@@ -115,4 +116,6 @@ export const GroceriesDashboardCategoriesSection = ({
       </Dialog>
     </>
   );
-};
+});
+
+GroceriesDashboardCategoriesSection.displayName = "GroceriesDashboardCategoriesSection";

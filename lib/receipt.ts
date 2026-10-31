@@ -363,6 +363,16 @@ export const sanitizeCategory = (value: unknown): GroceryCategory | null => {
   return groceryCategorySet.has(normalized) ? normalized : null;
 };
 
+export const parsePositiveDecimal = (value: unknown): number | null => {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return Number(parsedValue.toFixed(2));
+};
+
 export const sanitizePurchaseDate = (value: unknown): string | null => {
   if (typeof value !== "string") {
     return null;

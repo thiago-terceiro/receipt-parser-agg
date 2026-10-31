@@ -9,6 +9,8 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  compress: true,
   serverExternalPackages: ["pdf-to-img"],
   allowedDevOrigins: [
     "localhost",
