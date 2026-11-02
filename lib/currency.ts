@@ -58,12 +58,20 @@ export const getSingleCurrencyCode = (
   return uniqueCurrencyCodes.values().next().value as CurrencyCode;
 };
 
+const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+
 export const createCurrencyFormatter = (
   locale: string,
   currencyCode: CurrencyCode,
 ) => {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: currencyCode,
-  });
+  const cacheKey = `${locale}:${currencyCode}`;
+  let formatter = currencyFormatterCache.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: currencyCode,
+    });
+    currencyFormatterCache.set(cacheKey, formatter);
+  }
+  return formatter;
 };

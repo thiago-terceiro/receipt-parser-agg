@@ -26,7 +26,6 @@ const HomePage = async ({ params }: HomePageProps) => {
         <Link
           href="/groceries"
           locale={resolvedLocale}
-          prefetch={true}
           className="flex flex-1 items-center gap-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
         >
           <div className="inline-grid size-11 shrink-0 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-plain-soft)] text-blue-600 dark:text-blue-400 shadow-2xs transition-transform duration-200 group-hover:scale-105">
@@ -46,7 +45,7 @@ const HomePage = async ({ params }: HomePageProps) => {
           variant="secondary"
           className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 max-[900px]:w-full rounded-full h-10 px-5 gap-2 shrink-0"
         >
-          <Link href="/groceries" locale={resolvedLocale} prefetch={true}>
+          <Link href="/groceries" locale={resolvedLocale}>
             <span>{t("openGroceriesView")}</span>
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>

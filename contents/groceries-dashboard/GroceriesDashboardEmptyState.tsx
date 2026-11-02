@@ -1,6 +1,5 @@
 "use client";
 
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
@@ -31,7 +30,7 @@ export const GroceriesDashboardEmptyState = ({
           </p>
           <div className="pt-2">
             <Button asChild className="rounded-full h-11 px-6 font-semibold shadow-xs hover:shadow-md">
-              <Link href="/" locale={locale} prefetch={true}>{translations.groceries.extractReceipt}</Link>
+              <Link href="/" locale={locale}>{translations.groceries.extractReceipt}</Link>
             </Button>
           </div>
         </div>

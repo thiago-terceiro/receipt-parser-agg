@@ -138,7 +138,7 @@ type CategorySummaryCardProps = {
   onSelect: (category: GroceryCategorySummary) => void;
 };
 
-export const CategorySummaryCard = ({
+export const CategorySummaryCard = memo(({
   category,
   isActive,
   translations,
@@ -200,4 +200,6 @@ export const CategorySummaryCard = ({
       </button>
     </motion.div>
   );
-};
+});
+
+CategorySummaryCard.displayName = "CategorySummaryCard";

@@ -815,6 +815,14 @@ export const ReceiptWorkspace = ({
     [setResult],
   );
 
+  const displayedItemsRef = useRef(displayedItems);
+  const manualItemsRef = useRef(manualItems);
+
+  useEffect(() => {
+    displayedItemsRef.current = displayedItems;
+    manualItemsRef.current = manualItems;
+  }, [displayedItems, manualItems]);
+
   const closeEditor = useCallback(() => {
     setEditorState(null);
   }, []);
@@ -822,7 +830,7 @@ export const ReceiptWorkspace = ({
   const openEditor = useCallback(
     (index: number) => {
       if (index < extractedItemCount) {
-        const item = displayedItems[index];
+        const item = displayedItemsRef.current[index];
         if (!item) {
           return;
         }
@@ -840,7 +848,7 @@ export const ReceiptWorkspace = ({
       }
 
       const manualIndex = index - extractedItemCount;
-      const item = manualItems[manualIndex];
+      const item = manualItemsRef.current[manualIndex];
       if (!item) {
         return;
       }
@@ -855,7 +863,7 @@ export const ReceiptWorkspace = ({
         error: null,
       });
     },
-    [displayedItems, extractedItemCount, manualItems],
+    [extractedItemCount],
   );
 
   const openManualItemEditor = useCallback(() => {

@@ -34,6 +34,323 @@ import { cn } from "@/lib/utils";
 
 type WorkspaceTranslations = Pick<Messages, "categories" | "common" | "receipt">;
 
+type ReceiptCurrencySelectorProps = {
+    currencyCode: string;
+    currencies: readonly string[];
+    onCurrencyChange: (currencyCode: string) => void;
+};
+
+export const ReceiptCurrencySelector = memo(({
+    currencyCode,
+    currencies,
+    onCurrencyChange,
+}: ReceiptCurrencySelectorProps) => {
+    const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+    const currencyRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isCurrencyOpen) {
+            return;
+        }
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (currencyRef.current && !currencyRef.current.contains(event.target as Node)) {
+                setIsCurrencyOpen(false);
+            }
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setIsCurrencyOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isCurrencyOpen]);
+
+    return (
+        <div ref={currencyRef} className="relative inline-block">
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Change currency"
+                aria-expanded={isCurrencyOpen}
+                aria-haspopup="listbox"
+                onClick={() => setIsCurrencyOpen((prev) => !prev)}
+                className="h-6 gap-1 rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-[var(--surface-plain)]"
+            >
+                <span>{currencyCode}</span>
+                <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
+            </Button>
+            {isCurrencyOpen ? (
+                <div
+                    role="listbox"
+                    aria-label="Supported currencies"
+                    className="absolute right-0 top-full z-50 mt-1 max-h-48 min-w-[90px] overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-plain)] p-1 shadow-md backdrop-blur-md"
+                >
+                    {currencies.map((code) => (
+                        <button
+                            key={code}
+                            type="button"
+                            role="option"
+                            aria-selected={code === currencyCode}
+                            onClick={() => {
+                                onCurrencyChange(code);
+                                setIsCurrencyOpen(false);
+                            }}
+                            className={cn(
+                                "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-[var(--surface-accent)] hover:text-[var(--accent-dark)]",
+                                code === currencyCode
+                                    ? "bg-[var(--surface-plain-soft)] font-semibold text-foreground"
+                                    : "text-muted-foreground",
+                            )}
+                        >
+                            <span>{code}</span>
+                            {code === currencyCode ? (
+                                <Check className="size-3 text-[var(--accent-dark)]" aria-hidden="true" />
+                            ) : null}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+});
+
+ReceiptCurrencySelector.displayName = "ReceiptCurrencySelector";
+
+type ReceiptItemMobileCardProps = {
+    entry: ReceiptItem;
+    index: number;
+    isManualItem: boolean;
+    manualIndex: number;
+    isCorrected: boolean;
+    translations: WorkspaceTranslations;
+    formattedUnitPrice: string;
+    formattedLineTotal: string;
+    onEditItem: (index: number) => void;
+    onRemoveItem?: (index: number) => void;
+    onRemoveManualItem?: (index: number) => void;
+};
+
+const ReceiptItemMobileCard = memo(({
+    entry,
+    index,
+    isManualItem,
+    manualIndex,
+    isCorrected,
+    translations,
+    formattedUnitPrice,
+    formattedLineTotal,
+    onEditItem,
+    onRemoveItem,
+    onRemoveManualItem,
+}: ReceiptItemMobileCardProps) => {
+    return (
+        <article
+            className="group rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm"
+        >
+            <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="grid min-w-0 gap-2">
+                        <p className="m-0 break-words text-[1rem] font-semibold leading-6">
+                            {entry.item}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            <Badge
+                                variant="outline"
+                                className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                            >
+                                {formatCategoryLabel(entry.category, translations.categories)}
+                            </Badge>
+                            {isManualItem ? (
+                                <Badge
+                                    variant="outline"
+                                    className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                                >
+                                    {translations.receipt.alerts.manual}
+                                </Badge>
+                            ) : null}
+                            {!isManualItem && isCorrected ? (
+                                <Badge
+                                    variant="outline"
+                                    className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
+                                >
+                                    {translations.receipt.alerts.corrected}
+                                </Badge>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
+                <dl className="grid grid-cols-3 gap-3 rounded-[14px] bg-[var(--surface-plain)] px-3 py-3 text-sm max-[420px]:grid-cols-1">
+                    <div className="grid gap-1">
+                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                            {translations.receipt.table.quantity}
+                        </dt>
+                        <dd className="m-0 font-semibold text-foreground">
+                            {entry.quantity}
+                        </dd>
+                    </div>
+                    <div className="grid gap-1">
+                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                            {translations.receipt.table.unit}
+                        </dt>
+                        <dd className="m-0 font-semibold text-foreground">
+                            {formattedUnitPrice}
+                        </dd>
+                    </div>
+                    <div className="grid gap-1">
+                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
+                            {translations.receipt.table.total}
+                        </dt>
+                        <dd className="m-0 font-semibold text-foreground">
+                            {formattedLineTotal}
+                        </dd>
+                    </div>
+                </dl>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="border-[var(--border)] bg-[var(--surface-plain)]"
+                        onClick={() => onEditItem(index)}
+                    >
+                        {translations.receipt.alerts.adjust}
+                    </Button>
+                    {onRemoveItem || isManualItem ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                if (onRemoveItem) {
+                                    onRemoveItem(index);
+                                } else if (onRemoveManualItem) {
+                                    onRemoveManualItem(manualIndex);
+                                }
+                            }}
+                        >
+                            {translations.receipt.alerts.remove}
+                        </Button>
+                    ) : null}
+                </div>
+            </div>
+        </article>
+    );
+});
+
+ReceiptItemMobileCard.displayName = "ReceiptItemMobileCard";
+
+type ReceiptItemRowProps = {
+    entry: ReceiptItem;
+    index: number;
+    isManualItem: boolean;
+    manualIndex: number;
+    isCorrected: boolean;
+    translations: WorkspaceTranslations;
+    formattedUnitPrice: string;
+    formattedLineTotal: string;
+    onEditItem: (index: number) => void;
+    onRemoveItem?: (index: number) => void;
+    onRemoveManualItem?: (index: number) => void;
+};
+
+const ReceiptItemRow = memo(({
+    entry,
+    index,
+    isManualItem,
+    manualIndex,
+    isCorrected,
+    translations,
+    formattedUnitPrice,
+    formattedLineTotal,
+    onEditItem,
+    onRemoveItem,
+    onRemoveManualItem,
+}: ReceiptItemRowProps) => {
+    return (
+        <TableRow
+            className="transition-colors duration-150 hover:bg-[var(--surface-plain-soft)]"
+        >
+            <TableCell>
+                <div className="flex flex-wrap items-center gap-2">
+                    <span>{entry.item}</span>
+                    {isManualItem ? (
+                        <Badge
+                            variant="outline"
+                            className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                        >
+                            {translations.receipt.alerts.manual}
+                        </Badge>
+                    ) : null}
+                </div>
+            </TableCell>
+            <TableCell>
+                <Badge
+                    variant="outline"
+                    className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
+                >
+                    {formatCategoryLabel(entry.category, translations.categories)}
+                </Badge>
+            </TableCell>
+            <TableCell className="text-right">{entry.quantity}</TableCell>
+            <TableCell className="text-right">
+                {formattedUnitPrice}
+            </TableCell>
+            <TableCell className="text-right">
+                {formattedLineTotal}
+            </TableCell>
+            <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                    {!isManualItem && isCorrected ? (
+                        <Badge
+                            variant="outline"
+                            className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
+                        >
+                            {translations.receipt.alerts.corrected}
+                        </Badge>
+                    ) : null}
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="border-[var(--border)] bg-[var(--surface-plain)]"
+                        onClick={() => onEditItem(index)}
+                    >
+                        {translations.receipt.alerts.adjust}
+                    </Button>
+                    {onRemoveItem || isManualItem ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                if (onRemoveItem) {
+                                    onRemoveItem(index);
+                                } else if (onRemoveManualItem) {
+                                    onRemoveManualItem(manualIndex);
+                                }
+                            }}
+                        >
+                            {translations.receipt.alerts.remove}
+                        </Button>
+                    ) : null}
+                </div>
+            </TableCell>
+        </TableRow>
+    );
+});
+
+ReceiptItemRow.displayName = "ReceiptItemRow";
 
 type ReceiptWorkspaceResultsSectionProps = {
     availableBoards: BoardSummary[];
@@ -107,34 +424,6 @@ export const ReceiptWorkspaceResultsSection = memo(({
     onRemoveManualItem,
     onSaveGroceries,
 }: ReceiptWorkspaceResultsSectionProps) => {
-    const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
-    const currencyRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!isCurrencyOpen) {
-            return;
-        }
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (currencyRef.current && !currencyRef.current.contains(event.target as Node)) {
-                setIsCurrencyOpen(false);
-            }
-        };
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") {
-                setIsCurrencyOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        document.addEventListener("keydown", handleKeyDown);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-            document.removeEventListener("keydown", handleKeyDown);
-        };
-    }, [isCurrencyOpen]);
-
     const currencies = result
         ? (SUPPORTED_CURRENCIES as readonly string[]).includes(result.currencyCode)
             ? (SUPPORTED_CURRENCIES as readonly string[])
@@ -247,52 +536,11 @@ export const ReceiptWorkspaceResultsSection = memo(({
                                         {translations.receipt.total(currencyFormatter.format(displayedTotal))}
                                     </Badge>
                                     {onCurrencyChange ? (
-                                        <div ref={currencyRef} className="relative inline-block">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                aria-label="Change currency"
-                                                aria-expanded={isCurrencyOpen}
-                                                aria-haspopup="listbox"
-                                                onClick={() => setIsCurrencyOpen((prev) => !prev)}
-                                                className="h-6 gap-1 rounded-full border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-[var(--surface-plain)]"
-                                            >
-                                                <span>{result.currencyCode}</span>
-                                                <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
-                                            </Button>
-                                            {isCurrencyOpen ? (
-                                                <div
-                                                    role="listbox"
-                                                    aria-label="Supported currencies"
-                                                    className="absolute right-0 top-full z-50 mt-1 max-h-48 min-w-[90px] overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-plain)] p-1 shadow-md backdrop-blur-md"
-                                                >
-                                                    {currencies.map((code) => (
-                                                        <button
-                                                            key={code}
-                                                            type="button"
-                                                            role="option"
-                                                            aria-selected={code === result.currencyCode}
-                                                            onClick={() => {
-                                                                onCurrencyChange(code);
-                                                                setIsCurrencyOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-[var(--surface-accent)] hover:text-[var(--accent-dark)]",
-                                                                code === result.currencyCode
-                                                                    ? "bg-[var(--surface-plain-soft)] font-semibold text-foreground"
-                                                                    : "text-muted-foreground",
-                                                            )}
-                                                        >
-                                                            <span>{code}</span>
-                                                            {code === result.currencyCode ? (
-                                                                <Check className="size-3 text-[var(--accent-dark)]" aria-hidden="true" />
-                                                            ) : null}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : null}
-                                        </div>
+                                        <ReceiptCurrencySelector
+                                            currencyCode={result.currencyCode}
+                                            currencies={currencies}
+                                            onCurrencyChange={onCurrencyChange}
+                                        />
                                     ) : null}
                                     {correctedCount > 0 ? (
                                         <Badge
@@ -322,99 +570,20 @@ export const ReceiptWorkspaceResultsSection = memo(({
                                     const manualIndex = index - extractedItemCount;
 
                                     return (
-                                        <article
+                                        <ReceiptItemMobileCard
                                             key={`mobile-${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
-                                            className="group rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4 transition-all duration-200 hover:border-[var(--primary)] hover:shadow-sm"
-                                        >
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div className="grid min-w-0 gap-2">
-                                                        <p className="m-0 break-words text-[1rem] font-semibold leading-6">
-                                                            {entry.item}
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
-                                                            >
-                                                                {formatCategoryLabel(entry.category, translations.categories)}
-                                                            </Badge>
-                                                            {isManualItem ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
-                                                                >
-                                                                    {translations.receipt.alerts.manual}
-                                                                </Badge>
-                                                            ) : null}
-                                                            {!isManualItem && editedItems[index] ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
-                                                                >
-                                                                    {translations.receipt.alerts.corrected}
-                                                                </Badge>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <dl className="grid grid-cols-3 gap-3 rounded-[14px] bg-[var(--surface-plain)] px-3 py-3 text-sm max-[420px]:grid-cols-1">
-                                                    <div className="grid gap-1">
-                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                            {translations.receipt.table.quantity}
-                                                        </dt>
-                                                        <dd className="m-0 font-semibold text-foreground">
-                                                            {entry.quantity}
-                                                        </dd>
-                                                    </div>
-                                                    <div className="grid gap-1">
-                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                            {translations.receipt.table.unit}
-                                                        </dt>
-                                                        <dd className="m-0 font-semibold text-foreground">
-                                                            {currencyFormatter.format(entry.unitPrice)}
-                                                        </dd>
-                                                    </div>
-                                                    <div className="grid gap-1">
-                                                        <dt className="text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[var(--accent-dark)]">
-                                                            {translations.receipt.table.total}
-                                                        </dt>
-                                                        <dd className="m-0 font-semibold text-foreground">
-                                                            {currencyFormatter.format(entry.lineTotal)}
-                                                        </dd>
-                                                    </div>
-                                                </dl>
-
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        className="border-[var(--border)] bg-[var(--surface-plain)]"
-                                                        onClick={() => onEditItem(index)}
-                                                    >
-                                                        {translations.receipt.alerts.adjust}
-                                                    </Button>
-                                                    {onRemoveItem || isManualItem ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                if (onRemoveItem) {
-                                                                    onRemoveItem(index);
-                                                                } else if (onRemoveManualItem) {
-                                                                    onRemoveManualItem(manualIndex);
-                                                                }
-                                                            }}
-                                                        >
-                                                            {translations.receipt.alerts.remove}
-                                                        </Button>
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        </article>
+                                            entry={entry}
+                                            index={index}
+                                            isManualItem={isManualItem}
+                                            manualIndex={manualIndex}
+                                            isCorrected={Boolean(editedItems[index])}
+                                            translations={translations}
+                                            formattedUnitPrice={currencyFormatter.format(entry.unitPrice)}
+                                            formattedLineTotal={currencyFormatter.format(entry.lineTotal)}
+                                            onEditItem={onEditItem}
+                                            onRemoveItem={onRemoveItem}
+                                            onRemoveManualItem={onRemoveManualItem}
+                                        />
                                     );
                                 })}
                             </div>
@@ -443,76 +612,20 @@ export const ReceiptWorkspaceResultsSection = memo(({
                                             const manualIndex = index - extractedItemCount;
 
                                             return (
-                                                <TableRow
+                                                <ReceiptItemRow
                                                     key={`${entry.normalizedItem}-${entry.lineTotal}-${entry.quantity}-${index}`}
-                                                    className="transition-colors duration-150 hover:bg-[var(--surface-plain-soft)]"
-                                                >
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span>{entry.item}</span>
-                                                            {isManualItem ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
-                                                                >
-                                                                    {translations.receipt.alerts.manual}
-                                                                </Badge>
-                                                            ) : null}
-                                                        </div>
-                                                    </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="border-[var(--border)] bg-[var(--surface-plain-soft)] px-2.5 py-1"
-                                                    >
-                                                        {formatCategoryLabel(entry.category, translations.categories)}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">{entry.quantity}</TableCell>
-                                                <TableCell className="text-right">
-                                                    {currencyFormatter.format(entry.unitPrice)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {currencyFormatter.format(entry.lineTotal)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        {!isManualItem && editedItems[index] ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-300 font-semibold"
-                                                            >
-                                                                {translations.receipt.alerts.corrected}
-                                                            </Badge>
-                                                        ) : null}
-                                                        <Button
-                                                            type="button"
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            className="border-[var(--border)] bg-[var(--surface-plain)]"
-                                                            onClick={() => onEditItem(index)}
-                                                        >
-                                                            {translations.receipt.alerts.adjust}
-                                                        </Button>
-                                                        {onRemoveItem || isManualItem ? (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    if (onRemoveItem) {
-                                                                        onRemoveItem(index);
-                                                                    } else if (onRemoveManualItem) {
-                                                                        onRemoveManualItem(manualIndex);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                {translations.receipt.alerts.remove}
-                                                            </Button>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
+                                                    entry={entry}
+                                                    index={index}
+                                                    isManualItem={isManualItem}
+                                                    manualIndex={manualIndex}
+                                                    isCorrected={Boolean(editedItems[index])}
+                                                    translations={translations}
+                                                    formattedUnitPrice={currencyFormatter.format(entry.unitPrice)}
+                                                    formattedLineTotal={currencyFormatter.format(entry.lineTotal)}
+                                                    onEditItem={onEditItem}
+                                                    onRemoveItem={onRemoveItem}
+                                                    onRemoveManualItem={onRemoveManualItem}
+                                                />
                                             );
                                         })}
                                     </TableBody>

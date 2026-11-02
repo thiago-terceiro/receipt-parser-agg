@@ -77,7 +77,7 @@ const getMonthProgress = (month: string) => {
   };
 };
 
-const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
+const StatsGrid = memo(({ stats }: { stats: DashboardStat[] }) => {
   return (
     <div
       className={
@@ -104,7 +104,9 @@ const StatsGrid = ({ stats }: { stats: DashboardStat[] }) => {
       ))}
     </div>
   );
-};
+});
+
+StatsGrid.displayName = "StatsGrid";
 
 export const GroceriesDashboardSummarySection = memo(({
   boardId,
@@ -116,7 +118,7 @@ export const GroceriesDashboardSummarySection = memo(({
   translations,
   onMonthChange,
 }: GroceriesDashboardSummarySectionProps) => {
-  const progress = getMonthProgress(payload.month);
+  const progress = useMemo(() => getMonthProgress(payload.month), [payload.month]);
   const isCurrentMonth = payload.month === currentMonth;
   const previousMonth = shiftMonthKey(payload.month, -1);
   const nextMonth = shiftMonthKey(payload.month, 1);
@@ -161,7 +163,6 @@ export const GroceriesDashboardSummarySection = memo(({
             <Link
               href={previousMonthHref}
               locale={locale}
-              prefetch={true}
               onClick={(event) => {
                 event.preventDefault();
                 onMonthChange(previousMonth);
@@ -202,7 +203,6 @@ export const GroceriesDashboardSummarySection = memo(({
               <Link
                 href={nextMonthHref}
                 locale={locale}
-                prefetch={true}
                 onClick={(event) => {
                   event.preventDefault();
                   onMonthChange(nextMonth);
@@ -217,7 +217,7 @@ export const GroceriesDashboardSummarySection = memo(({
             variant="secondary"
             className="border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)] hover:border-blue-500/30 max-[700px]:ml-auto rounded-full h-10 px-4"
           >
-            <Link href="/" locale={locale} prefetch={true}>{translations.groceries.backToUpload}</Link>
+            <Link href="/" locale={locale}>{translations.groceries.backToUpload}</Link>
           </Button>
         </div>
       </div>

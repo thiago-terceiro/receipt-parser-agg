@@ -408,7 +408,7 @@ export const GroceriesDashboard = ({
           size="sm"
           className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.78rem] font-semibold text-muted-foreground hover:bg-[var(--surface-plain-soft)]"
         >
-          <Link href="/" locale={locale} prefetch={true}>
+          <Link href="/" locale={locale}>
             <Undo2 className="size-4" />
             <span>{translations.groceries.backToHome}</span>
           </Link>

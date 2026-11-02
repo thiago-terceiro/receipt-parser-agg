@@ -136,17 +136,27 @@ export const shiftMonthKey = (monthKey: string, offset: number) => {
   );
 };
 
+const monthFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+export const getMonthFormatter = (locale: AppLocale | string = "en") => {
+  let formatter = monthFormatterCache.get(locale);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    monthFormatterCache.set(locale, formatter);
+  }
+  return formatter;
+};
+
 export const formatMonthLabel = (
   monthKey: string,
   locale: AppLocale | string = "en",
 ) => {
   const { start } = getMonthRange(monthKey);
-
-  return new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(start);
+  return getMonthFormatter(locale).format(start);
 };
 
 export const buildMonthOptions = (
@@ -260,21 +270,42 @@ export const buildGroceriesMonthPayload = (
     entries,
     extractedReceipts,
   );
-  const monthTotal = entries.reduce((sum, entry) => sum + entry.lineTotal, 0);
-  const receiptIds = new Set(entries.map((entry) => entry.receiptId));
-  const uniqueItemIds = new Set(entries.map((entry) => entry.normalizedItem));
+  let monthTotal = 0;
+  let totalItemCount = 0;
+  const receiptIds = new Set<string>();
+  const uniqueItemIds = new Set<string>();
+  const categoryEntriesMap = new Map<GroceryCategory, GroceryEntry[]>();
+
+  for (const entry of entries) {
+    monthTotal += entry.lineTotal;
+    totalItemCount += entry.quantity;
+    receiptIds.add(entry.receiptId);
+    uniqueItemIds.add(entry.normalizedItem);
+
+    const list = categoryEntriesMap.get(entry.category);
+    if (list) {
+      list.push(entry);
+    } else {
+      categoryEntriesMap.set(entry.category, [entry]);
+    }
+  }
+
+  const roundedMonthTotal = roundCurrency(monthTotal);
 
   const categories = groceryCategories
     .map((category) => {
-      const categoryEntries = entries.filter(
-        (entry) => entry.category === category,
-      );
-      if (categoryEntries.length === 0) {
+      const categoryEntries = categoryEntriesMap.get(category);
+      if (!categoryEntries || categoryEntries.length === 0) {
         return null;
       }
 
       const groupsMap = new Map<string, GroceryDetailGroup>();
+      let catTotal = 0;
+      let catItemCount = 0;
+
       for (const entry of categoryEntries) {
+        catTotal += entry.lineTotal;
+        catItemCount += entry.quantity;
         const existing = groupsMap.get(entry.normalizedItem);
         if (existing) {
           existing.quantity += entry.quantity;
@@ -299,20 +330,15 @@ export const buildGroceriesMonthPayload = (
       const groups = Array.from(groupsMap.values()).sort(
         (left, right) => right.total - left.total,
       );
-      const total = roundCurrency(
-        categoryEntries.reduce((sum, entry) => sum + entry.lineTotal, 0),
-      );
+      const roundedCatTotal = roundCurrency(catTotal);
 
       return {
         category,
         label: formatCategoryLabel(category),
-        total,
-        itemCount: categoryEntries.reduce(
-          (sum, entry) => sum + entry.quantity,
-          0,
-        ),
+        total: roundedCatTotal,
+        itemCount: catItemCount,
         uniqueItemCount: groups.length,
-        share: monthTotal > 0 ? total / monthTotal : 0,
+        share: monthTotal > 0 ? roundedCatTotal / monthTotal : 0,
         groups,
       } satisfies GroceryCategorySummary;
     })
@@ -323,8 +349,8 @@ export const buildGroceriesMonthPayload = (
     currencyCode,
     month,
     summary: {
-      total: roundCurrency(monthTotal),
-      itemCount: entries.reduce((sum, entry) => sum + entry.quantity, 0),
+      total: roundedMonthTotal,
+      itemCount: totalItemCount,
       uniqueItemCount: uniqueItemIds.size,
       receiptCount: receiptIds.size,
       categoryCount: categories.length,
