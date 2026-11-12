@@ -1,7 +1,6 @@
 "use client";
 
 import { CalendarDays } from "lucide-react";
-import { motion } from "motion/react";
 import { memo, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -248,12 +247,12 @@ export const GroceriesDashboardSummarySection = memo(({
             aria-valuetext={translations.groceries.dayOf(progress.currentDay, progress.totalDays)}
             className="relative h-3.5 overflow-hidden rounded-full bg-[var(--progress-track)]"
           >
-            <motion.div
-              className="absolute inset-y-0 left-0 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress.progress * 100}%` }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-              style={{ backgroundImage: "var(--accent-gradient)" }}
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out"
+              style={{
+                width: `${progress.progress * 100}%`,
+                backgroundImage: "var(--accent-gradient)",
+              }}
             />
             <div
               className="absolute top-1/2 z-10 size-5.5 -translate-y-1/2 rounded-full border-2 border-[var(--surface-plain)] bg-blue-600 dark:bg-blue-500 shadow-[0_4px_14px_rgba(59,130,246,0.4)]"

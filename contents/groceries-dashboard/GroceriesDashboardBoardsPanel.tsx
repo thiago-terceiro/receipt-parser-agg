@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, LoaderCircle, Plus, Share2, Users } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -44,85 +44,41 @@ const getRoleLabel = (translations: Messages, role: BoardSummary["role"]) => {
     : translations.groceries.boards.roleEditor;
 };
 
-const GroceriesDashboardBoardsPanelContent = ({
-  activeBoard,
-  boards,
-  members,
+type CreatedBoardPayload = {
+  board: {
+    id: string;
+    name?: string;
+  };
+};
+
+type CreatedInvitePayload = {
+  invite: {
+    inviteUrl: string;
+  };
+};
+
+type CreateBoardDialogProps = {
+  open: boolean;
+  translations: Messages;
+  onOpenChange: (open: boolean) => void;
+  onBoardCreated: (boardId: string, statusMessage: string) => void;
+};
+
+const CreateBoardDialog = memo(({
+  open,
   translations,
-  isBoardSwitchPending = false,
-  onBoardActivated,
-}: GroceriesDashboardBoardsPanelProps) => {
+  onOpenChange,
+  onBoardCreated,
+}: CreateBoardDialogProps) => {
   const [boardName, setBoardName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [isMembersOpen, setIsMembersOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  type CreatedBoardPayload = {
-    board: {
-      id: string;
-      name?: string;
-    };
-  };
-
-  type CreatedInvitePayload = {
-    invite: {
-      inviteUrl: string;
-    };
-  };
-
-  const handleBoardChange = async (boardId: string) => {
-    if (!boardId || boardId === activeBoard.id || isBoardSwitchPending) {
-      return;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setError(null);
     }
-
-    setError(null);
-    setStatusMessage(null);
-
-    try {
-      await withSpan("ui.boards.switch_active", async (span) => {
-        const response = await fetch("/api/boards/active", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ boardId }),
-        });
-        const payload = (await response.json()) as { error?: string };
-
-        span.setAttributes({
-          [observabilityAttributes.httpStatusCode]: response.status,
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            payload.error || translations.groceries.boards.switchFailed,
-          );
-        }
-      });
-
-      logInfo("Switched active board in browser.", {
-        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchSuccess,
-      });
-      onBoardActivated(boardId);
-    } catch (requestError) {
-      logWarn("Switching active board failed in browser.", {
-        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchFailed,
-        [observabilityFields.errorMessage]:
-          requestError instanceof Error
-            ? requestError.message
-            : translations.groceries.boards.switchFailed,
-      });
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : translations.groceries.boards.switchFailed,
-      );
-    }
+    onOpenChange(nextOpen);
   };
 
   const handleCreateBoard = async () => {
@@ -133,7 +89,6 @@ const GroceriesDashboardBoardsPanelContent = ({
 
     setIsSubmitting(true);
     setError(null);
-    setStatusMessage(null);
 
     try {
       const payload = await withSpan<CreatedBoardPayload>("ui.boards.create", async (span) => {
@@ -166,18 +121,16 @@ const GroceriesDashboardBoardsPanelContent = ({
         };
       });
       const createdBoard = payload.board;
-
-      setStatusMessage(
-        translations.groceries.boards.boardCreated(
-          createdBoard.name || boardName.trim(),
-        ),
+      const createdMessage = translations.groceries.boards.boardCreated(
+        createdBoard.name || boardName.trim(),
       );
+
       logInfo("Created board in browser.", {
         [observabilityFields.event]: observabilityEvents.uiBoardsCreateSuccess,
       });
       setBoardName("");
-      setIsCreatingBoard(false);
-      onBoardActivated(createdBoard.id);
+      onOpenChange(false);
+      onBoardCreated(createdBoard.id, createdMessage);
     } catch (requestError) {
       logWarn("Creating board failed in browser.", {
         [observabilityFields.event]: observabilityEvents.uiBoardsCreateFailed,
@@ -196,6 +149,79 @@ const GroceriesDashboardBoardsPanelContent = ({
     }
   };
 
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{translations.groceries.boards.createBoardTitle}</DialogTitle>
+          <DialogDescription>
+            {translations.groceries.boards.createBoardDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="grid gap-4 pt-4">
+          <label className="grid gap-2 text-sm">
+            <span className="font-semibold text-foreground">
+              {translations.groceries.boards.createBoardPlaceholder}
+            </span>
+            <input
+              type="text"
+              value={boardName}
+              onChange={(event) => setBoardName(event.target.value)}
+              placeholder={translations.groceries.boards.createBoardPlaceholder}
+              className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
+            />
+          </label>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
+              {translations.common.cancel}
+            </Button>
+            <Button type="button" onClick={handleCreateBoard} disabled={isSubmitting}>
+              {translations.groceries.boards.createBoardSubmit}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+CreateBoardDialog.displayName = "CreateBoardDialog";
+
+type InviteBoardDialogProps = {
+  activeBoardId: string;
+  open: boolean;
+  translations: Messages;
+  onOpenChange: (open: boolean) => void;
+};
+
+const InviteBoardDialog = memo(({
+  activeBoardId,
+  open,
+  translations,
+  onOpenChange,
+}: InviteBoardDialogProps) => {
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setError(null);
+      setStatusMessage(null);
+    }
+    onOpenChange(nextOpen);
+  };
+
   const handleCreateInvite = async () => {
     setIsSubmitting(true);
     setError(null);
@@ -204,7 +230,7 @@ const GroceriesDashboardBoardsPanelContent = ({
 
     try {
       const payload = await withSpan<CreatedInvitePayload>("ui.boards.invites.create", async (span) => {
-        const response = await fetch(`/api/boards/${activeBoard.id}/invites`, {
+        const response = await fetch(`/api/boards/${activeBoardId}/invites`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -274,6 +300,211 @@ const GroceriesDashboardBoardsPanelContent = ({
       setError(translations.groceries.boards.copyFailed);
     }
   };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{translations.groceries.boards.inviteTitle}</DialogTitle>
+          <DialogDescription>
+            {translations.groceries.boards.inviteDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {statusMessage ? (
+          <Alert>
+            <AlertDescription>{statusMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="grid gap-4 pt-4">
+          <label className="grid gap-2 text-sm">
+            <span className="font-semibold text-foreground">
+              {translations.groceries.boards.inviteEmailLabel}
+            </span>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              placeholder={translations.groceries.boards.inviteEmailPlaceholder}
+              className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
+            />
+          </label>
+
+          {inviteLink ? (
+            <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4">
+              <label htmlFor="board-invite-link-input" className="text-sm font-semibold text-foreground">
+                {translations.groceries.boards.inviteLinkLabel}
+              </label>
+              <div className="flex gap-2 max-[640px]:flex-col">
+                <input
+                  id="board-invite-link-input"
+                  type="text"
+                  readOnly
+                  value={inviteLink}
+                  aria-label={translations.groceries.boards.inviteLinkLabel}
+                  className="h-11 flex-1 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-sm text-foreground outline-none"
+                />
+                <Button type="button" variant="secondary" onClick={handleCopyInviteLink}>
+                  <Copy className="size-4" />
+                  <span>{translations.groceries.boards.copyInviteLink}</span>
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
+              {translations.common.cancel}
+            </Button>
+            <Button type="button" onClick={handleCreateInvite} disabled={isSubmitting}>
+              {translations.groceries.boards.createInvite}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+InviteBoardDialog.displayName = "InviteBoardDialog";
+
+type MembersBoardDialogProps = {
+  members: BoardMemberSummary[];
+  open: boolean;
+  translations: Messages;
+  onOpenChange: (open: boolean) => void;
+};
+
+const MembersBoardDialog = memo(({
+  members,
+  open,
+  translations,
+  onOpenChange,
+}: MembersBoardDialogProps) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{translations.groceries.boards.membersTitle}</DialogTitle>
+          <DialogDescription>
+            {translations.groceries.boards.membersDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 pt-4">
+          {members.length === 0 ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              {translations.groceries.boards.noMembers}
+            </p>
+          ) : (
+            members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-sm font-semibold text-foreground">
+                    {member.displayName || member.email || member.userId}
+                  </p>
+                  <p className="m-0 truncate text-sm text-muted-foreground">
+                    {member.email || member.userId}
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain)]">
+                  {member.role === "owner"
+                    ? translations.groceries.boards.roleOwner
+                    : translations.groceries.boards.roleEditor}
+                </Badge>
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+MembersBoardDialog.displayName = "MembersBoardDialog";
+
+const GroceriesDashboardBoardsPanelContent = ({
+  activeBoard,
+  boards,
+  members,
+  translations,
+  isBoardSwitchPending = false,
+  onBoardActivated,
+}: GroceriesDashboardBoardsPanelProps) => {
+  const [error, setError] = useState<string | null>(null);
+  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const handleBoardChange = useCallback(async (boardId: string) => {
+    if (!boardId || boardId === activeBoard.id || isBoardSwitchPending) {
+      return;
+    }
+
+    setError(null);
+    setStatusMessage(null);
+
+    try {
+      await withSpan("ui.boards.switch_active", async (span) => {
+        const response = await fetch("/api/boards/active", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ boardId }),
+        });
+        const payload = (await response.json()) as { error?: string };
+
+        span.setAttributes({
+          [observabilityAttributes.httpStatusCode]: response.status,
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            payload.error || translations.groceries.boards.switchFailed,
+          );
+        }
+      });
+
+      logInfo("Switched active board in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchSuccess,
+      });
+      onBoardActivated(boardId);
+    } catch (requestError) {
+      logWarn("Switching active board failed in browser.", {
+        [observabilityFields.event]: observabilityEvents.uiBoardsSwitchFailed,
+        [observabilityFields.errorMessage]:
+          requestError instanceof Error
+            ? requestError.message
+            : translations.groceries.boards.switchFailed,
+      });
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : translations.groceries.boards.switchFailed,
+      );
+    }
+  }, [activeBoard.id, isBoardSwitchPending, onBoardActivated, translations.groceries.boards.switchFailed]);
+
+  const handleBoardCreated = useCallback(
+    (boardId: string, createdMessage: string) => {
+      setError(null);
+      setStatusMessage(createdMessage);
+      onBoardActivated(boardId);
+    },
+    [onBoardActivated],
+  );
 
   return (
     <section className="grid gap-5 rounded-[30px] border border-[var(--border)] bg-[var(--surface-plain)]/90 p-6 shadow-[var(--shadow)] backdrop-blur-[20px] transition-all duration-200">
@@ -370,155 +601,26 @@ const GroceriesDashboardBoardsPanelContent = ({
         </Alert>
       ) : null}
 
-      <Dialog open={isCreatingBoard} onOpenChange={setIsCreatingBoard}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{translations.groceries.boards.createBoardTitle}</DialogTitle>
-            <DialogDescription>
-              {translations.groceries.boards.createBoardDescription}
-            </DialogDescription>
-          </DialogHeader>
+      <CreateBoardDialog
+        open={isCreatingBoard}
+        translations={translations}
+        onOpenChange={setIsCreatingBoard}
+        onBoardCreated={handleBoardCreated}
+      />
 
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
+      <InviteBoardDialog
+        activeBoardId={activeBoard.id}
+        open={isInviteOpen}
+        translations={translations}
+        onOpenChange={setIsInviteOpen}
+      />
 
-          <div className="grid gap-4 pt-4">
-            <label className="grid gap-2 text-sm">
-              <span className="font-semibold text-foreground">
-                {translations.groceries.boards.createBoardPlaceholder}
-              </span>
-              <input
-                type="text"
-                value={boardName}
-                onChange={(event) => setBoardName(event.target.value)}
-                placeholder={translations.groceries.boards.createBoardPlaceholder}
-                className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
-              />
-            </label>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setIsCreatingBoard(false)}>
-                {translations.common.cancel}
-              </Button>
-              <Button type="button" onClick={handleCreateBoard} disabled={isSubmitting}>
-                {translations.groceries.boards.createBoardSubmit}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{translations.groceries.boards.inviteTitle}</DialogTitle>
-            <DialogDescription>
-              {translations.groceries.boards.inviteDescription}
-            </DialogDescription>
-          </DialogHeader>
-
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {statusMessage ? (
-            <Alert>
-              <AlertDescription>{statusMessage}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <div className="grid gap-4 pt-4">
-            <label className="grid gap-2 text-sm">
-              <span className="font-semibold text-foreground">
-                {translations.groceries.boards.inviteEmailLabel}
-              </span>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                placeholder={translations.groceries.boards.inviteEmailPlaceholder}
-                className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none transition-colors focus:border-[var(--accent)]"
-              />
-            </label>
-
-            {inviteLink ? (
-              <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] p-4">
-                <label htmlFor="board-invite-link-input" className="text-sm font-semibold text-foreground">
-                  {translations.groceries.boards.inviteLinkLabel}
-                </label>
-                <div className="flex gap-2 max-[640px]:flex-col">
-                  <input
-                    id="board-invite-link-input"
-                    type="text"
-                    readOnly
-                    value={inviteLink}
-                    aria-label={translations.groceries.boards.inviteLinkLabel}
-                    className="h-11 flex-1 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-sm text-foreground outline-none"
-                  />
-                  <Button type="button" variant="secondary" onClick={handleCopyInviteLink}>
-                    <Copy className="size-4" />
-                    <span>{translations.groceries.boards.copyInviteLink}</span>
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setIsInviteOpen(false)}>
-                {translations.common.cancel}
-              </Button>
-              <Button type="button" onClick={handleCreateInvite} disabled={isSubmitting}>
-                {translations.groceries.boards.createInvite}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isMembersOpen} onOpenChange={setIsMembersOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{translations.groceries.boards.membersTitle}</DialogTitle>
-            <DialogDescription>
-              {translations.groceries.boards.membersDescription}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 pt-4">
-            {members.length === 0 ? (
-              <p className="m-0 text-sm text-muted-foreground">
-                {translations.groceries.boards.noMembers}
-              </p>
-            ) : (
-              members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--surface-plain-soft)] px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-sm font-semibold text-foreground">
-                      {member.displayName || member.email || member.userId}
-                    </p>
-                    <p className="m-0 truncate text-sm text-muted-foreground">
-                      {member.email || member.userId}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="border-[var(--border)] bg-[var(--surface-plain)]">
-                    {member.role === "owner"
-                      ? translations.groceries.boards.roleOwner
-                      : translations.groceries.boards.roleEditor}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <MembersBoardDialog
+        members={members}
+        open={isMembersOpen}
+        translations={translations}
+        onOpenChange={setIsMembersOpen}
+      />
     </section>
   );
 };

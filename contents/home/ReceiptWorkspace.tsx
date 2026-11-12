@@ -318,23 +318,28 @@ export const ReceiptWorkspace = ({
     : editorState?.mode === "edit-manual" && editorState.index !== null
       ? (manualItems[editorState.index] ?? null)
       : null;
-  const dashboardHref = savedReceipt
-    ? {
-      pathname: "/groceries",
-      query: {
-        ...(savedReceipt.boardId ? { board: savedReceipt.boardId } : {}),
-        ...(savedReceipt.month ? { month: savedReceipt.month } : {}),
-        saved: savedReceipt.receiptId,
-      },
-    }
-    : selectedBoardId
-      ? {
-        pathname: "/groceries",
-        query: {
-          board: selectedBoardId,
-        },
-      }
-      : "/groceries";
+  const dashboardHref = useMemo(
+    () =>
+      savedReceipt
+        ? {
+          pathname: "/groceries",
+          query: {
+            ...(savedReceipt.boardId ? { board: savedReceipt.boardId } : {}),
+            ...(savedReceipt.month ? { month: savedReceipt.month } : {}),
+            saved: savedReceipt.receiptId,
+          },
+        }
+        : selectedBoardId
+          ? {
+            pathname: "/groceries",
+            query: {
+              board: selectedBoardId,
+            },
+          }
+          : "/groceries",
+    [savedReceipt, selectedBoardId],
+  );
+  const hasResult = result !== null;
   const displayedFileName = file?.name ?? restoredDraft?.fileName ?? null;
   const displayedFileSize = file?.size ?? restoredDraft?.fileSize ?? null;
   const displayedPreviewUrl = previewUrl ?? restoredDraft?.previewDataUrl ?? null;
@@ -402,7 +407,7 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    if (!result) {
+    if (!hasResult) {
       return;
     }
 
@@ -462,7 +467,7 @@ export const ReceiptWorkspace = ({
     return () => {
       isCancelled = true;
     };
-  }, [isAuthenticated, result, translations.receipt.errors.loadDashboards]);
+  }, [hasResult, isAuthenticated, translations.receipt.errors.loadDashboards]);
 
   useEffect(() => {
     if (!result || saveMessage) {
@@ -817,11 +822,13 @@ export const ReceiptWorkspace = ({
 
   const displayedItemsRef = useRef(displayedItems);
   const manualItemsRef = useRef(manualItems);
+  const extractedItemCountRef = useRef(extractedItemCount);
 
   useEffect(() => {
     displayedItemsRef.current = displayedItems;
     manualItemsRef.current = manualItems;
-  }, [displayedItems, manualItems]);
+    extractedItemCountRef.current = extractedItemCount;
+  }, [displayedItems, extractedItemCount, manualItems]);
 
   const closeEditor = useCallback(() => {
     setEditorState(null);
@@ -829,7 +836,8 @@ export const ReceiptWorkspace = ({
 
   const openEditor = useCallback(
     (index: number) => {
-      if (index < extractedItemCount) {
+      const currentExtractedCount = extractedItemCountRef.current;
+      if (index < currentExtractedCount) {
         const item = displayedItemsRef.current[index];
         if (!item) {
           return;
@@ -847,7 +855,7 @@ export const ReceiptWorkspace = ({
         return;
       }
 
-      const manualIndex = index - extractedItemCount;
+      const manualIndex = index - currentExtractedCount;
       const item = manualItemsRef.current[manualIndex];
       if (!item) {
         return;
@@ -863,7 +871,7 @@ export const ReceiptWorkspace = ({
         error: null,
       });
     },
-    [extractedItemCount],
+    [],
   );
 
   const openManualItemEditor = useCallback(() => {
@@ -1027,7 +1035,8 @@ export const ReceiptWorkspace = ({
 
   const handleRemoveItem = useCallback(
     (index: number) => {
-      if (index < extractedItemCount) {
+      const currentExtractedCount = extractedItemCountRef.current;
+      if (index < currentExtractedCount) {
         setResult((prev) => {
           if (!prev) return null;
           return {
@@ -1059,10 +1068,10 @@ export const ReceiptWorkspace = ({
         return;
       }
 
-      const manualIndex = index - extractedItemCount;
+      const manualIndex = index - currentExtractedCount;
       removeManualItem(manualIndex);
     },
-    [extractedItemCount, removeManualItem, setEditedItems, setResult],
+    [removeManualItem, setEditedItems, setResult],
   );
 
   const hasEditorCorrection =

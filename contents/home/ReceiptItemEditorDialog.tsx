@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState, type ChangeEvent } from "react";
+import { memo, useMemo, useState, type ChangeEvent } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -61,11 +61,22 @@ type ReceiptItemEditorDialogProps = {
     onUnitPriceChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 };
 
-export const ReceiptItemEditorDialog = memo(({
-    currencyFormatter: _currencyFormatter,
+type ReceiptItemEditorBodyProps = {
+    editorState: EditorState;
+    hasCorrection: boolean;
+    translations: WorkspaceTranslations;
+    onApply: (values?: EditorFormValues) => void;
+    onCategoryChange?: (category: string) => void;
+    onClose: () => void;
+    onItemNameChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+    onQuantityChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+    onReset: () => void;
+    onUnitPriceChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+};
+
+const ReceiptItemEditorBody = ({
     editorState,
     hasCorrection,
-    item,
     translations,
     onApply,
     onCategoryChange,
@@ -74,28 +85,26 @@ export const ReceiptItemEditorDialog = memo(({
     onQuantityChange,
     onReset,
     onUnitPriceChange,
-}: ReceiptItemEditorDialogProps) => {
-    const [localItemName, setLocalItemName] = useState(editorState?.itemName ?? "");
-    const [localCategory, setLocalCategory] = useState(editorState?.category ?? "");
-    const [localQuantity, setLocalQuantity] = useState(editorState?.quantity ?? "");
-    const [localUnitPrice, setLocalUnitPrice] = useState(editorState?.unitPrice ?? "");
-    const [localError, setLocalError] = useState<string | null>(editorState?.error ?? null);
+}: ReceiptItemEditorBodyProps) => {
+    const [localItemName, setLocalItemName] = useState(editorState.itemName);
+    const [localCategory, setLocalCategory] = useState(editorState.category);
+    const [localQuantity, setLocalQuantity] = useState(editorState.quantity);
+    const [localUnitPrice, setLocalUnitPrice] = useState(editorState.unitPrice);
+    const [localError, setLocalError] = useState<string | null>(editorState.error ?? null);
 
-    // Synchronize local form buffer when editorState opens or targets a new item
-    useEffect(() => {
-        if (editorState) {
-            setLocalItemName(editorState.itemName);
-            setLocalCategory(editorState.category);
-            setLocalQuantity(editorState.quantity);
-            setLocalUnitPrice(editorState.unitPrice);
-            setLocalError(editorState.error ?? null);
-        }
-    }, [editorState]);
+    const categoryOptions = useMemo(
+        () =>
+            groceryCategories.map((category) => ({
+                value: category,
+                label: formatCategoryLabel(category, translations.categories),
+            })),
+        [translations.categories],
+    );
 
-    const isManualEditor = editorState?.mode !== "adjust";
-    const actionLabel = editorState?.mode === "add-manual"
+    const isManualEditor = editorState.mode !== "adjust";
+    const actionLabel = editorState.mode === "add-manual"
         ? translations.receipt.editor.addManual
-        : editorState?.mode === "edit-manual"
+        : editorState.mode === "edit-manual"
             ? translations.receipt.editor.saveManual
             : translations.receipt.editor.apply;
 
@@ -156,128 +165,163 @@ export const ReceiptItemEditorDialog = memo(({
         });
     };
 
+    const displayedError = localError ?? editorState.error;
+
+    return (
+        <>
+            <DialogHeader>
+                <DialogTitle>
+                    {isManualEditor
+                        ? translations.receipt.editor.manualTitle
+                        : translations.receipt.editor.title}
+                </DialogTitle>
+                <DialogDescription>
+                    {isManualEditor
+                        ? translations.receipt.editor.manualDescription
+                        : translations.receipt.editor.description}
+                </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 grid gap-4">
+                <div className="grid gap-2">
+                    <label
+                        htmlFor="receipt-editor-item-name"
+                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
+                    >
+                        {translations.receipt.editor.item}
+                    </label>
+                    <input
+                        id="receipt-editor-item-name"
+                        type="text"
+                        value={localItemName}
+                        onChange={handleItemNameChange}
+                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
+                    />
+                </div>
+
+                <div className="grid gap-2">
+                    <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
+                        {translations.receipt.editor.category}
+                    </span>
+                    <Select value={localCategory} onValueChange={handleCategoryChange}>
+                        <SelectTrigger
+                            className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)] h-11 text-sm shadow-2xs hover:bg-[var(--surface-plain-soft)]"
+                            aria-label={translations.receipt.editor.category}
+                        >
+                            <SelectValue
+                                placeholder={translations.receipt.editor.selectCategory}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categoryOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="grid gap-2">
+                    <label
+                        htmlFor="receipt-editor-quantity"
+                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
+                    >
+                        {translations.receipt.editor.quantity}
+                    </label>
+                    <input
+                        id="receipt-editor-quantity"
+                        type="number"
+                        inputMode="decimal"
+                        min="0.01"
+                        step="0.01"
+                        value={localQuantity}
+                        onChange={handleQuantityChange}
+                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
+                    />
+                </div>
+
+                <div className="grid gap-2">
+                    <label
+                        htmlFor="receipt-editor-unit-price"
+                        className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
+                    >
+                        {translations.receipt.editor.unitPrice}
+                    </label>
+                    <input
+                        id="receipt-editor-unit-price"
+                        type="number"
+                        inputMode="decimal"
+                        min="0.01"
+                        step="0.01"
+                        value={localUnitPrice}
+                        onChange={handleUnitPriceChange}
+                        className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
+                    />
+                </div>
+
+                {displayedError ? (
+                    <Alert variant="destructive">
+                        <AlertDescription>{displayedError}</AlertDescription>
+                    </Alert>
+                ) : null}
+
+                <div className="flex flex-wrap justify-end gap-2.5 pt-2">
+                    {!isManualEditor && hasCorrection ? (
+                        <Button type="button" variant="ghost" className="rounded-full h-10 px-4" onClick={onReset}>
+                            {translations.receipt.editor.reset}
+                        </Button>
+                    ) : null}
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        className="border-[var(--border)] bg-[var(--surface-plain)] rounded-full h-10 px-4 shadow-2xs hover:bg-[var(--surface-plain-soft)]"
+                        onClick={onClose}
+                    >
+                        {translations.common.cancel}
+                    </Button>
+                    <Button type="button" className="rounded-full h-10 px-5 font-semibold" onClick={handleApply}>
+                        {actionLabel}
+                    </Button>
+                </div>
+            </div>
+        </>
+    );
+};
+
+export const ReceiptItemEditorDialog = memo(({
+    currencyFormatter: _currencyFormatter,
+    editorState,
+    hasCorrection,
+    item,
+    translations,
+    onApply,
+    onCategoryChange,
+    onClose,
+    onItemNameChange,
+    onQuantityChange,
+    onReset,
+    onUnitPriceChange,
+}: ReceiptItemEditorDialogProps) => {
+    const isManualEditor = editorState?.mode !== "adjust";
+
     return (
         <Dialog open={editorState !== null} onOpenChange={(open) => !open && onClose()}>
             <DialogContent>
                 {editorState && (isManualEditor || item) ? (
-                    <>
-                        <DialogHeader>
-                            <DialogTitle>
-                                {isManualEditor
-                                    ? translations.receipt.editor.manualTitle
-                                    : translations.receipt.editor.title}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {isManualEditor
-                                    ? translations.receipt.editor.manualDescription
-                                    : translations.receipt.editor.description}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="mt-4 grid gap-4">
-                            <div className="grid gap-2">
-                                <label
-                                    htmlFor="receipt-editor-item-name"
-                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
-                                >
-                                    {translations.receipt.editor.item}
-                                </label>
-                                <input
-                                    id="receipt-editor-item-name"
-                                    type="text"
-                                    value={localItemName}
-                                    onChange={handleItemNameChange}
-                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
-                                />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <span className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground">
-                                    {translations.receipt.editor.category}
-                                </span>
-                                <Select value={localCategory} onValueChange={handleCategoryChange}>
-                                    <SelectTrigger
-                                        className="w-full rounded-[14px] border-[var(--border)] bg-[var(--surface-plain)] h-11 text-sm shadow-2xs hover:bg-[var(--surface-plain-soft)]"
-                                        aria-label={translations.receipt.editor.category}
-                                    >
-                                        <SelectValue
-                                            placeholder={translations.receipt.editor.selectCategory}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {groceryCategories.map((category) => (
-                                             <SelectItem key={category} value={category}>
-                                                {formatCategoryLabel(category, translations.categories)}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="grid gap-2">
-                                <label
-                                    htmlFor="receipt-editor-quantity"
-                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
-                                >
-                                    {translations.receipt.editor.quantity}
-                                </label>
-                                <input
-                                    id="receipt-editor-quantity"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={localQuantity}
-                                    onChange={handleQuantityChange}
-                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
-                                />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <label
-                                    htmlFor="receipt-editor-unit-price"
-                                    className="text-[0.82rem] font-bold tracking-wide uppercase text-muted-foreground"
-                                >
-                                    {translations.receipt.editor.unitPrice}
-                                </label>
-                                <input
-                                    id="receipt-editor-unit-price"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={localUnitPrice}
-                                    onChange={handleUnitPriceChange}
-                                    className="h-11 rounded-[14px] border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.98rem] text-foreground outline-none ring-0 transition-colors focus:border-[var(--primary)]"
-                                />
-                            </div>
-
-                            {localError ? (
-                                <Alert variant="destructive">
-                                    <AlertDescription>{localError}</AlertDescription>
-                                </Alert>
-                            ) : null}
-
-                            <div className="flex flex-wrap justify-end gap-2.5 pt-2">
-                                {!isManualEditor && hasCorrection ? (
-                                    <Button type="button" variant="ghost" className="rounded-full h-10 px-4" onClick={onReset}>
-                                        {translations.receipt.editor.reset}
-                                    </Button>
-                                ) : null}
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    className="border-[var(--border)] bg-[var(--surface-plain)] rounded-full h-10 px-4 shadow-2xs hover:bg-[var(--surface-plain-soft)]"
-                                    onClick={onClose}
-                                >
-                                    {translations.common.cancel}
-                                </Button>
-                                <Button type="button" className="rounded-full h-10 px-5 font-semibold" onClick={handleApply}>
-                                    {actionLabel}
-                                </Button>
-                            </div>
-                        </div>
-                    </>
+                    <ReceiptItemEditorBody
+                        key={`${editorState.mode}:${editorState.index ?? "new"}`}
+                        editorState={editorState}
+                        hasCorrection={hasCorrection}
+                        translations={translations}
+                        onApply={onApply}
+                        onCategoryChange={onCategoryChange}
+                        onClose={onClose}
+                        onItemNameChange={onItemNameChange}
+                        onQuantityChange={onQuantityChange}
+                        onReset={onReset}
+                        onUnitPriceChange={onUnitPriceChange}
+                    />
                 ) : null}
             </DialogContent>
         </Dialog>

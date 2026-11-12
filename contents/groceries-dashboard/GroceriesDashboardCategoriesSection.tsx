@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { memo } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,51 +43,39 @@ export const GroceriesDashboardCategoriesSection = memo(({
 }: GroceriesDashboardCategoriesSectionProps) => {
   return (
     <>
-      <LayoutGroup>
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.9fr)]">
-          <motion.div layout className="grid h-fit gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {categories.map((category) => (
-              <CategorySummaryCard
-                key={category.category}
-                category={category}
-                isActive={activeCategory === category.category}
-                translations={translations}
-                currencyFormatter={currencyFormatter}
-                percentFormatter={percentFormatter}
-                onSelect={onSelectCategory}
-              />
-            ))}
-          </motion.div>
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.9fr)]">
+        <div className="grid h-fit gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {categories.map((category) => (
+            <CategorySummaryCard
+              key={category.category}
+              category={category}
+              isActive={activeCategory === category.category}
+              translations={translations}
+              currencyFormatter={currencyFormatter}
+              percentFormatter={percentFormatter}
+              onSelect={onSelectCategory}
+            />
+          ))}
+        </div>
 
-          <div className="hidden lg:block">
-            <AnimatePresence mode="wait" initial={false}>
-              {active ? (
-                <motion.div
-                  key={active.category}
-                  layout
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="sticky top-6"
-                >
-                  <Card className="rounded-[30px] border border-[var(--border)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)] backdrop-blur-[20px]">
-                    <CardContent className="p-6">
-                      <MemoizedCategoryDetails
-                        category={active}
-                        categoryLabel={activeCategoryLabel ?? ""}
-                        translations={translations}
-                        currencyFormatter={currencyFormatter}
-                        percentFormatter={percentFormatter}
-                      />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        </section>
-      </LayoutGroup>
+        <div className="hidden lg:block">
+          {active ? (
+            <div className="sticky top-6">
+              <Card className="rounded-[30px] border border-[var(--border)] bg-[var(--surface-strong)] py-0 shadow-[var(--shadow)] backdrop-blur-[20px]">
+                <CardContent className="p-6">
+                  <MemoizedCategoryDetails
+                    category={active}
+                    categoryLabel={activeCategoryLabel ?? ""}
+                    translations={translations}
+                    currencyFormatter={currencyFormatter}
+                    percentFormatter={percentFormatter}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <Dialog open={isMobileDetailOpen} onOpenChange={onMobileDialogOpenChange}>
         <DialogContent className="lg:hidden">

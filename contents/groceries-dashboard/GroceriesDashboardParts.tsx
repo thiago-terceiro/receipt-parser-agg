@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { motion } from "motion/react";
 import { memo } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -147,58 +146,54 @@ export const CategorySummaryCard = memo(({
   onSelect,
 }: CategorySummaryCardProps) => {
   return (
-    <motion.div layout>
-      <button
-        type="button"
-        onClick={() => onSelect(category)}
-        aria-pressed={isActive}
-        className={cn(
-          "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-          isActive
-            ? "border-blue-500 bg-blue-500/10 shadow-[0_0_0_4px_var(--focus-surface)]"
-            : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:border-blue-500/35 hover:bg-[var(--surface-soft)]",
-        )}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300 font-bold">
-              {formatCategoryLabel(category.category, translations.categories)}
-            </p>
-            <h2 className="m-0 mt-2 text-[1.85rem] font-bold leading-none tracking-[-0.04em] tabular-nums text-foreground">
-              {currencyFormatter.format(category.total)}
-            </h2>
-          </div>
-          <div
-            className="inline-grid size-10 place-items-center rounded-full border border-blue-500/20 bg-[var(--surface-plain-soft)] text-blue-600 dark:text-blue-400 shadow-2xs transition-transform duration-200 group-hover:scale-105"
-            aria-hidden="true"
-          >
-            <ChevronRight
-              className={cn("size-4 transition-transform duration-200", isActive && "rotate-90")}
-            />
-          </div>
+    <button
+      type="button"
+      onClick={() => onSelect(category)}
+      aria-pressed={isActive}
+      className={cn(
+        "group grid h-full w-full gap-4 rounded-[26px] border p-5 text-left shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+        isActive
+          ? "border-blue-500 bg-blue-500/10 shadow-[0_0_0_4px_var(--focus-surface)]"
+          : "border-[var(--border)] bg-[var(--surface-soft-muted)] hover:border-blue-500/35 hover:bg-[var(--surface-soft)]",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="m-0 text-[0.76rem] uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300 font-bold">
+            {formatCategoryLabel(category.category, translations.categories)}
+          </p>
+          <h2 className="m-0 mt-2 text-[1.85rem] font-bold leading-none tracking-[-0.04em] tabular-nums text-foreground">
+            {currencyFormatter.format(category.total)}
+          </h2>
         </div>
+        <div
+          className="inline-grid size-10 place-items-center rounded-full border border-blue-500/20 bg-[var(--surface-plain-soft)] text-blue-600 dark:text-blue-400 shadow-2xs transition-transform duration-200 group-hover:scale-105"
+          aria-hidden="true"
+        >
+          <ChevronRight
+            className={cn("size-4 transition-transform duration-200", isActive && "rotate-90")}
+          />
+        </div>
+      </div>
 
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              {translations.groceries.repeatedGroups(category.uniqueItemCount)}
-            </span>
-            <span className="tabular-nums">{percentFormatter.format(category.share)}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]" aria-hidden="true">
-            <motion.div
-              className="h-full rounded-full"
-              initial={false}
-              animate={{ width: `${Math.max(category.share * 100, 8)}%` }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                backgroundImage: "var(--accent-gradient)",
-              }}
-            />
-          </div>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            {translations.groceries.repeatedGroups(category.uniqueItemCount)}
+          </span>
+          <span className="tabular-nums">{percentFormatter.format(category.share)}</span>
         </div>
-      </button>
-    </motion.div>
+        <div className="h-2 overflow-hidden rounded-full bg-[var(--progress-track)]" aria-hidden="true">
+          <div
+            className="h-full rounded-full transition-[width] duration-300 ease-out"
+            style={{
+              width: `${Math.max(category.share * 100, 8)}%`,
+              backgroundImage: "var(--accent-gradient)",
+            }}
+          />
+        </div>
+      </div>
+    </button>
   );
 });
 
