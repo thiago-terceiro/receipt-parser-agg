@@ -27,12 +27,15 @@ jest.mock("@huggingface/inference", () => {
   };
 });
 
+const mockPdfDestroy = jest.fn().mockResolvedValue(undefined);
+const mockPdf = jest.fn().mockImplementation(async () => ({
+  length: 3,
+  getPage: jest.fn().mockImplementation(async (num: number) => Buffer.from(`page-${num}`)),
+  destroy: mockPdfDestroy,
+}));
+
 jest.mock("pdf-to-img", () => ({
-  pdf: jest.fn().mockImplementation(async () => ({
-    length: 3,
-    getPage: jest.fn().mockImplementation(async (num: number) => Buffer.from(`page-${num}`)),
-    destroy: jest.fn().mockResolvedValue(undefined),
-  })),
+  pdf: mockPdf,
 }));
 
 jest.mock("@/lib/extract-rate-limit", () => ({
@@ -242,5 +245,173 @@ describe("app/api/extract/route", () => {
     expect(mockChatCompletion).toHaveBeenCalledTimes(1);
 
     process.env.GEMINI_API_KEY = "mock-gemini-key";
+  });
+
+  it("passes raw base64 (not data URL) to Gemini inlineData and plain Uint8Array to pdf-to-img", async () => {
+    const rawBytes = new Uint8Array([10, 20, 30]);
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Cheese",
+            category: "dairy",
+            quantity: 1,
+            unitPrice: 4.0,
+            lineTotal: 4.0,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+    });
+
+    const imageFormData = new FormData();
+    imageFormData.append(
+      "file",
+      new File([rawBytes], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    const imageRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: imageFormData,
+      }),
+    );
+    expect(imageRes.status).toBe(200);
+
+    const imageCallArgs = mockGenerateContent.mock.calls[0][0];
+    expect(imageCallArgs.contents[0].inlineData.data).toBe(
+      Buffer.from(rawBytes).toString("base64"),
+    );
+    expect(imageCallArgs.contents[0].inlineData.mimeType).toBe("image/jpeg");
+
+    mockGenerateContent.mockImplementation(async () => ({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Bread",
+            category: "bakery",
+            quantity: 1,
+            unitPrice: 2.0,
+            lineTotal: 2.0,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+    }));
+
+    const pdfFormData = new FormData();
+    pdfFormData.append(
+      "file",
+      new File([rawBytes], "receipt.pdf", { type: "application/pdf" }),
+    );
+    const pdfRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: pdfFormData,
+      }),
+    );
+    expect(pdfRes.status).toBe(200);
+
+    const pdfInputArg = mockPdf.mock.calls[0][0];
+    expect(pdfInputArg).toBeInstanceOf(Uint8Array);
+    expect(Buffer.isBuffer(pdfInputArg)).toBe(false);
+    expect(mockGenerateContent.mock.calls[1][0].contents[0].inlineData.mimeType).toBe("image/png");
+    expect(mockPdfDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves page order when pipelined PDF pages resolve out of order", async () => {
+    let callIndex = 0;
+    mockGenerateContent.mockImplementation(async () => {
+      const current = ++callIndex;
+      await new Promise((resolve) => setTimeout(resolve, current === 1 ? 45 : 5));
+      return {
+        text: JSON.stringify({
+          currencyCode: "EUR",
+          items: [
+            {
+              name: `Item Page ${current}`,
+              category: "pantry",
+              quantity: 1,
+              unitPrice: 1.0,
+              lineTotal: 1.0,
+            },
+          ],
+        }),
+        candidates: [{ finishReason: "STOP" }],
+      };
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "ordered.pdf", { type: "application/pdf" }),
+    );
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.items.map((item: { item: string }) => item.item)).toEqual([
+      "Item Page 1",
+      "Item Page 2",
+      "Item Page 3",
+    ]);
+  });
+
+  it("returns 400 and destroys document when PDF exceeds 5 pages", async () => {
+    mockPdf.mockResolvedValueOnce({
+      length: 6,
+      getPage: jest.fn(),
+      destroy: mockPdfDestroy,
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "too-long.pdf", { type: "application/pdf" }),
+    );
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockPdfDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("enforces streaming 12 MB body cap even without Content-Length header", async () => {
+    const chunk = new Uint8Array(4 * 1024 * 1024);
+    let sentChunks = 0;
+    const oversizedStream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sentChunks >= 4) {
+          controller.close();
+          return;
+        }
+        sentChunks += 1;
+        controller.enqueue(chunk);
+      },
+    });
+
+    const request = new Request("http://localhost:3000/api/extract", {
+      method: "POST",
+      headers: {
+        "content-type": "multipart/form-data; boundary=----boundary",
+      },
+      body: oversizedStream,
+      duplex: "half",
+    } as RequestInit);
+
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    expect(sentChunks).toBeLessThanOrEqual(4);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 });

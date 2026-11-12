@@ -13,7 +13,6 @@ import { createRateLimitHeaders } from "@/lib/rate-limit";
 import { getSessionIdentity } from "@/lib/session";
 
 import {
-  buildDataUrl,
   buildReceiptPrompt,
   defaultMaxOutputTokens,
   defaultModelId,
@@ -59,16 +58,43 @@ const getGeminiClient = (): GoogleGenAI | null => {
   return cachedGeminiClient;
 };
 
+let cachedInferenceClient: InferenceClient | null = null;
+let cachedInferenceToken: string | null = null;
+
 const getInferenceClient = (): InferenceClient | null => {
   const token = process.env.HF_TOKEN;
-  return token ? new InferenceClient(token) : null;
+
+  if (!token) {
+    cachedInferenceClient = null;
+    cachedInferenceToken = null;
+    return null;
+  }
+
+  if (cachedInferenceClient && cachedInferenceToken === token) {
+    return cachedInferenceClient;
+  }
+
+  cachedInferenceToken = token;
+  cachedInferenceClient = new InferenceClient(token);
+  return cachedInferenceClient;
 };
 
-const isGeminiModel = (modelId: string): boolean =>
-  modelId.startsWith("gemini") || modelId.includes("gemini");
+const isGeminiModel = (modelId: string): boolean => modelId.includes("gemini");
 
 const defaultPdfPageLimit = 5;
 const defaultPdfRenderScale = 3;
+const extractionConcurrencyCap = 2;
+const maxMultipartRequestBodyBytes = 12 * 1024 * 1024;
+
+const encodeBase64 = (bytes: ArrayBuffer | Uint8Array): string => {
+  if (bytes instanceof ArrayBuffer) {
+    return Buffer.from(bytes).toString("base64");
+  }
+
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
+    "base64",
+  );
+};
 
 type ChatMessageContent =
   | string
@@ -96,9 +122,9 @@ class RequestValidationError extends Error {
 }
 
 type UploadedReceiptData = {
+  bytes: ArrayBuffer;
   fileName: string | null;
   fileSizeBytes: number;
-  imageUrls: string[];
   mimeType: string;
   sourceType: "image" | "pdf";
 };
@@ -145,39 +171,74 @@ const buildReceiptSourceLabel = (
   return `PDF page ${pageNumber} of ${pageCount}`;
 };
 
-const renderPdfToImageDataUrls = async (
-  bytes: ArrayBuffer,
-): Promise<string[]> => {
-  const { pdf } = await import("pdf-to-img");
+const parseBoundedFormData = async (
+  request: Request,
+  maxBytes: number,
+): Promise<FormData> => {
+  if (!request.body || typeof request.body.getReader !== "function") {
+    try {
+      return await request.formData();
+    } catch {
+      throw new RequestValidationError("Invalid form data request body.", 400);
+    }
+  }
 
-  const document = await pdf(Buffer.from(bytes), {
-    scale: defaultPdfRenderScale,
+  const reader = request.body.getReader();
+  let totalBytes = 0;
+  let payloadExceeded = false;
+
+  const cappedStream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+
+      if (value) {
+        totalBytes += value.byteLength;
+        if (totalBytes > maxBytes) {
+          payloadExceeded = true;
+          try {
+            await reader.cancel();
+          } catch {
+            // Suppress cancel error so 413 is consistently returned.
+          }
+          controller.error(
+            new RequestValidationError(
+              "Request payload exceeds 10 MB limit.",
+              413,
+            ),
+          );
+          return;
+        }
+        controller.enqueue(value);
+      }
+    },
+    async cancel(reason) {
+      try {
+        await reader.cancel(reason);
+      } catch {
+        // Ignore upstream cancellation failure.
+      }
+    },
   });
 
   try {
-    if (document.length > defaultPdfPageLimit) {
+    return await new Response(cappedStream, {
+      headers: request.headers,
+    }).formData();
+  } catch (error) {
+    if (payloadExceeded) {
       throw new RequestValidationError(
-        `PDF receipts with more than ${defaultPdfPageLimit} pages are not supported yet.`,
-        400,
+        "Request payload exceeds 10 MB limit.",
+        413,
       );
     }
-
-    const imageUrls: string[] = [];
-    for (let pageNumber = 1; pageNumber <= document.length; pageNumber += 1) {
-      const pageBuffer = await document.getPage(pageNumber);
-      imageUrls.push(buildDataUrl(pageBuffer, "image/png"));
+    if (error instanceof RequestValidationError) {
+      throw error;
     }
-
-    if (imageUrls.length === 0) {
-      throw new RequestValidationError(
-        "Uploaded PDF did not contain any pages.",
-        400,
-      );
-    }
-
-    return imageUrls;
-  } finally {
-    await document.destroy();
+    throw new RequestValidationError("Invalid form data request body.", 400);
   }
 };
 
@@ -212,39 +273,42 @@ const getUploadedReceiptData = async (
     throw new RequestValidationError("Uploaded file is empty.", 400);
   }
 
-  const fileName = file.name?.trim() || null;
-  const fileSizeBytes = bytes.byteLength;
-  const mimeType = file.type || (isPdfReceiptUpload(file) ? "application/pdf" : "image/jpeg");
-
-  if (isPdfReceiptUpload(file)) {
-    return {
-      fileName,
-      fileSizeBytes,
-      imageUrls: await renderPdfToImageDataUrls(bytes),
-      mimeType,
-      sourceType: "pdf",
-    };
+  if (bytes.byteLength > maxReceiptFileSizeBytes) {
+    throw new RequestValidationError(
+      `Uploaded file exceeds the maximum allowed size of ${maxReceiptFileSizeBytes / (1024 * 1024)} MB.`,
+      413,
+    );
   }
 
+  const fileName = file.name?.trim() || null;
+  const fileSizeBytes = bytes.byteLength;
+  const isPdf = isPdfReceiptUpload(file);
+  const mimeType = file.type || (isPdf ? "application/pdf" : "image/jpeg");
+
   return {
+    bytes,
     fileName,
     fileSizeBytes,
-    imageUrls: [buildDataUrl(bytes, mimeType)],
     mimeType,
-    sourceType: "image",
+    sourceType: isPdf ? "pdf" : "image",
   };
 };
 
-const extractReceiptFromImageUrl = async (options: {
+const extractReceiptFromBase64 = async (options: {
+  base64Data: string;
+  effectiveProvider: string;
   fileName: string | null;
   fileSizeBytes?: number;
-  imageUrl: string;
+  geminiClient: GoogleGenAI | null;
+  imageMimeType: string;
+  inferenceClient: InferenceClient | null;
   mimeType?: string;
   model: string;
   pageCount: number;
   pageNumber: number;
   provider: string;
   sourceType: "image" | "pdf";
+  useGemini: boolean;
 }): Promise<{
   parsedExtraction: ParsedReceiptExtraction;
   rawResponse: string;
@@ -255,20 +319,11 @@ const extractReceiptFromImageUrl = async (options: {
     options.pageCount,
   );
 
-  const geminiClient = getGeminiClient();
-  const inferenceClient = getInferenceClient();
-  const useGemini = Boolean(
-    geminiClient &&
-      (options.provider === "gemini" ||
-        isGeminiModel(options.model) ||
-        !inferenceClient),
-  );
-  const effectiveProvider = useGemini ? "gemini" : options.provider;
-
   let finishReason: string | undefined;
   let rawResponse: string | undefined;
 
-  if (useGemini && geminiClient) {
+  if (options.useGemini && options.geminiClient) {
+    const geminiClient = options.geminiClient;
     const response = await withSpan(
       "receipt.extract.ai_inference",
       async (span) => {
@@ -283,16 +338,13 @@ const extractReceiptFromImageUrl = async (options: {
           ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
         });
 
-        const base64Data = options.imageUrl.replace(/^data:[^;]+;base64,/, "");
-        const inlineMimeType = options.mimeType && options.mimeType.startsWith("image/") ? options.mimeType : "image/jpeg";
-
         const geminiResult = await geminiClient.models.generateContent({
           model: options.model,
           contents: [
             {
               inlineData: {
-                data: base64Data,
-                mimeType: inlineMimeType,
+                data: options.base64Data,
+                mimeType: options.imageMimeType,
               },
             },
             buildReceiptPrompt(),
@@ -338,9 +390,12 @@ const extractReceiptFromImageUrl = async (options: {
     finishReason = response.candidates?.[0]?.finishReason;
     rawResponse = response.text ?? "";
   } else {
+    const inferenceClient = options.inferenceClient;
     if (!inferenceClient) {
       throw new Error("No AI provider is configured on the server.");
     }
+
+    const imageUrl = `data:${options.imageMimeType};base64,${options.base64Data}`;
 
     const response = await withSpan(
       "receipt.extract.ai_inference",
@@ -365,7 +420,7 @@ const extractReceiptFromImageUrl = async (options: {
               content: [
                 {
                   type: "image_url",
-                  image_url: { url: options.imageUrl },
+                  image_url: { url: imageUrl },
                 },
                 {
                   type: "text",
@@ -427,7 +482,7 @@ const extractReceiptFromImageUrl = async (options: {
 
   logExtractionDiagnostics({
     model: options.model,
-    provider: effectiveProvider,
+    provider: options.effectiveProvider,
     finishReason,
     maxOutputTokens: defaultMaxOutputTokens,
     sourceLabel,
@@ -467,6 +522,134 @@ const extractReceiptFromImageUrl = async (options: {
   };
 };
 
+const extractPdfPages = async (options: {
+  bytes: ArrayBuffer;
+  effectiveProvider: string;
+  fileName: string | null;
+  fileSizeBytes: number;
+  geminiClient: GoogleGenAI | null;
+  inferenceClient: InferenceClient | null;
+  mimeType: string;
+  model: string;
+  provider: string;
+  useGemini: boolean;
+}): Promise<{
+  pageExtractions: ParsedReceiptExtraction[];
+  rawResponses: string[];
+}> => {
+  const { pdf } = await import("pdf-to-img");
+
+  let document: Awaited<ReturnType<typeof pdf>>;
+  try {
+    // Pass a Uint8Array (not Buffer) so pdf-to-img skips copying the entire PDF buffer.
+    document = await pdf(new Uint8Array(options.bytes), {
+      scale: defaultPdfRenderScale,
+    });
+  } catch (error) {
+    throw new RequestValidationError(
+      error instanceof Error ? error.message : "Failed to parse uploaded PDF.",
+      400,
+    );
+  }
+
+  try {
+    const pageCount = document.length;
+    if (pageCount > defaultPdfPageLimit) {
+      throw new RequestValidationError(
+        `PDF receipts with more than ${defaultPdfPageLimit} pages are not supported yet.`,
+        400,
+      );
+    }
+
+    if (pageCount === 0) {
+      throw new RequestValidationError(
+        "Uploaded PDF did not contain any pages.",
+        400,
+      );
+    }
+
+    const pageExtractions = new Array<ParsedReceiptExtraction>(pageCount);
+    const rawResponses = new Array<string>(pageCount);
+    const inFlight = new Set<Promise<void>>();
+    let firstError: unknown = null;
+
+    // Render pages sequentially while overlapping AI network latency up to concurrency cap.
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      if (firstError !== null) {
+        break;
+      }
+
+      let pageBuffer: Buffer;
+      try {
+        pageBuffer = await document.getPage(pageNumber);
+      } catch (error) {
+        firstError = new RequestValidationError(
+          error instanceof Error ? error.message : `Failed to render PDF page ${pageNumber}.`,
+          400,
+        );
+        break;
+      }
+
+      if (firstError !== null) {
+        break;
+      }
+
+      const pageBase64 = encodeBase64(pageBuffer);
+      const pageIndex = pageNumber - 1;
+
+      const task = extractReceiptFromBase64({
+        base64Data: pageBase64,
+        effectiveProvider: options.effectiveProvider,
+        fileName: options.fileName,
+        fileSizeBytes: options.fileSizeBytes,
+        geminiClient: options.geminiClient,
+        imageMimeType: "image/png",
+        inferenceClient: options.inferenceClient,
+        mimeType: options.mimeType,
+        model: options.model,
+        pageCount,
+        pageNumber,
+        provider: options.provider,
+        sourceType: "pdf",
+        useGemini: options.useGemini,
+      })
+        .then((res) => {
+          pageExtractions[pageIndex] = res.parsedExtraction;
+          rawResponses[pageIndex] = res.rawResponse;
+        })
+        .catch((error) => {
+          if (firstError === null) {
+            firstError = error;
+          }
+        })
+        .finally(() => {
+          inFlight.delete(task);
+        });
+
+      inFlight.add(task);
+
+      if (inFlight.size >= extractionConcurrencyCap) {
+        await Promise.race(inFlight);
+      }
+    }
+
+    if (inFlight.size > 0) {
+      await Promise.allSettled(inFlight);
+    }
+
+    if (firstError !== null) {
+      throw firstError;
+    }
+
+    return {
+      pageExtractions,
+      rawResponses,
+    };
+  } finally {
+    await document.destroy();
+  }
+};
+
 export const GET = async () => {
   return NextResponse.json({
     defaultModelId,
@@ -476,7 +659,7 @@ export const GET = async () => {
 
 export const POST = async (request: Request) => {
   const contentLength = request.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > 12 * 1024 * 1024) {
+  if (contentLength && parseInt(contentLength, 10) > maxMultipartRequestBodyBytes) {
     return NextResponse.json(
       { error: "Request payload exceeds 10 MB limit." },
       { status: 413 },
@@ -511,8 +694,15 @@ export const POST = async (request: Request) => {
 
   let formData: FormData;
   try {
-    formData = await request.formData();
-  } catch {
+    formData = await parseBoundedFormData(request, maxMultipartRequestBodyBytes);
+  } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     return NextResponse.json(
       { error: "Invalid form data request body." },
       { status: 400 },
@@ -522,19 +712,10 @@ export const POST = async (request: Request) => {
   const model = resolveRequestedModelId({
     selectedModelId: formData.get("modelId"),
   });
-  let fileName: string | null;
-  let fileSizeBytes: number | undefined;
-  let imageUrls: string[];
-  let mimeType: string | undefined;
-  let sourceType: "image" | "pdf";
 
+  let upload: UploadedReceiptData;
   try {
-    const upload = await getUploadedReceiptData(formData);
-    fileName = upload.fileName;
-    fileSizeBytes = upload.fileSizeBytes;
-    imageUrls = upload.imageUrls;
-    mimeType = upload.mimeType;
-    sourceType = upload.sourceType;
+    upload = await getUploadedReceiptData(formData);
   } catch (error) {
     if (error instanceof RequestValidationError) {
       return NextResponse.json(
@@ -557,37 +738,51 @@ export const POST = async (request: Request) => {
     console.warn(modelCapabilityHint);
   }
 
+  const useGemini = Boolean(
+    geminiClient &&
+      (provider === "gemini" || isGeminiModel(model) || !inferenceClient),
+  );
+  const effectiveProvider = useGemini ? "gemini" : provider;
+
   try {
-    const pageExtractions: ParsedReceiptExtraction[] = [];
-    const rawResponses: string[] = [];
+    let pageExtractions: ParsedReceiptExtraction[];
+    let rawResponses: string[];
 
-    const extractionConcurrencyCap = 2;
-    for (let i = 0; i < imageUrls.length; i += extractionConcurrencyCap) {
-      const batch = imageUrls.slice(i, i + extractionConcurrencyCap);
-      const batchPromises = batch.map((imageUrl, offset) => {
-        const pageNumber = i + offset + 1;
-        return extractReceiptFromImageUrl({
-          fileName,
-          fileSizeBytes,
-          imageUrl,
-          mimeType,
-          model,
-          pageCount: imageUrls.length,
-          pageNumber,
-          provider,
-          sourceType,
-        });
+    if (upload.sourceType === "pdf") {
+      ({ pageExtractions, rawResponses } = await extractPdfPages({
+        bytes: upload.bytes,
+        effectiveProvider,
+        fileName: upload.fileName,
+        fileSizeBytes: upload.fileSizeBytes,
+        geminiClient,
+        inferenceClient,
+        mimeType: upload.mimeType,
+        model,
+        provider,
+        useGemini,
+      }));
+    } else {
+      const imageMimeType = upload.mimeType.startsWith("image/")
+        ? upload.mimeType
+        : "image/jpeg";
+      const result = await extractReceiptFromBase64({
+        base64Data: encodeBase64(upload.bytes),
+        effectiveProvider,
+        fileName: upload.fileName,
+        fileSizeBytes: upload.fileSizeBytes,
+        geminiClient,
+        imageMimeType,
+        inferenceClient,
+        mimeType: upload.mimeType,
+        model,
+        pageCount: 1,
+        pageNumber: 1,
+        provider,
+        sourceType: "image",
+        useGemini,
       });
-
-      const batchResults = await Promise.allSettled(batchPromises);
-
-      for (const res of batchResults) {
-        if (res.status === "rejected") {
-          throw res.reason;
-        }
-        pageExtractions.push(res.value.parsedExtraction);
-        rawResponses.push(res.value.rawResponse);
-      }
+      pageExtractions = [result.parsedExtraction];
+      rawResponses = [result.rawResponse];
     }
 
     const extractionResult = mergeReceiptExtractions(pageExtractions);
@@ -605,18 +800,13 @@ export const POST = async (request: Request) => {
     );
     if (uniqueCurrencyCodes.size > 1) {
       console.warn("PDF extraction returned inconsistent currency codes.", {
-        fileName,
+        fileName: upload.fileName,
         currencyCodes: Array.from(uniqueCurrencyCodes),
       });
     }
 
-    const isGemini = Boolean(
-      geminiClient &&
-        (provider === "gemini" || isGeminiModel(model) || !inferenceClient),
-    );
-
     return NextResponse.json({
-      backend: isGemini ? "gemini" : "vercel-hf-route",
+      backend: useGemini ? "gemini" : "vercel-hf-route",
       currencyCode,
       purchaseDate: extractionResult.purchaseDate ?? null,
       modelId: model,
@@ -624,6 +814,13 @@ export const POST = async (request: Request) => {
       rawResponse,
     });
   } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : "Unexpected extraction error.";
     return NextResponse.json(

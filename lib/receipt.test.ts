@@ -1,5 +1,6 @@
 import {
     getModelCapabilityHint,
+    normalizeItemName,
     parseMaxOutputTokens,
     parsePositiveDecimal,
     parseReceiptExtraction,
@@ -134,5 +135,28 @@ describe("receipt helpers", () => {
         expect(parsePositiveDecimal("-5")).toBeNull();
         expect(parsePositiveDecimal("abc")).toBeNull();
         expect(parsePositiveDecimal("")).toBeNull();
+    });
+
+    test("normalizes item names and parses fenced JSON fallback", () => {
+        expect(normalizeItemName("  Organic   Apples 2kg! ")).toBe("organic apples 2kg");
+        expect(normalizeItemName("---")).toBe("");
+
+        const fenced = [
+            "```json",
+            JSON.stringify({
+                currencyCode: "EUR",
+                items: [
+                    {
+                        name: "Milk",
+                        category: "dairy",
+                        quantity: 1,
+                        unitPrice: 2.5,
+                        lineTotal: 2.5,
+                    },
+                ],
+            }),
+            "```",
+        ].join("\n");
+        expect(parseReceiptExtraction(fenced).items[0].item).toBe("Milk");
     });
 });

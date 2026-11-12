@@ -259,8 +259,7 @@ export const dropdownAvailableModels: AvailableModel[] = Array.from(
   ).values(),
 );
 
-export const buildReceiptPrompt =
-  () => `Extract all grocery items and the purchase date from this receipt.
+const defaultReceiptPrompt = `Extract all grocery items and the purchase date from this receipt.
 
 Return a JSON object in this format:
 {
@@ -292,6 +291,8 @@ Rules:
 - unitPrice and lineTotal must be numbers.
 - category must be one of the allowed categories.`;
 
+export const buildReceiptPrompt = () => defaultReceiptPrompt;
+
 export const resolveRequestedModelId = (options: {
   manualModelId?: unknown;
   selectedModelId?: unknown;
@@ -309,16 +310,6 @@ export const resolveRequestedModelId = (options: {
   return sanitizeModelId(options.selectedModelId) ?? defaultModelId;
 };
 
-export const buildDataUrl = (
-  bytes: ArrayBuffer | Uint8Array,
-  mimeType: string,
-): string => {
-  const normalizedBytes =
-    bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
-  const base64 = Buffer.from(normalizedBytes).toString("base64");
-  return `data:${mimeType};base64,${base64}`;
-};
-
 const sanitizePositiveNumber = (value: unknown): number | null => {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return null;
@@ -332,7 +323,6 @@ export const normalizeItemName = (value: string): string => {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
     .trim();
 };
 
@@ -399,6 +389,15 @@ const parseReceiptJson = (rawResponse: string): unknown => {
   const trimmed = rawResponse.trim();
   if (!trimmed) {
     throw new Error("Model response was empty.");
+  }
+
+  // Fast-path for constrained JSON mode responses (no fences or preamble).
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      // Fall through to fence extraction and jsonrepair recovery.
+    }
   }
 
   // Extract JSON from code fences if present.
