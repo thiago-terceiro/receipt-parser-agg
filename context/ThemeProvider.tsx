@@ -103,6 +103,33 @@ const getSystemThemeSnapshot = (): ResolvedTheme => {
   return getSystemTheme();
 };
 
+const isNamedTheme = (theme: Theme) =>
+  (NAMED_THEMES as string[]).includes(theme as string);
+
+const isDocumentThemeSynced = (theme: Theme, resolvedTheme: ResolvedTheme) => {
+  if (typeof document === "undefined") {
+    return true;
+  }
+
+  const root = document.documentElement;
+  const expectedClass = isNamedTheme(theme)
+    ? `${THEME_CLASS_PREFIX}${theme}`
+    : null;
+  const themeClasses = Array.from(root.classList).filter((c) =>
+    c.startsWith(THEME_CLASS_PREFIX),
+  );
+  const hasExpectedNamedClass = expectedClass
+    ? themeClasses.length === 1 && themeClasses[0] === expectedClass
+    : themeClasses.length === 0;
+
+  return (
+    hasExpectedNamedClass &&
+    root.dataset.theme === resolvedTheme &&
+    root.classList.contains("dark") === (resolvedTheme === "dark") &&
+    root.style.colorScheme === resolvedTheme
+  );
+};
+
 const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   const resolvedTheme: ResolvedTheme =
     theme === "system" ? getSystemTheme() : theme === "dark" ? "dark" : "light";
@@ -121,7 +148,7 @@ const applyThemeToDocument = (theme: Theme): ResolvedTheme => {
   });
 
   // if selected a named theme, add its class (e.g. theme-light-blue)
-  if ((NAMED_THEMES as string[]).includes(theme as string)) {
+  if (isNamedTheme(theme)) {
     root.classList.add(`${THEME_CLASS_PREFIX}${theme}`);
   }
 
@@ -195,6 +222,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    if (isDocumentThemeSynced(theme, resolvedTheme)) {
+      return;
+    }
+
     const enableAnimation = disableAnimation();
     applyThemeToDocument(theme);
     enableAnimation();

@@ -10,7 +10,7 @@ import {
   getHtmlLang,
   type AppLocale,
 } from "@/lib/i18n/config";
-import { createMessagesObject, type Messages } from "@/lib/i18n/messages";
+import { createMessagesObject, type Messages } from "@/lib/i18n/messages-client";
 
 export const syncDocumentLocale = (locale: AppLocale) => {
   document.documentElement.lang = getHtmlLang(locale);

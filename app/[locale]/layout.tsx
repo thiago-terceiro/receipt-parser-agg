@@ -12,6 +12,10 @@ import {
   getLocaleSegment,
   isLocaleSegment,
 } from "@/lib/i18n/config";
+import {
+  loadLocaleMessages,
+  pickMessageNamespaces,
+} from "@/lib/i18n/dictionaries";
 
 import type { Metadata } from "next";
 
@@ -84,8 +88,16 @@ const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
     (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
   );
 
+  const allMessages = await loadLocaleMessages(resolvedLocale);
+  const layoutMessages = pickMessageNamespaces(allMessages, [
+    "locales",
+    "common",
+    "theme",
+    "auth",
+  ]);
+
   return (
-    <NextIntlClientProvider>
+    <NextIntlClientProvider locale={resolvedLocale} messages={layoutMessages}>
       <JsonLd />
       <LocaleEffects>
         <div className="mx-auto w-[min(1180px,calc(100vw-32px))] px-0 py-10 pb-16 max-[900px]:w-[min(calc(100vw-20px),1180px)] max-[900px]:pt-5">

@@ -1,3 +1,4 @@
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 
@@ -8,12 +9,25 @@ import {
   getLocaleFromPreference,
   localeCookieName,
 } from "@/lib/i18n/config";
+import { defaultModelId } from "@/lib/receipt";
 import {
   THEME_COOKIE_NAME,
   resolveServerTheme,
 } from "@/lib/theme";
 
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
 const themeBootScript = `(() => {
   const localeSegment = window.location.pathname.split("/")[1]?.toLowerCase();
@@ -79,25 +93,29 @@ const RootLayout = async ({
     cookieStore.get(THEME_COOKIE_NAME)?.value,
   );
 
+  const htmlClassName = [
+    className,
+    plusJakartaSans.variable,
+    jetbrainsMono.variable,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <html
       lang={getHtmlLang(locale)}
-      className={className}
+      className={htmlClassName}
       data-theme={dataTheme}
       style={colorScheme ? { colorScheme } : undefined}
       suppressHydrationWarning
     >
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body>
-        <AppSessionProvider session={session}>{children}</AppSessionProvider>
+        <AppSessionProvider session={session} defaultModelId={defaultModelId}>
+          {children}
+        </AppSessionProvider>
       </body>
     </html>
   );

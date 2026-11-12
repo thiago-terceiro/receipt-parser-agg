@@ -84,6 +84,24 @@ describe("ThemeProvider", () => {
         );
     });
 
+    it("skips redundant DOM sync and forced reflow on mount when already synced", () => {
+        (window.localStorage.getItem as jest.Mock).mockReturnValue("dark");
+        document.documentElement.dataset.theme = "dark";
+        document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = "dark";
+
+        const getComputedStyleSpy = jest.spyOn(window, "getComputedStyle");
+
+        render(
+            <ThemeProvider>
+                <div>synced</div>
+            </ThemeProvider>,
+        );
+
+        expect(getComputedStyleSpy).not.toHaveBeenCalled();
+        getComputedStyleSpy.mockRestore();
+    });
+
     it("exports valid isTheme validator and THEME_COOKIE_NAME", () => {
         expect(THEME_COOKIE_NAME).toBe("receipt-ai-theme");
         expect(isTheme("dark")).toBe(true);

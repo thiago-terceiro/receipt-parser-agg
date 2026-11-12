@@ -1,9 +1,14 @@
 import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { getLocaleFromSegment } from "@/lib/i18n/config";
+import {
+  loadLocaleMessages,
+  pickMessageNamespaces,
+} from "@/lib/i18n/dictionaries";
 import { dropdownAvailableModels } from "@/lib/receipt";
 
 import { ReceiptWorkspace } from "../../contents/home/ReceiptWorkspace";
@@ -18,7 +23,15 @@ const HomePage = async ({ params }: HomePageProps) => {
   const { locale } = await params;
   const resolvedLocale = getLocaleFromSegment(locale);
   setRequestLocale(resolvedLocale);
-  const t = await getTranslations({ locale: resolvedLocale, namespace: "home" });
+  const [t, allMessages] = await Promise.all([
+    getTranslations({ locale: resolvedLocale, namespace: "home" }),
+    loadLocaleMessages(resolvedLocale),
+  ]);
+  const homeMessages = pickMessageNamespaces(allMessages, [
+    "common",
+    "receipt",
+    "categories",
+  ]);
 
   return (
     <div className="grid gap-2">
@@ -51,7 +64,9 @@ const HomePage = async ({ params }: HomePageProps) => {
           </Link>
         </Button>
       </section>
-      <ReceiptWorkspace availableModels={dropdownAvailableModels} />
+      <NextIntlClientProvider locale={resolvedLocale} messages={homeMessages}>
+        <ReceiptWorkspace availableModels={dropdownAvailableModels} />
+      </NextIntlClientProvider>
     </div>
   );
 };
