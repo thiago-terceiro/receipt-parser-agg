@@ -73,12 +73,32 @@ type ScopedCacheEntry = {
     expiresAt: number;
 };
 
+const JWT_TTL_SECONDS = 3600;
+const JWT_REFRESH_BUFFER_MS = 60_000;
+const MAX_SCOPED_CLIENT_CACHE_SIZE = 500;
+
 let cachedSupabaseServerClient: SupabaseClient | null = null;
 const scopedClientCache = new Map<string, ScopedCacheEntry>();
 
 export const resetSupabaseServerClientForTesting = () => {
     cachedSupabaseServerClient = null;
     scopedClientCache.clear();
+};
+
+const pruneScopedClientCache = (now: number) => {
+    for (const [key, entry] of scopedClientCache) {
+        if (entry.expiresAt <= now + JWT_REFRESH_BUFFER_MS) {
+            scopedClientCache.delete(key);
+        }
+    }
+
+    while (scopedClientCache.size >= MAX_SCOPED_CLIENT_CACHE_SIZE) {
+        const oldestKey = scopedClientCache.keys().next().value;
+        if (oldestKey === undefined) {
+            break;
+        }
+        scopedClientCache.delete(oldestKey);
+    }
 };
 
 export type UserContext = { userId?: string | null } | string | null | undefined;
@@ -113,23 +133,30 @@ export const getSupabaseServerClient = (userContext?: UserContext): SupabaseClie
         return cachedSupabaseServerClient;
     }
 
+    const now = Date.now();
     const cachedEntry = scopedClientCache.get(userId);
     // Reuse cached client only if token has at least 60s remaining before expiry
-    if (cachedEntry && cachedEntry.expiresAt > Date.now() + 60_000) {
+    if (cachedEntry && cachedEntry.expiresAt > now + JWT_REFRESH_BUFFER_MS) {
+        scopedClientCache.delete(userId);
+        scopedClientCache.set(userId, cachedEntry);
         return cachedEntry.client;
     }
 
     const jwtSecret = resolveEnvValue(["SUPABASE_JWT_SECRET"]);
-    const userJwt = jwtSecret ? createSignedUserJwt(userId, jwtSecret) : null;
-    const expiresAt = jwtSecret ? Date.now() + 3600 * 1000 : Infinity;
+    let currentJwt = jwtSecret
+        ? createSignedUserJwt(userId, jwtSecret, JWT_TTL_SECONDS)
+        : null;
+    let currentJwtExpiresAt = jwtSecret
+        ? now + JWT_TTL_SECONDS * 1000
+        : Infinity;
 
     const headers: Record<string, string> = {
         "X-Client-Info": "receipt-ai/shared-boards",
         "X-App-User-Id": userId,
     };
 
-    if (userJwt) {
-        headers.Authorization = `Bearer ${userJwt}`;
+    if (currentJwt) {
+        headers.Authorization = `Bearer ${currentJwt}`;
     }
 
     const client = createClient(currentUrl, currentKey, {
@@ -137,13 +164,26 @@ export const getSupabaseServerClient = (userContext?: UserContext): SupabaseClie
             autoRefreshToken: false,
             persistSession: false,
         },
-        ...(jwtSecret ? { accessToken: async () => createSignedUserJwt(userId, jwtSecret) } : {}),
+        ...(jwtSecret
+            ? {
+                // Reuse the cached JWT until within the refresh buffer instead of re-signing HMAC on every query.
+                accessToken: async () => {
+                    const currentTime = Date.now();
+                    if (!currentJwt || currentJwtExpiresAt <= currentTime + JWT_REFRESH_BUFFER_MS) {
+                        currentJwt = createSignedUserJwt(userId, jwtSecret, JWT_TTL_SECONDS);
+                        currentJwtExpiresAt = currentTime + JWT_TTL_SECONDS * 1000;
+                    }
+                    return currentJwt;
+                },
+            }
+            : {}),
         global: {
             headers,
         },
     });
 
-    scopedClientCache.set(userId, { client, expiresAt });
+    pruneScopedClientCache(now);
+    scopedClientCache.set(userId, { client, expiresAt: currentJwtExpiresAt });
     return client;
 };
 

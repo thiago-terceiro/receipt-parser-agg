@@ -94,9 +94,9 @@ const createSupabaseError = (error: { message?: string } | null, fallback: strin
     return new BoardRouteError(error?.message || fallback, 500);
 };
 
-const mapBoardSummary = (
+export const mapBoardSummary = (
     board: BoardRecord,
-    membership: BoardMembershipRecord,
+    membership: Pick<BoardMembershipRecord, "role" | "joined_at">,
 ): BoardSummary => {
     return {
         id: board.id,
@@ -258,9 +258,10 @@ const listBoardsForIdentityWithClient = async (
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 };
 
-export const createBoardForIdentity = async (
+const createBoardWithOptions = async (
     identity: AuthenticatedBoardIdentity,
     boardName: unknown,
+    options?: { skipEnsureProfile?: boolean },
 ) => {
     return withSpan("boards.create", async (span) => {
         const normalizedName = normalizeBoardName(boardName);
@@ -276,7 +277,9 @@ export const createBoardForIdentity = async (
         }
 
         const client = getSupabaseServerClient();
-        await ensureBoardProfile(client, identity);
+        if (!options?.skipEnsureProfile) {
+            await ensureBoardProfile(client, identity);
+        }
 
         const { data, error } = await client
             .rpc("create_board_for_user", {
@@ -293,22 +296,39 @@ export const createBoardForIdentity = async (
     });
 };
 
+export const createBoardForIdentity = async (
+    identity: AuthenticatedBoardIdentity,
+    boardName: unknown,
+) => {
+    return createBoardWithOptions(identity, boardName);
+};
+
 export const ensureDefaultBoardForIdentity = async (
     client: SupabaseClient,
     identity: AuthenticatedBoardIdentity,
+    options?: { skipEnsureProfile?: boolean },
 ) => {
-    await createBoardForIdentity(identity, DEFAULT_BOARD_NAME);
+    await createBoardWithOptions(identity, DEFAULT_BOARD_NAME, options);
     return listBoardsForIdentityWithClient(client, identity);
 };
 
 export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity) => {
     return withSpan("boards.list_for_identity", async (span) => {
         const client = getSupabaseServerClient(identity);
-        await ensureBoardProfile(client, identity);
-        let boards = await listBoardsForIdentityWithClient(client, identity);
+        const initialUserId = identity.userId;
+        let [, boards] = await Promise.all([
+            ensureBoardProfile(client, identity),
+            listBoardsForIdentityWithClient(client, identity),
+        ]);
+
+        if (identity.userId !== initialUserId) {
+            boards = await listBoardsForIdentityWithClient(client, identity);
+        }
 
         if (boards.length === 0) {
-            boards = await ensureDefaultBoardForIdentity(client, identity);
+            boards = await ensureDefaultBoardForIdentity(client, identity, {
+                skipEnsureProfile: true,
+            });
         }
 
         span.setAttributes({
@@ -317,6 +337,20 @@ export const listBoardsForIdentity = async (identity: AuthenticatedBoardIdentity
 
         return boards;
     });
+};
+
+const persistLastActiveBoardRpc = async (userId: string, boardId: string) => {
+    const { error } = await getSupabaseServerClient().rpc("set_last_active_board", {
+        p_board_id: boardId,
+        p_user_id: userId,
+    });
+
+    if (error) {
+        throw createSupabaseError(
+            error,
+            "Unable to persist the active board selection.",
+        );
+    }
 };
 
 export const resolveActiveBoardForIdentity = async (
@@ -333,12 +367,26 @@ export const resolveActiveBoardForIdentity = async (
         }
 
         const client = getSupabaseServerClient(identity);
-        let profile = await ensureBoardProfile(client, identity);
-        let boards = await listBoardsForIdentityWithClient(client, identity);
+        const initialUserId = identity.userId;
+        let [profile, boards] = await Promise.all([
+            ensureBoardProfile(client, identity),
+            listBoardsForIdentityWithClient(client, identity),
+        ]);
+
+        if (identity.userId !== initialUserId) {
+            boards = await listBoardsForIdentityWithClient(client, identity);
+        }
 
         if (boards.length === 0) {
-            boards = await ensureDefaultBoardForIdentity(client, identity);
-            profile = await ensureBoardProfile(client, identity);
+            boards = await ensureDefaultBoardForIdentity(client, identity, {
+                skipEnsureProfile: true,
+            });
+            if (boards[0]) {
+                profile = {
+                    ...profile,
+                    last_active_board_id: boards[0].id,
+                };
+            }
         }
 
         if (boards.length === 0) {
@@ -366,7 +414,7 @@ export const resolveActiveBoardForIdentity = async (
         activeBoard ||= boards[0];
 
         if (profile.last_active_board_id !== activeBoard.id) {
-            await setLastActiveBoardForIdentity(identity, activeBoard.id);
+            await persistLastActiveBoardRpc(identity.userId, activeBoard.id);
         }
 
         span.setAttributes({
@@ -431,9 +479,18 @@ export const requireBoardAccess = async (
         }
 
         const client = getSupabaseServerClient(identity);
-        await ensureBoardProfile(client, identity);
+        const initialUserId = identity.userId;
+        const [, initialMembership, board] = await Promise.all([
+            ensureBoardProfile(client, identity),
+            loadMembership(client, identity, boardId),
+            loadBoardRecord(client, boardId),
+        ]);
+        let membership = initialMembership;
 
-        const membership = await loadMembership(client, identity, boardId);
+        if (identity.userId !== initialUserId) {
+            membership = await loadMembership(client, identity, boardId);
+        }
+
         if (!membership) {
             throw new BoardRouteError("You do not have access to that board.", 403);
         }
@@ -445,7 +502,6 @@ export const requireBoardAccess = async (
             );
         }
 
-        const board = await loadBoardRecord(client, boardId);
         if (!board) {
             throw new BoardRouteError("Board not found.", 404);
         }
@@ -468,19 +524,7 @@ export const setLastActiveBoardForIdentity = async (
 ) => {
     return withSpan("boards.set_last_active", async () => {
         const { board } = await requireBoardAccess(identity, boardId);
-
-        const { error } = await getSupabaseServerClient().rpc("set_last_active_board", {
-            p_board_id: board.id,
-            p_user_id: identity.userId,
-        });
-
-        if (error) {
-            throw createSupabaseError(
-                error,
-                "Unable to persist the active board selection.",
-            );
-        }
-
+        await persistLastActiveBoardRpc(identity.userId, board.id);
         return board;
     });
 };
@@ -491,7 +535,9 @@ export const listBoardMembersForIdentity = async (
 ) => {
     return withSpan("boards.members.list", async (span) => {
         const { board, client } = await requireBoardAccess(identity, boardId);
-        const members = await listBoardMembersForResolvedBoard(client, board.id);
+        const members = await listBoardMembersForResolvedBoard(client, board.id, {
+            skipBoardCheck: true,
+        });
 
         span.setAttributes({
             [observabilityAttributes.boardMemberCount]: members.length,
@@ -504,18 +550,25 @@ export const listBoardMembersForIdentity = async (
 export const listBoardMembersForResolvedBoard = async (
     client: SupabaseClient,
     boardId: string,
+    options?: { skipBoardCheck?: boolean },
 ) => {
-    const board = await loadBoardRecord(client, boardId);
+    const membersQuery = client
+        .from("board_members")
+        .select("id, board_id, user_id, role, status, joined_at, created_at, updated_at")
+        .eq("board_id", boardId)
+        .eq("status", "active")
+        .order("joined_at", { ascending: true, nullsFirst: false });
+
+    const [board, membershipResult] = await Promise.all([
+        options?.skipBoardCheck ? Promise.resolve({ id: boardId }) : loadBoardRecord(client, boardId),
+        membersQuery,
+    ]);
+
     if (!board) {
         throw new BoardRouteError("Board not found.", 404);
     }
 
-    const { data: memberships, error: membershipError } = await client
-        .from("board_members")
-        .select("id, board_id, user_id, role, status, joined_at, created_at, updated_at")
-        .eq("board_id", board.id)
-        .eq("status", "active")
-        .order("joined_at", { ascending: true, nullsFirst: false });
+    const { data: memberships, error: membershipError } = membershipResult;
 
     if (membershipError) {
         throw createSupabaseError(
@@ -525,6 +578,10 @@ export const listBoardMembersForResolvedBoard = async (
     }
 
     const membershipRows = (memberships ?? []) as BoardMembershipRecord[];
+    if (membershipRows.length === 0) {
+        return [];
+    }
+
     const userIds = membershipRows.map((membership) => membership.user_id);
 
     const { data: profiles, error: profileError } = await client
@@ -672,62 +729,39 @@ export const getPendingBoardInviteDetails = async (
 
         const client = getSupabaseServerClient();
         const tokenHash = hashInviteTokenForStorage(token.trim());
-        const invite = await loadPendingBoardInviteForToken(client, tokenHash);
+        const { data: existingInvite, error } = await client
+            .from("board_invites")
+            .select("id, board_id, email, role, status, expires_at")
+            .eq("invite_token_hash", tokenHash)
+            .maybeSingle();
 
-        if (!invite) {
-            const { data: existingInvite } = await client
-                .from("board_invites")
-                .select("id, board_id, email, role, status, expires_at")
-                .eq("invite_token_hash", tokenHash)
-                .maybeSingle();
+        if (error) {
+            throw createSupabaseError(error, "Unable to load the board invite.");
+        }
 
-            if (existingInvite) {
-                const isAccepted = existingInvite.status === "accepted";
-                const isExpired =
-                    !isAccepted &&
-                    (existingInvite.status !== "pending" ||
-                        new Date(existingInvite.expires_at).getTime() <= Date.now());
-                const { data: board } = await client
-                    .from("boards")
-                    .select("id, name")
-                    .eq("id", existingInvite.board_id)
-                    .maybeSingle();
-
-                const details: PendingBoardInviteDetails = {
-                    boardId: existingInvite.board_id,
-                    boardName: (board as { name?: string } | null)?.name || "Shared Board",
-                    role: existingInvite.role,
-                    email: existingInvite.email,
-                    status: isAccepted ? "accepted" : isExpired ? "expired" : "pending",
-                    isExpired,
-                    isAccepted,
-                };
-
-                span.setAttributes({
-                    [observabilityAttributes.inviteTokenPresent]: true,
-                    [observabilityAttributes.inviteRole]: details.role,
-                });
-
-                return details;
-            }
-
+        if (!existingInvite) {
             return null;
         }
 
+        const isAccepted = existingInvite.status === "accepted";
+        const isExpired =
+            !isAccepted &&
+            (existingInvite.status !== "pending" ||
+                new Date(existingInvite.expires_at).getTime() <= Date.now());
         const { data: board } = await client
             .from("boards")
             .select("id, name")
-            .eq("id", invite.board_id)
+            .eq("id", existingInvite.board_id)
             .maybeSingle();
 
         const details: PendingBoardInviteDetails = {
-            boardId: invite.board_id,
+            boardId: existingInvite.board_id,
             boardName: (board as { name?: string } | null)?.name || "Shared Board",
-            role: invite.role,
-            email: invite.email,
-            status: "pending",
-            isExpired: false,
-            isAccepted: false,
+            role: existingInvite.role,
+            email: existingInvite.email,
+            status: isAccepted ? "accepted" : isExpired ? "expired" : "pending",
+            isExpired,
+            isAccepted,
         };
 
         span.setAttributes({
@@ -800,10 +834,11 @@ export const acceptBoardInviteForIdentity = async (
         }
 
         const client = getSupabaseServerClient();
-        await ensureBoardProfile(client, identity);
-
         const tokenHash = hashInviteTokenForStorage(token.trim());
-        const invite = await loadPendingBoardInviteForToken(client, tokenHash);
+        const [, invite] = await Promise.all([
+            ensureBoardProfile(client, identity),
+            loadPendingBoardInviteForToken(client, tokenHash),
+        ]);
 
         if (!invite) {
             const { data: existingInvite } = await client
@@ -831,16 +866,17 @@ export const acceptBoardInviteForIdentity = async (
                             );
                         }
 
-                        await client
-                            .from("profiles")
-                            .update({ last_active_board_id: existingInvite.board_id })
-                            .eq("id", identity.userId);
-
-                        const { data: board, error: boardError } = await client
-                            .from("boards")
-                            .select("id, name")
-                            .eq("id", existingInvite.board_id)
-                            .maybeSingle();
+                        const [, { data: board, error: boardError }] = await Promise.all([
+                            client
+                                .from("profiles")
+                                .update({ last_active_board_id: existingInvite.board_id })
+                                .eq("id", identity.userId),
+                            client
+                                .from("boards")
+                                .select("id, name")
+                                .eq("id", existingInvite.board_id)
+                                .maybeSingle(),
+                        ]);
 
                         if (boardError) {
                             throw createSupabaseError(boardError, "Unable to load the board.");
@@ -889,10 +925,17 @@ export const acceptBoardInviteForIdentity = async (
         }
 
         if (existingMember && existingMember.status === "active") {
-            const { error: profileUpdateError } = await client
-                .from("profiles")
-                .update({ last_active_board_id: invite.board_id })
-                .eq("id", identity.userId);
+            const [{ error: profileUpdateError }, { data: board, error: boardError }] = await Promise.all([
+                client
+                    .from("profiles")
+                    .update({ last_active_board_id: invite.board_id })
+                    .eq("id", identity.userId),
+                client
+                    .from("boards")
+                    .select("id, name")
+                    .eq("id", invite.board_id)
+                    .maybeSingle(),
+            ]);
 
             if (profileUpdateError) {
                 throw createSupabaseError(
@@ -900,12 +943,6 @@ export const acceptBoardInviteForIdentity = async (
                     "Unable to persist the active board selection.",
                 );
             }
-
-            const { data: board, error: boardError } = await client
-                .from("boards")
-                .select("id, name")
-                .eq("id", invite.board_id)
-                .maybeSingle();
 
             if (boardError) {
                 throw createSupabaseError(boardError, "Unable to load the board.");
@@ -978,23 +1015,17 @@ export const acceptBoardInviteForIdentity = async (
             throw membershipError;
         }
 
-        const { error: profileUpdateError } = await client
-            .from("profiles")
-            .update({ last_active_board_id: invite.board_id })
-            .eq("id", identity.userId);
-
-        if (profileUpdateError) {
-            throw createSupabaseError(
-                profileUpdateError,
-                "Unable to persist the active board selection.",
-            );
-        }
-
-        const { data: board, error: boardError } = await client
-            .from("boards")
-            .select("id, name")
-            .eq("id", invite.board_id)
-            .maybeSingle();
+        const [, { data: board, error: boardError }] = await Promise.all([
+            client
+                .from("profiles")
+                .update({ last_active_board_id: invite.board_id })
+                .eq("id", identity.userId),
+            client
+                .from("boards")
+                .select("id, name")
+                .eq("id", invite.board_id)
+                .maybeSingle(),
+        ]);
 
         if (boardError) {
             throw createSupabaseError(boardError, "Unable to load the board.");

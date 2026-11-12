@@ -92,33 +92,29 @@ const credentialsConfig = {
         // account or profile already exists with this email or username/id in Supabase.
         // If so, NEVER fall through to synthetic test-user fallback to prevent account takeover.
         const client = getSupabaseServerClient();
-        const { data: profileByEmail } = await client
-          .from("profiles")
-          .select("id")
-          .eq("email", inputUser)
-          .maybeSingle();
+        const [
+          { data: profileByEmail },
+          { data: profileById },
+          { data: credsByEmail },
+        ] = await Promise.all([
+          client
+            .from("profiles")
+            .select("id")
+            .eq("email", inputUser)
+            .maybeSingle(),
+          client
+            .from("profiles")
+            .select("id")
+            .eq("id", inputUser)
+            .maybeSingle(),
+          client
+            .from("user_credentials")
+            .select("id")
+            .eq("email", inputUser)
+            .maybeSingle(),
+        ]);
 
-        if (profileByEmail?.id) {
-          return null;
-        }
-
-        const { data: profileById } = await client
-          .from("profiles")
-          .select("id")
-          .eq("id", inputUser)
-          .maybeSingle();
-
-        if (profileById?.id) {
-          return null;
-        }
-
-        const { data: credsByEmail } = await client
-          .from("user_credentials")
-          .select("id")
-          .eq("email", inputUser)
-          .maybeSingle();
-
-        if (credsByEmail?.id) {
+        if (profileByEmail?.id || profileById?.id || credsByEmail?.id) {
           return null;
         }
       } catch (err) {

@@ -104,12 +104,22 @@ export const registerUser = async ({
 
   const client = getSupabaseServerClient();
 
-  // Check if credentials already exist
-  const { data: existingCreds, error: credsQueryError } = await client
-    .from("user_credentials")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .maybeSingle();
+  // Check in parallel if credentials or an existing OAuth profile already exist for this email
+  const [
+    { data: existingCreds, error: credsQueryError },
+    { data: existingProfile, error: profileQueryError },
+  ] = await Promise.all([
+    client
+      .from("user_credentials")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle(),
+    client
+      .from("profiles")
+      .select("id, display_name")
+      .eq("email", normalizedEmail)
+      .maybeSingle(),
+  ]);
 
   if (credsQueryError) {
     throw new AuthRegistrationError(
@@ -124,13 +134,6 @@ export const registerUser = async ({
       409,
     );
   }
-
-  // Check if profile with email already exists (e.g. from OAuth)
-  const { data: existingProfile, error: profileQueryError } = await client
-    .from("profiles")
-    .select("id, display_name")
-    .eq("email", normalizedEmail)
-    .maybeSingle();
 
   if (profileQueryError) {
     throw new AuthRegistrationError(

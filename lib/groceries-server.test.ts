@@ -4,6 +4,7 @@
 
 import {
     BoardRouteError,
+    listBoardMembersForResolvedBoard,
     requireBoardAccess,
     resolveActiveBoardForIdentity,
 } from "@/lib/boards-server";
@@ -14,10 +15,12 @@ import {
     getLegacyStorageKeyByEmail,
     getReceiptExtractionWriteKey,
     getStorageKeyByUserId,
+    loadGroceriesDashboardData,
     normalizeStorageToken,
     persistExtractedReceipt,
     persistGroceriesEntries,
 } from "@/lib/groceries-server";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 jest.mock("@/lib/boards-server", () => {
     const actual = jest.requireActual("@/lib/boards-server");
@@ -415,6 +418,176 @@ describe("lib/groceries-server", () => {
                     "not-a-uuid",
                 ),
             ).rejects.toThrow("Receipt id is invalid.");
+        });
+
+        it("runs grocery_entries and extracted_receipts deletes concurrently", async () => {
+            const receiptId = sampleEntries[0].receiptId;
+            const activeDeletes: string[] = [];
+            let maxConcurrent = 0;
+
+            const trackDelete = (table: string, data: Array<{ id: string }>) => {
+                activeDeletes.push(table);
+                maxConcurrent = Math.max(maxConcurrent, activeDeletes.length);
+                return new Promise<{ data: Array<{ id: string }>; error: null }>((resolve) => {
+                    setImmediate(() => {
+                        const idx = activeDeletes.indexOf(table);
+                        if (idx >= 0) activeDeletes.splice(idx, 1);
+                        resolve({ data, error: null });
+                    });
+                });
+            };
+
+            const mockClient = {
+                from: jest.fn((table: string) => ({
+                    delete: jest.fn(() => ({
+                        eq: jest.fn(() => ({
+                            eq: jest.fn(() => ({
+                                select: () =>
+                                    trackDelete(
+                                        table,
+                                        table === "grocery_entries"
+                                            ? [{ id: "e1" }]
+                                            : [{ id: receiptId }],
+                                    ),
+                            })),
+                        })),
+                    })),
+                })),
+            };
+
+            mockRequireBoardAccess.mockResolvedValueOnce({
+                board: boardRecord,
+                client: mockClient as never,
+                membership: {
+                    id: "member-1",
+                    board_id: boardRecord.id,
+                    user_id: testIdentity.userId,
+                    role: "owner",
+                    status: "active",
+                    joined_at: boardRecord.created_at,
+                    created_at: boardRecord.created_at,
+                    updated_at: boardRecord.updated_at,
+                },
+            });
+
+            await deleteSavedReceipt(testIdentity, activeBoardSummary.id, receiptId);
+            expect(maxConcurrent).toBe(2);
+        });
+    });
+
+    describe("round-trip deduplication", () => {
+        it("skips resolveActiveBoardForIdentity when requestedBoardId is explicitly passed to persistGroceriesEntries", async () => {
+            const mockClient = {
+                from: jest.fn((table: string) => {
+                    if (table === "grocery_entries") {
+                        return {
+                            select: jest.fn(() => ({
+                                eq: jest.fn(() => ({
+                                    gte: jest.fn(() => ({
+                                        lt: jest.fn().mockResolvedValue({ data: [], error: null }),
+                                    })),
+                                })),
+                            })),
+                            insert: jest.fn().mockResolvedValue({ error: null }),
+                        };
+                    }
+                    if (table === "extracted_receipts") {
+                        return {
+                            insert: jest.fn().mockResolvedValue({ error: null }),
+                        };
+                    }
+                    throw new Error(`Unexpected table ${table}`);
+                }),
+            };
+
+            mockRequireBoardAccess.mockResolvedValueOnce({
+                board: boardRecord,
+                client: mockClient as never,
+                membership: {
+                    id: "member-1",
+                    board_id: boardRecord.id,
+                    user_id: testIdentity.userId,
+                    role: "owner",
+                    status: "active",
+                    joined_at: boardRecord.created_at,
+                    created_at: boardRecord.created_at,
+                    updated_at: boardRecord.updated_at,
+                },
+            });
+
+            await persistGroceriesEntries(testIdentity, activeBoardSummary.id, sampleEntries);
+
+            expect(mockRequireBoardAccess).toHaveBeenCalledTimes(1);
+            expect(mockResolveActiveBoard).not.toHaveBeenCalled();
+        });
+
+        it("skips requireBoardAccess when requestedBoardId is omitted on persistExtractedReceipt", async () => {
+            const mockReceiptInsert = jest.fn().mockResolvedValue({ error: null });
+            (getSupabaseServerClient as jest.Mock).mockReturnValueOnce({
+                from: jest.fn(() => ({
+                    insert: mockReceiptInsert,
+                })),
+            });
+
+            const res = await persistExtractedReceipt(testIdentity, undefined, {
+                id: sampleEntries[0].receiptId,
+                month: "2026-04",
+                currencyCode: "EUR",
+                sourceFileName: "bakery.jpg",
+                modelId: "test-model",
+                extractedAt: "2026-04-15T10:00:00.000Z",
+                itemCount: 1,
+                total: 4.5,
+                categories: ["bakery"],
+                items: [],
+            });
+
+            expect(res.activeBoard.id).toBe(activeBoardSummary.id);
+            expect(mockResolveActiveBoard).toHaveBeenCalledTimes(1);
+            expect(mockRequireBoardAccess).not.toHaveBeenCalled();
+        });
+
+        it("loadGroceriesDashboardData skips duplicate board existence check in listBoardMembersForResolvedBoard", async () => {
+            const mockClient = {
+                from: jest.fn((table: string) => {
+                    if (table === "grocery_entries") {
+                        return {
+                            select: jest.fn(() => ({
+                                eq: jest.fn(() => ({
+                                    gte: jest.fn(() => ({
+                                        lt: jest.fn(() => ({
+                                            order: jest.fn(() => ({
+                                                order: jest.fn().mockResolvedValue({ data: [], error: null }),
+                                            })),
+                                        })),
+                                    })),
+                                })),
+                            })),
+                        };
+                    }
+                    if (table === "extracted_receipts") {
+                        return {
+                            select: jest.fn(() => ({
+                                eq: jest.fn(() => ({
+                                    eq: jest.fn(() => ({
+                                        order: jest.fn().mockResolvedValue({ data: [], error: null }),
+                                    })),
+                                })),
+                            })),
+                        };
+                    }
+                    throw new Error(`Unexpected table ${table}`);
+                }),
+            };
+            (getSupabaseServerClient as jest.Mock).mockReturnValueOnce(mockClient);
+
+            await loadGroceriesDashboardData(testIdentity, "2026-04", activeBoardSummary.id);
+
+            expect(listBoardMembersForResolvedBoard).toHaveBeenCalledWith(
+                mockClient,
+                activeBoardSummary.id,
+                { skipBoardCheck: true },
+            );
         });
     });
 });

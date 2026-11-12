@@ -178,4 +178,58 @@ describe("lib/supabase-server", () => {
             dateSpy.mockRestore();
         }
     });
+
+    it("reuses the cached JWT inside accessToken() across queries until near expiry", async () => {
+        process.env.SUPABASE_URL = "https://example.supabase.co";
+        process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-service-role-key";
+        process.env.SUPABASE_JWT_SECRET = "super-secret-jwt-key";
+
+        const { getScopedSupabaseServerClient, resetSupabaseServerClientForTesting } =
+            await import("./supabase-server");
+
+        resetSupabaseServerClientForTesting();
+
+        const baseNow = 1_700_000_000_000;
+        const dateSpy = jest.spyOn(Date, "now").mockReturnValue(baseNow);
+        try {
+            getScopedSupabaseServerClient({ userId: "user-token-cache" });
+            const clientOptions = mockCreateClient.mock.calls[0]?.[2] as {
+                accessToken?: () => Promise<string>;
+            };
+            expect(typeof clientOptions?.accessToken).toBe("function");
+
+            const firstToken = await clientOptions.accessToken!();
+            dateSpy.mockReturnValue(baseNow + 5_000);
+            const secondToken = await clientOptions.accessToken!();
+
+            expect(secondToken).toBe(firstToken);
+
+            // Once within the 60s refresh buffer, accessToken() mints a fresh JWT
+            dateSpy.mockReturnValue(baseNow + 3_550 * 1000);
+            const refreshedToken = await clientOptions.accessToken!();
+            expect(refreshedToken).not.toBe(firstToken);
+        } finally {
+            dateSpy.mockRestore();
+        }
+    });
+
+    it("bounds scopedClientCache size to prevent unbounded memory growth", async () => {
+        process.env.SUPABASE_URL = "https://example.supabase.co";
+        process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-service-role-key";
+        delete process.env.SUPABASE_JWT_SECRET;
+
+        const { getScopedSupabaseServerClient, resetSupabaseServerClientForTesting } =
+            await import("./supabase-server");
+
+        resetSupabaseServerClientForTesting();
+
+        for (let i = 0; i < 505; i++) {
+            getScopedSupabaseServerClient({ userId: `bounded-user-${i}` });
+        }
+
+        // Oldest user ("bounded-user-0") was evicted once cache exceeded 500 entries
+        const callsBefore = mockCreateClient.mock.calls.length;
+        getScopedSupabaseServerClient({ userId: "bounded-user-0" });
+        expect(mockCreateClient).toHaveBeenCalledTimes(callsBefore + 1);
+    });
 });

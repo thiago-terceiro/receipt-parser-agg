@@ -2,6 +2,7 @@ import {
     type ActiveBoardSelection,
     BoardRouteError,
     listBoardMembersForResolvedBoard,
+    mapBoardSummary,
     requireBoardAccess,
     resolveActiveBoardForIdentity,
 } from "@/lib/boards-server";
@@ -189,7 +190,9 @@ export const loadGroceriesDashboardData = async (
         const [entries, extractedReceipts, members] = await Promise.all([
             loadSupabaseGroceriesEntriesForBoard(client, activeBoardId, month),
             loadSupabaseExtractedReceiptsForBoard(client, activeBoardId, month),
-            listBoardMembersForResolvedBoard(client, activeBoardId),
+            listBoardMembersForResolvedBoard(client, activeBoardId, {
+                skipBoardCheck: true,
+            }),
         ]);
 
         return {
@@ -412,6 +415,38 @@ const loadSupabaseExtractedReceiptsForBoard = async (
     );
 };
 
+const resolveWritableBoardContext = async (
+    identity: SessionIdentity & { userId: string },
+    requestedBoardId: unknown,
+) => {
+    if (requestedBoardId != null) {
+        const { board, client, membership } = await requireBoardAccess(
+            identity,
+            requestedBoardId,
+            ["owner", "editor"],
+        );
+        return {
+            activeBoard: mapBoardSummary(board, membership),
+            boardId: board.id,
+            client,
+        };
+    }
+
+    const selection = await resolveBoardSelection(identity, undefined);
+    if (!["owner", "editor"].includes(selection.activeBoard.role)) {
+        throw new BoardRouteError(
+            "You do not have permission to perform that board action.",
+            403,
+        );
+    }
+
+    return {
+        activeBoard: selection.activeBoard,
+        boardId: selection.activeBoard.id,
+        client: getSupabaseServerClient(identity),
+    };
+};
+
 export const persistGroceriesEntries = async (
     identity: SessionIdentity | null,
     requestedBoardId: unknown,
@@ -422,14 +457,9 @@ export const persistGroceriesEntries = async (
     }
 
     const authenticatedIdentity = asAuthenticatedIdentity(identity);
-    const selection = await resolveBoardSelection(
+    const { activeBoard, boardId, client } = await resolveWritableBoardContext(
         authenticatedIdentity,
         requestedBoardId,
-    );
-    const { board, client } = await requireBoardAccess(
-        authenticatedIdentity,
-        selection.activeBoard.id,
-        ["owner", "editor"],
     );
     const receiptCurrencyCode = getSingleCurrencyCode(
         entries.map((entry) => entry.currencyCode),
@@ -443,7 +473,7 @@ export const persistGroceriesEntries = async (
     const { data: existingCurrencyRows, error: existingCurrencyError } = await client
         .from("grocery_entries")
         .select("currency_code")
-        .eq("board_id", board.id)
+        .eq("board_id", boardId)
         .gte("purchase_date", start.toISOString())
         .lt("purchase_date", nextMonthStart);
 
@@ -472,7 +502,7 @@ export const persistGroceriesEntries = async (
 
     const insertPayload = entries.map((entry) => ({
         id: entry.id,
-        board_id: board.id,
+        board_id: boardId,
         created_by_user_id: authenticatedIdentity.userId,
         receipt_id: entry.receiptId,
         currency_code: entry.currencyCode,
@@ -498,7 +528,7 @@ export const persistGroceriesEntries = async (
     if (receiptSummaries.length > 0) {
         const receiptInsertPayload = receiptSummaries.map((summary) => ({
             id: summary.id,
-            board_id: board.id,
+            board_id: boardId,
             created_by_user_id: authenticatedIdentity.userId,
             month: summary.month,
             currency_code: summary.currencyCode,
@@ -520,7 +550,7 @@ export const persistGroceriesEntries = async (
             await client
                 .from("grocery_entries")
                 .delete()
-                .eq("board_id", board.id)
+                .eq("board_id", boardId)
                 .in(
                     "receipt_id",
                     receiptSummaries.map((summary) => summary.id),
@@ -532,7 +562,7 @@ export const persistGroceriesEntries = async (
     }
 
     return {
-        activeBoard: selection.activeBoard,
+        activeBoard,
         savedCount: entries.length,
     };
 };
@@ -543,19 +573,14 @@ export const persistExtractedReceipt = async (
     extraction: ExtractedReceipt,
 ) => {
     const authenticatedIdentity = asAuthenticatedIdentity(identity);
-    const selection = await resolveBoardSelection(
+    const { activeBoard, boardId, client } = await resolveWritableBoardContext(
         authenticatedIdentity,
         requestedBoardId,
-    );
-    const { board, client } = await requireBoardAccess(
-        authenticatedIdentity,
-        selection.activeBoard.id,
-        ["owner", "editor"],
     );
 
     const { error } = await client.from("extracted_receipts").insert({
         id: extraction.id,
-        board_id: board.id,
+        board_id: boardId,
         created_by_user_id: authenticatedIdentity.userId,
         month: extraction.month,
         currency_code: extraction.currencyCode,
@@ -574,7 +599,7 @@ export const persistExtractedReceipt = async (
     }
 
     return {
-        activeBoard: selection.activeBoard,
+        activeBoard,
     };
 };
 
@@ -591,23 +616,27 @@ export const deleteSavedReceipt = async (
         ["owner", "editor"],
     );
 
-    const { data: deletedEntries, error: entriesError } = await client
-        .from("grocery_entries")
-        .delete()
-        .eq("board_id", board.id)
-        .eq("receipt_id", normalizedReceiptId)
-        .select("id");
+    const [
+        { data: deletedEntries, error: entriesError },
+        { data: deletedReceipts, error: receiptsError },
+    ] = await Promise.all([
+        client
+            .from("grocery_entries")
+            .delete()
+            .eq("board_id", board.id)
+            .eq("receipt_id", normalizedReceiptId)
+            .select("id"),
+        client
+            .from("extracted_receipts")
+            .delete()
+            .eq("board_id", board.id)
+            .eq("id", normalizedReceiptId)
+            .select("id"),
+    ]);
 
     if (entriesError) {
         throw new Error(entriesError.message || "Unable to delete grocery entries.");
     }
-
-    const { data: deletedReceipts, error: receiptsError } = await client
-        .from("extracted_receipts")
-        .delete()
-        .eq("board_id", board.id)
-        .eq("id", normalizedReceiptId)
-        .select("id");
 
     if (receiptsError) {
         throw new Error(receiptsError.message || "Unable to delete receipt history.");
