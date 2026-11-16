@@ -11,6 +11,13 @@ export type LocaleMessageDictionary =
 
 export type MessageNamespace = keyof typeof enMessages;
 
+export const routeMessageNamespaces = {
+  layout: ["locales", "common", "theme", "auth"],
+  home: ["common", "receipt", "categories"],
+  groceries: ["common", "groceries", "categories", "receipt"],
+  invite: ["locales", "common", "theme", "auth", "invite", "groceries"],
+} as const satisfies Record<string, readonly MessageNamespace[]>;
+
 export const loadLocaleMessages = async (
   locale: AppLocale,
 ): Promise<LocaleMessageDictionary> => {

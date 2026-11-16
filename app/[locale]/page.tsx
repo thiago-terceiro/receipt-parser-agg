@@ -8,6 +8,7 @@ import { getLocaleFromSegment } from "@/lib/i18n/config";
 import {
   loadLocaleMessages,
   pickMessageNamespaces,
+  routeMessageNamespaces,
 } from "@/lib/i18n/dictionaries";
 import { dropdownAvailableModels } from "@/lib/receipt";
 
@@ -27,11 +28,10 @@ const HomePage = async ({ params }: HomePageProps) => {
     getTranslations({ locale: resolvedLocale, namespace: "home" }),
     loadLocaleMessages(resolvedLocale),
   ]);
-  const homeMessages = pickMessageNamespaces(allMessages, [
-    "common",
-    "receipt",
-    "categories",
-  ]);
+  const homeMessages = pickMessageNamespaces(
+    allMessages,
+    routeMessageNamespaces.home,
+  );
 
   return (
     <div className="grid gap-2">

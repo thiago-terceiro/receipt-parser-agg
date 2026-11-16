@@ -15,6 +15,7 @@ import {
 import {
   loadLocaleMessages,
   pickMessageNamespaces,
+  routeMessageNamespaces,
 } from "@/lib/i18n/dictionaries";
 
 import type { Metadata } from "next";
@@ -89,12 +90,10 @@ const LocaleLayout = async ({ children, params }: LocaleLayoutProps) => {
   );
 
   const allMessages = await loadLocaleMessages(resolvedLocale);
-  const layoutMessages = pickMessageNamespaces(allMessages, [
-    "locales",
-    "common",
-    "theme",
-    "auth",
-  ]);
+  const layoutMessages = pickMessageNamespaces(
+    allMessages,
+    routeMessageNamespaces.layout,
+  );
 
   return (
     <NextIntlClientProvider locale={resolvedLocale} messages={layoutMessages}>
