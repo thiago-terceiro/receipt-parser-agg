@@ -48,6 +48,7 @@ const parseRateLimitDuration = (
 
 let registerLimiterInstance: Ratelimit | null | undefined;
 let otelLimiterInstance: Ratelimit | null | undefined;
+let mcpLimiterInstance: Ratelimit | null | undefined;
 
 export const getRegisterRateLimiter = (): Ratelimit | null => {
   if (registerLimiterInstance !== undefined) {
@@ -111,6 +112,37 @@ export const getOtelRateLimiter = (): Ratelimit | null => {
   return otelLimiterInstance;
 };
 
+export const getMcpRateLimiter = (): Ratelimit | null => {
+  if (mcpLimiterInstance !== undefined) {
+    return mcpLimiterInstance;
+  }
+  if (!hasRedisConfig || !redis) {
+    mcpLimiterInstance = null;
+    return null;
+  }
+  const requests = parsePositiveInteger(
+    resolveEnvValue([
+      "MCP_RATE_LIMIT_REQUESTS",
+      "RECEIPT_AGG_MCP_RATE_LIMIT_REQUESTS",
+    ]),
+    30,
+  );
+  const window = parseRateLimitDuration(
+    resolveEnvValue([
+      "MCP_RATE_LIMIT_WINDOW",
+      "RECEIPT_AGG_MCP_RATE_LIMIT_WINDOW",
+    ]),
+    "1 m",
+  );
+  mcpLimiterInstance = new Ratelimit({
+    analytics: true,
+    limiter: Ratelimit.slidingWindow(requests, window),
+    prefix: "receipt-ai:mcp-rate-limit",
+    redis,
+  });
+  return mcpLimiterInstance;
+};
+
 export const checkRegisterRateLimit = async (
   request: Request,
 ): Promise<RateLimitResult | null> => {
@@ -151,6 +183,28 @@ export const checkOtelRateLimit = async (
     };
   } catch (error) {
     console.warn("[rate-limit] OTel rate limit check failed, failing open:", error);
+    return null;
+  }
+};
+
+export const checkMcpRateLimit = async (
+  request: Request,
+): Promise<RateLimitResult | null> => {
+  const limiter = getMcpRateLimiter();
+  if (!limiter) {
+    return null;
+  }
+  const clientIp = getClientIpAddress(request) || "anonymous";
+  try {
+    const result = await limiter.limit(`ip:${clientIp}`);
+    return {
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+      success: result.success,
+    };
+  } catch (error) {
+    console.warn("[rate-limit] MCP rate limit check failed, failing open:", error);
     return null;
   }
 };

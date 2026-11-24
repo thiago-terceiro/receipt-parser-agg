@@ -1,8 +1,10 @@
 #!/usr/bin/env sh
 
-command -v corepack >/dev/null 2>&1 || {
-	echo "corepack is required to run pnpm in Git hooks."
+if command -v pnpm >/dev/null 2>&1; then
+	pnpm run ci:verify
+elif command -v corepack >/dev/null 2>&1; then
+	corepack pnpm run ci:verify
+else
+	echo "pnpm or corepack is required to run Git hooks."
 	exit 127
-}
-
-corepack pnpm run ci:verify
+fi

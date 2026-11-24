@@ -37,22 +37,24 @@ Uploads a receipt image (PNG, JPEG, WebP) or document (PDF) and extracts structu
 {
   "backend": "gemini",
   "currencyCode": "EUR",
-  "purchaseDate": "2026-10-24T14:32:00Z",
+  "purchaseDate": "2026-10-24",
   "modelId": "gemini-flash-latest",
   "items": [
     {
-      "name": "Organic Whole Milk 1L",
-      "price": 1.49,
+      "item": "Organic Whole Milk 1L",
+      "normalizedItem": "organic whole milk 1l",
+      "category": "dairy",
       "quantity": 2,
-      "category": "Dairy",
-      "confidence": 0.98
+      "unitPrice": 1.49,
+      "lineTotal": 2.98
     },
     {
-      "name": "Sourdough Bread",
-      "price": 3.20,
+      "item": "Sourdough Bread",
+      "normalizedItem": "sourdough bread",
+      "category": "bakery",
       "quantity": 1,
-      "category": "Bakery",
-      "confidence": 0.95
+      "unitPrice": 3.2,
+      "lineTotal": 3.2
     }
   ],
   "rawResponse": "{\"currencyCode\":\"EUR\",...}"
@@ -60,32 +62,36 @@ Uploads a receipt image (PNG, JPEG, WebP) or document (PDF) and extracts structu
 ```
 
 #### Error Codes:
-- `400 Bad Request`: Missing file, unsupported MIME type, or invalid multipart form.
-- `413 Payload Too Large`: Upload exceeds the 10 MB limit or PDF exceeds 5 pages.
+- `400 Bad Request`: Missing file, unsupported MIME type / disguised SVG or HTML markup, PDF exceeding 5 pages, or invalid multipart form.
+- `413 Payload Too Large`: Upload exceeds the 10 MB file limit (12 MB multipart body cap).
 - `429 Too Many Requests`: Rate limit exceeded. Returns `Retry-After` header.
-- `502 Bad Gateway`: Upstream AI model error or temporary capacity spike.
+- `499 Client Closed Request`: Extraction aborted by caller `AbortSignal`.
+- `502 Bad Gateway`: Upstream AI model error, safety filter block, or token limit truncation.
+- `504 Gateway Timeout`: Upstream AI inference exceeded per-call timeout (`45s` default).
 
 ---
 
-### 2.2 Shared Boards API (`/api/boards`)
-Manages multi-tenant collaborative boards for receipt expenses.
+### 2.2 Shared Boards & Expenses API (`/api/boards`, `/api/expenses`)
+Manages multi-tenant collaborative boards and persisted grocery expenses.
 
 - **`GET /api/boards`**: Lists all active boards where the authenticated user has membership (`owner`, `editor`, `viewer`).
 - **`POST /api/boards`**: Creates a new board (`{ "name": "Family Groceries" }`). Automatically assigns the caller as `owner`.
-- **`GET /api/boards/[boardId]`**: Retrieves board summary, total spent, and members.
+- **`POST /api/boards/active`**: Sets the active board for the authenticated user (`{ "boardId": "<uuid>" }`).
+- **`GET /api/boards/[boardId]/members`**: Lists members and roles for a specific board.
 - **`POST /api/boards/[boardId]/invites`**: Generates a cryptographically hashed invite link (`{ "email": "roommate@example.com", "role": "editor" }`).
 - **`POST /api/invites/accept`**: Accepts a pending board invite token.
+- **`GET /api/expenses` / `POST /api/expenses` / `DELETE /api/expenses`**: Loads, saves, or deletes monthly categorized grocery receipt items scoped to a board.
 
 ---
 
-### 2.3 Remote Model Context Protocol Server (`/api/mcp/sse`)
-Provides an agent-native interface compliant with Anthropic's Model Context Protocol (MCP).
+### 2.3 Remote Model Context Protocol Server (`/api/mcp/sse`, `/api/mcp/messages`)
+Provides an agent-native interface compliant with the Model Context Protocol (MCP `2024-11-05`) and `.well-known/mcp.json` discovery.
 
-- **Transport**: Server-Sent Events (`GET /api/mcp/sse`) + JSON-RPC HTTP POST (`POST /api/mcp/messages`).
+- **Transport**: Server-Sent Events (`GET /api/mcp/sse`) + JSON-RPC 2.0 HTTP POST (`POST /api/mcp/messages`).
 - **Available Tools**:
-  1. `extract_receipt`: Directly extract items from base64 image or PDF data.
-  2. `list_boards`: Query accessible shared boards.
-  3. `get_board_summary`: Fetch grocery items and total spend for a specific board.
+  1. `extract_receipt`: Validates base64 receipt image/PDF payloads, MIME types, and Gemini vision model selection for OCR extraction.
+  2. `calculate_budget_split`: Computes equal household expense splits and rounded per-category totals across members.
+  3. `get_mcp_capabilities`: Returns MCP server version metadata, supported tool names, and manifest links.
 
 ---
 
@@ -93,14 +99,26 @@ Provides an agent-native interface compliant with Anthropic's Model Context Prot
 
 ### 3.1 Receipt Line Item (`ReceiptItem`)
 ```typescript
+export type GroceryCategory =
+  | "produce"
+  | "dairy"
+  | "bakery"
+  | "meat"
+  | "pantry"
+  | "frozen"
+  | "beverages"
+  | "snacks"
+  | "household"
+  | "personal-care"
+  | "other";
+
 export interface ReceiptItem {
-  id?: string;
-  name: string;
-  price: number;
+  item: string;
+  normalizedItem: string;
+  category: GroceryCategory;
   quantity: number;
-  category: "Produce" | "Dairy" | "Meat" | "Bakery" | "Beverages" | "Pantry" | "Household" | "Personal Care" | "Other";
-  confidence?: number;
-  notes?: string;
+  unitPrice: number;
+  lineTotal: number;
 }
 ```
 

@@ -3,6 +3,27 @@
  * Implements the standard JSON-RPC 2.0 protocol over HTTP/SSE for remote web tools.
  */
 
+import { resolveRequestedModelId } from "@/lib/receipt";
+import {
+  isSupportedReceiptUpload,
+  maxReceiptFileSizeBytes,
+} from "@/lib/receipt-upload";
+import { stripInvisibleCharacters } from "@/lib/security-sanitizer";
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+export const MAX_MCP_IMAGE_BASE64_LENGTH = Math.ceil(
+  (maxReceiptFileSizeBytes * 4) / 3,
+);
+export const MAX_MCP_BUDGET_ITEMS = 500;
+
+const FORBIDDEN_CATEGORY_KEYS = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
 export interface McpToolDefinition {
   name: string;
   description: string;
@@ -104,7 +125,18 @@ export type JsonRpcResponse = {
 export const handleMcpRequest = async (
   request: JsonRpcRequest,
 ): Promise<JsonRpcResponse> => {
-  const { id = null, method, params = {} } = request;
+  const { id = null, method } = request;
+  if (request.params !== undefined && !isPlainObject(request.params)) {
+    return {
+      jsonrpc: "2.0",
+      id,
+      error: {
+        code: -32602,
+        message: "Invalid params: params must be an object",
+      },
+    };
+  }
+  const params = request.params ?? {};
 
   switch (method) {
     case "initialize": {
@@ -144,25 +176,129 @@ export const handleMcpRequest = async (
     }
 
     case "tools/call": {
-      const toolName = params.name as string;
-      const toolArguments = (params.arguments || {}) as Record<string, unknown>;
+      if (typeof params.name !== "string" || !params.name.trim()) {
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: {
+            code: -32602,
+            message: "Invalid params: tool name must be a non-empty string",
+          },
+        };
+      }
+      if (
+        params.arguments !== undefined &&
+        !isPlainObject(params.arguments)
+      ) {
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: {
+            code: -32602,
+            message: "Invalid params: tool arguments must be an object",
+          },
+        };
+      }
+      const toolName = params.name;
+      const toolArguments = params.arguments ?? {};
 
       if (toolName === "calculate_budget_split") {
-        const rawItems = (toolArguments.items as Array<{ price: number; quantity?: number; category?: string; name: string }>) || [];
-        const memberCount = Math.max(1, Number(toolArguments.memberCount) || 1);
+        if (!Array.isArray(toolArguments.items)) {
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: {
+              code: -32602,
+              message: "Invalid params: items must be an array",
+            },
+          };
+        }
 
-        const totalSpent = rawItems.reduce((acc, item) => {
-          const qty = item.quantity && Number.isFinite(item.quantity) ? item.quantity : 1;
-          return acc + Number(item.price || 0) * qty;
-        }, 0);
+        if (toolArguments.items.length > MAX_MCP_BUDGET_ITEMS) {
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: {
+              code: -32602,
+              message: `Invalid params: items cannot exceed ${MAX_MCP_BUDGET_ITEMS} entries`,
+            },
+          };
+        }
 
-        const perPersonShare = Math.round((totalSpent / memberCount) * 100) / 100;
-        const categoryTotals = rawItems.reduce((acc, item) => {
-          const cat = item.category || "Uncategorized";
-          const qty = item.quantity && Number.isFinite(item.quantity) ? item.quantity : 1;
-          acc[cat] = (acc[cat] || 0) + Number(item.price || 0) * qty;
-          return acc;
-        }, {} as Record<string, number>);
+        const rawMemberCount =
+          toolArguments.memberCount === undefined
+            ? 1
+            : Number(toolArguments.memberCount);
+        if (!Number.isFinite(rawMemberCount) || rawMemberCount < 1) {
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: {
+              code: -32602,
+              message: "Invalid params: memberCount must be a positive number",
+            },
+          };
+        }
+
+        const memberCount = Math.floor(rawMemberCount);
+        const rawItems = toolArguments.items as Array<{
+          price?: unknown;
+          quantity?: unknown;
+          category?: unknown;
+          name?: unknown;
+        }>;
+
+        const categoryTotalsMap: Record<string, number> = Object.create(null);
+        let totalSpent = 0;
+
+        for (const item of rawItems) {
+          if (!item || typeof item !== "object") {
+            return {
+              jsonrpc: "2.0",
+              id,
+              error: {
+                code: -32602,
+                message: "Invalid params: each item must be an object",
+              },
+            };
+          }
+
+          const price = Number(item.price ?? 0);
+          const qty =
+            item.quantity === undefined || item.quantity === null
+              ? 1
+              : Number(item.quantity);
+
+          if (!Number.isFinite(price) || price < 0 || !Number.isFinite(qty) || qty <= 0) {
+            return {
+              jsonrpc: "2.0",
+              id,
+              error: {
+                code: -32602,
+                message: "Invalid params: item price and quantity must be valid positive numbers",
+              },
+            };
+          }
+
+          const rawCategory =
+            typeof item.category === "string"
+              ? stripInvisibleCharacters(item.category).trim()
+              : "";
+          const safeCategory =
+            !rawCategory || FORBIDDEN_CATEGORY_KEYS.has(rawCategory.toLowerCase())
+              ? "Uncategorized"
+              : rawCategory;
+
+          const lineTotal = price * qty;
+          totalSpent += lineTotal;
+          categoryTotalsMap[safeCategory] =
+            Math.round(((categoryTotalsMap[safeCategory] ?? 0) + lineTotal) * 100) /
+            100;
+        }
+
+        const roundedTotalSpent = Math.round(totalSpent * 100) / 100;
+        const perPersonShare = Math.round((roundedTotalSpent / memberCount) * 100) / 100;
+        const categoryTotals: Record<string, number> = { ...categoryTotalsMap };
 
         return {
           jsonrpc: "2.0",
@@ -172,7 +308,7 @@ export const handleMcpRequest = async (
               {
                 type: "text",
                 text: JSON.stringify({
-                  totalSpent: Math.round(totalSpent * 100) / 100,
+                  totalSpent: roundedTotalSpent,
                   memberCount,
                   perPersonShare,
                   categoryTotals,
@@ -203,7 +339,10 @@ export const handleMcpRequest = async (
       }
 
       if (toolName === "extract_receipt") {
-        const imageBase64 = toolArguments.imageBase64 as string;
+        const imageBase64 =
+          typeof toolArguments.imageBase64 === "string"
+            ? toolArguments.imageBase64.trim()
+            : "";
         if (!imageBase64) {
           return {
             jsonrpc: "2.0",
@@ -214,6 +353,37 @@ export const handleMcpRequest = async (
             },
           };
         }
+
+        if (imageBase64.length > MAX_MCP_IMAGE_BASE64_LENGTH) {
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: {
+              code: -32602,
+              message: "Invalid params: imageBase64 exceeds 10 MB limit",
+            },
+          };
+        }
+
+        if (toolArguments.mimeType !== undefined) {
+          if (
+            typeof toolArguments.mimeType !== "string" ||
+            !isSupportedReceiptUpload({ type: toolArguments.mimeType })
+          ) {
+            return {
+              jsonrpc: "2.0",
+              id,
+              error: {
+                code: -32602,
+                message: "Invalid params: mimeType must be a supported image or PDF MIME type",
+              },
+            };
+          }
+        }
+
+        const resolvedModelId = resolveRequestedModelId({
+          selectedModelId: toolArguments.modelId,
+        });
 
         return {
           jsonrpc: "2.0",
@@ -226,6 +396,7 @@ export const handleMcpRequest = async (
                   status: "ready_for_extraction",
                   message: "Receipt payload received for Gemini Flash extraction. Pass to /api/extract for multipart handling.",
                   bytesReceived: imageBase64.length,
+                  modelId: resolvedModelId,
                 }),
               },
             ],

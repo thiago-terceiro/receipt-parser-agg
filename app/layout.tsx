@@ -110,7 +110,7 @@ const RootLayout = async ({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script>{themeBootScript}</script>
       </head>
       <body>
         <AppSessionProvider session={session} defaultModelId={defaultModelId}>

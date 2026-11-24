@@ -163,14 +163,22 @@ export const checkReceiptExtractionRateLimit = async (
         return null;
     }
 
-    const result = await extractRateLimiter.limit(
-        buildReceiptExtractionRateLimitKey(request, identity),
-    );
+    try {
+        const result = await extractRateLimiter.limit(
+            buildReceiptExtractionRateLimitKey(request, identity),
+        );
 
-    return {
-        limit: result.limit,
-        remaining: result.remaining,
-        reset: result.reset,
-        success: result.success,
-    };
+        return {
+            limit: result.limit,
+            remaining: result.remaining,
+            reset: result.reset,
+            success: result.success,
+        };
+    } catch (error) {
+        console.warn(
+            "[rate-limit] Receipt extraction rate limit check failed, failing open:",
+            error,
+        );
+        return null;
+    }
 };

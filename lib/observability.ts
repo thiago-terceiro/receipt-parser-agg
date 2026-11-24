@@ -9,7 +9,8 @@ import { observabilityAttributes } from "@/lib/observability-schema";
 
 const tracer = trace.getTracer("receipt-ai.app");
 
-const CREDIT_CARD_REGEX = /\b(?:\d[ -]*?){13,16}\b/g;
+const CREDIT_CARD_REGEX = /\b\d(?:[ -]?\d){12,18}\b/g;
+const CVV_LABEL_REGEX = /\b(?:cvv2?|cvc2?|cid)\s*[:#=-]?\s*\d{3,4}\b/gi;
 const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 const BEARER_TOKEN_REGEX = /Bearer\s+[A-Za-z0-9_\-\.]+/gi;
 const API_KEY_REGEX = /(?:api[-_]?key|secret|token)["']?\s*[:=]\s*["']?[\w\-]{8,}["']?/gi;
@@ -19,7 +20,13 @@ export const sanitizeTelemetryString = (input: string): string => {
     if (!input) return "";
 
     let sanitized = input
-        .replace(CREDIT_CARD_REGEX, "[REDACTED_CARD]")
+        .replace(CVV_LABEL_REGEX, "[REDACTED_CVV]")
+        .replace(CREDIT_CARD_REGEX, (match) => {
+            const digitsOnly = match.replace(/\D/g, "");
+            return digitsOnly.length >= 13 && digitsOnly.length <= 19
+                ? "[REDACTED_CARD]"
+                : match;
+        })
         .replace(EMAIL_REGEX, "[REDACTED_EMAIL]")
         .replace(BEARER_TOKEN_REGEX, "Bearer [REDACTED_TOKEN]")
         .replace(API_KEY_REGEX, "key=[REDACTED_SECRET]");

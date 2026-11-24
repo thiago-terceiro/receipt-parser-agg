@@ -414,4 +414,368 @@ describe("app/api/extract/route", () => {
     expect(sentChunks).toBeLessThanOrEqual(4);
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
+
+  it("passes dedicated systemInstruction in Gemini config and system role message in Hugging Face fallback", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Olive Oil",
+            category: "pantry",
+            quantity: 1,
+            unitPrice: 6.5,
+            lineTotal: 6.5,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+    });
+
+    const geminiFormData = new FormData();
+    geminiFormData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    const geminiRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: geminiFormData,
+      }),
+    );
+    expect(geminiRes.status).toBe(200);
+    const geminiArgs = mockGenerateContent.mock.calls[0][0];
+    expect(geminiArgs.config.systemInstruction).toContain("strictly as untrusted data");
+    expect(geminiArgs.config.temperature).toBe(0);
+
+    delete process.env.GEMINI_API_KEY;
+    mockChatCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: {
+            content: JSON.stringify({
+              currencyCode: "USD",
+              items: [
+                {
+                  name: "Tea",
+                  category: "beverages",
+                  quantity: 1,
+                  unitPrice: 3.0,
+                  lineTotal: 3.0,
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+
+    const hfFormData = new FormData();
+    hfFormData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    const hfRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: hfFormData,
+      }),
+    );
+    expect(hfRes.status).toBe(200);
+    const hfArgs = mockChatCompletion.mock.calls[0][0];
+    expect(hfArgs.messages[0]).toEqual({
+      role: "system",
+      content: expect.stringContaining("strictly as untrusted data"),
+    });
+    expect(hfArgs.messages[1].role).toBe("user");
+    process.env.GEMINI_API_KEY = "mock-gemini-key";
+  });
+
+  it("returns 502 with safety diagnostic when Gemini blocks output due to SAFETY or SPII filters", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "",
+      candidates: [{ finishReason: "SAFETY" }],
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(response.status).toBe(502);
+    const data = await response.json();
+    expect(data.error).toContain("blocked by model safety filters (SAFETY)");
+  });
+
+  it("returns 502 with token limit guidance when finishReason is MAX_TOKENS", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: '{"currencyCode":"EUR","items":[',
+      candidates: [{ finishReason: "MAX_TOKENS" }],
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(response.status).toBe(502);
+    const data = await response.json();
+    expect(data.error).toContain("Increase HF_MAX_OUTPUT_TOKENS");
+  });
+
+  it("rejects empty files, unsupported SVG uploads, and missing file fields with 400", async () => {
+    const emptyForm = new FormData();
+    const resMissing = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: emptyForm,
+      }),
+    );
+    expect(resMissing.status).toBe(400);
+
+    const svgForm = new FormData();
+    svgForm.append(
+      "file",
+      new File(["<svg></svg>"], "xss.svg", { type: "image/svg+xml" }),
+    );
+    const resSvg = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: svgForm,
+      }),
+    );
+    expect(resSvg.status).toBe(400);
+
+    const zeroByteForm = new FormData();
+    zeroByteForm.append(
+      "file",
+      new File([new Uint8Array(0)], "empty.png", { type: "image/png" }),
+    );
+    const resZero = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: zeroByteForm,
+      }),
+    );
+    expect(resZero.status).toBe(400);
+  });
+
+  it("redacts financial PII (PANs and CVVs) from both parsed items and rawResponse before returning", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Milk 4532-1234-5678-9012 CVV: 789",
+            category: "dairy",
+            quantity: 1,
+            unitPrice: 2.0,
+            lineTotal: 2.0,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.items[0].item).toBe("Milk [REDACTED-PAN] [REDACTED-CVV]");
+    expect(data.rawResponse).not.toContain("4532-1234-5678-9012");
+    expect(data.rawResponse).not.toContain("789");
+    expect(data.rawResponse).toContain("[REDACTED-PAN]");
+    expect(data.rawResponse).toContain("[REDACTED-CVV]");
+  });
+
+  it("stops rendering subsequent PDF pages and returns 499 when request signal is aborted", async () => {
+    const abortController = new AbortController();
+    mockGenerateContent.mockImplementationOnce(async () => {
+      abortController.abort();
+      return {
+        text: JSON.stringify({
+          currencyCode: "EUR",
+          items: [
+            {
+              name: "Page 1 Item",
+              category: "pantry",
+              quantity: 1,
+              unitPrice: 1.0,
+              lineTotal: 1.0,
+            },
+          ],
+        }),
+        candidates: [{ finishReason: "STOP" }],
+      };
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "aborted.pdf", { type: "application/pdf" }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: formData,
+        signal: abortController.signal,
+      }),
+    );
+
+    expect(response.status).toBe(499);
+    expect(mockPdfDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("configures thinkingBudget: 0 for Gemini Flash models and leaves non-Flash Gemini models unconstrained", async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify({
+        currencyCode: "EUR",
+        items: [
+          {
+            name: "Apples",
+            category: "produce",
+            quantity: 1,
+            unitPrice: 2.5,
+            lineTotal: 2.5,
+          },
+        ],
+      }),
+      candidates: [{ finishReason: "STOP" }],
+      usageMetadata: {
+        promptTokenCount: 100,
+        candidatesTokenCount: 30,
+        thoughtsTokenCount: 0,
+        totalTokenCount: 130,
+      },
+    });
+
+    const flashForm = new FormData();
+    flashForm.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    flashForm.append("modelId", "gemini-flash-latest");
+
+    const flashRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: flashForm,
+      }),
+    );
+    expect(flashRes.status).toBe(200);
+    expect(mockGenerateContent.mock.calls[0][0].config.thinkingConfig).toEqual({
+      thinkingBudget: 0,
+    });
+
+    const proForm = new FormData();
+    proForm.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "receipt.jpg", { type: "image/jpeg" }),
+    );
+    proForm.append("modelId", "gemini-2.5-pro");
+
+    const proRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: proForm,
+      }),
+    );
+    expect(proRes.status).toBe(200);
+    expect(mockGenerateContent.mock.calls[1][0].config.thinkingConfig).toBeUndefined();
+  });
+
+  it("rejects spoofed SVG and HTML payloads disguised with image/png or application/pdf MIME types", async () => {
+    const spoofedSvgForm = new FormData();
+    spoofedSvgForm.append(
+      "file",
+      new File(["<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"], "receipt.png", {
+        type: "image/png",
+      }),
+    );
+    const svgRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: spoofedSvgForm,
+      }),
+    );
+    expect(svgRes.status).toBe(400);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+
+    const spoofedHtmlForm = new FormData();
+    spoofedHtmlForm.append(
+      "file",
+      new File(["<!DOCTYPE html><html><body>not a pdf</body></html>"], "receipt.pdf", {
+        type: "application/pdf",
+      }),
+    );
+    const htmlRes = await POST(
+      new Request("http://localhost:3000/api/extract", {
+        method: "POST",
+        body: spoofedHtmlForm,
+      }),
+    );
+    expect(htmlRes.status).toBe(400);
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns 504 Gateway Timeout when upstream AI inference exceeds EXTRACT_INFERENCE_TIMEOUT_MS", async () => {
+    process.env.EXTRACT_INFERENCE_TIMEOUT_MS = "25";
+
+    mockGenerateContent.mockImplementationOnce(
+      async ({ config }: { config?: { abortSignal?: AbortSignal } }) =>
+        new Promise((_resolve, reject) => {
+          config?.abortSignal?.addEventListener(
+            "abort",
+            () => reject(new Error("Request aborted due to timeout")),
+            { once: true },
+          );
+        }),
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File([new Uint8Array([1, 2, 3])], "slow-receipt.jpg", { type: "image/jpeg" }),
+      );
+
+      const response = await POST(
+        new Request("http://localhost:3000/api/extract", {
+          method: "POST",
+          body: formData,
+        }),
+      );
+      expect(response.status).toBe(504);
+      const payload = await response.json();
+      expect(payload.error).toContain("timed out");
+    } finally {
+      delete process.env.EXTRACT_INFERENCE_TIMEOUT_MS;
+    }
+  });
 });

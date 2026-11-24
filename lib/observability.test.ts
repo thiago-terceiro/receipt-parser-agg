@@ -12,10 +12,10 @@ import { observabilityAttributes } from "@/lib/observability-schema";
 
 describe("lib/observability", () => {
     describe("sanitizeTelemetryString", () => {
-        it("redacts credit card numbers", () => {
-            const message = "Customer card 4532 1234 5678 9012 was charged";
+        it("redacts credit card numbers and explicit CVV security codes", () => {
+            const message = "Customer card 4532 1234 5678 9012 (CVV: 987) and 19-digit 6221261234567890123 was charged";
             expect(sanitizeTelemetryString(message)).toBe(
-                "Customer card [REDACTED_CARD] was charged",
+                "Customer card [REDACTED_CARD] ([REDACTED_CVV]) and 19-digit [REDACTED_CARD] was charged",
             );
         });
 

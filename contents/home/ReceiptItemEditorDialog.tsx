@@ -26,6 +26,7 @@ import {
     sanitizeCategory,
     type ReceiptItem,
 } from "@/lib/receipt";
+import { sanitizeExtractedItemName } from "@/lib/security-sanitizer";
 
 export type EditorState = {
     mode: "adjust" | "add-manual" | "edit-manual";
@@ -133,7 +134,7 @@ const ReceiptItemEditorBody = ({
     };
 
     const handleApply = () => {
-        const trimmedItemName = localItemName.trim();
+        const trimmedItemName = sanitizeExtractedItemName(localItemName);
         if (!trimmedItemName) {
             setLocalError(translations.receipt.errors.invalidItemName);
             return;

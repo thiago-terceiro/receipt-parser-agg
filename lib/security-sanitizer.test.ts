@@ -1,5 +1,8 @@
 import {
   containsPromptInjectionSignatures,
+  MAX_EXTRACTED_ITEM_NAME_LENGTH,
+  redactFinancialPii,
+  sanitizeExtractedItemName,
   sanitizeUntrustedTextForLlm,
   stripInvisibleCharacters,
   wrapInUntrustedXmlBoundary,
@@ -65,6 +68,57 @@ describe("security-sanitizer", () => {
       expect(wrapped).toContain("<untrusted_receipt_ocr>");
       expect(wrapped).toContain("Item: Milk Price: $2");
       expect(wrapped).toContain("</untrusted_receipt_ocr>");
+    });
+  });
+
+  describe("redactFinancialPii", () => {
+    it("redacts 13 to 19 digit credit card PANs with spaces, hyphens, or continuous digits", () => {
+      expect(redactFinancialPii("VISA 4532-1234-5678-9012 Approved")).toBe(
+        "VISA [REDACTED-PAN] Approved",
+      );
+      expect(redactFinancialPii("MC 5412 7512 3412 3456")).toBe(
+        "MC [REDACTED-PAN]",
+      );
+      expect(redactFinancialPii("Card 4532123456789012")).toBe(
+        "Card [REDACTED-PAN]",
+      );
+      expect(redactFinancialPii("AMEX 3782 822463 10005")).toBe(
+        "AMEX [REDACTED-PAN]",
+      );
+    });
+
+    it("redacts explicit CVV, CVC, and CID security codes", () => {
+      expect(redactFinancialPii("Item CVV: 123 and CVC #4567")).toBe(
+        "Item [REDACTED-CVV] and [REDACTED-CVV]",
+      );
+      expect(redactFinancialPii("cvv2=890")).toBe("[REDACTED-CVV]");
+    });
+
+    it("preserves standard grocery descriptions, prices, weights, and dates", () => {
+      const normal = "Organic Milk 2L - 2026-04-15 SKU 12345678";
+      expect(redactFinancialPii(normal)).toBe(normal);
+    });
+  });
+
+  describe("sanitizeExtractedItemName", () => {
+    it("strips invisible unicode, disarms injection markers, redacts PANs, and normalizes whitespace", () => {
+      const raw =
+        "  Organic\u200B   Milk   ```system <|im_start|> 4532-1234-5678-9012 CVV: 999 ";
+      const sanitized = sanitizeExtractedItemName(raw);
+
+      expect(sanitized).toBe(
+        "Organic Milk '''system &lt;|im_start|&gt; [REDACTED-PAN] [REDACTED-CVV]",
+      );
+    });
+
+    it("returns empty string when input contains only invisible characters or whitespace", () => {
+      expect(sanitizeExtractedItemName("\u200B\u200C\uFEFF   ")).toBe("");
+    });
+
+    it("truncates item names exceeding MAX_EXTRACTED_ITEM_NAME_LENGTH", () => {
+      const longName = "A".repeat(MAX_EXTRACTED_ITEM_NAME_LENGTH + 50);
+      const sanitized = sanitizeExtractedItemName(longName);
+      expect(sanitized.length).toBe(MAX_EXTRACTED_ITEM_NAME_LENGTH);
     });
   });
 });

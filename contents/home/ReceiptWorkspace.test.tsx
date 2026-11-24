@@ -652,4 +652,70 @@ describe("ReceiptWorkspace", () => {
         expect(screen.getAllByText("Real Milk")[0]).toBeInTheDocument();
         expect(screen.getByText('receipt.total {"amount":"€2.00"}')).toBeInTheDocument();
     });
+
+    it("aborts in-flight extraction when a new file is selected so stale responses do not overwrite state", async () => {
+        const pendingFetch: { resolve?: (value: Response) => void } = {};
+        const signals: AbortSignal[] = [];
+
+        global.fetch = jest.fn().mockImplementation((_url: string, init?: RequestInit) => {
+            if (init?.signal) {
+                signals.push(init.signal);
+            }
+            return new Promise<Response>((resolve) => {
+                pendingFetch.resolve = resolve;
+            });
+        });
+
+        const { container } = renderWithProviders(
+            <ReceiptWorkspace availableModels={availableModels} />,
+            { withWorkspaceProvider: true },
+        );
+
+        const form = container.querySelector("form") as HTMLFormElement;
+        const input = container.querySelector("input[type='file']") as HTMLInputElement;
+        fireEvent.change(input, {
+            target: { files: [new File(["image1"], "first.png", { type: "image/png" })] },
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("first.png").length).toBeGreaterThan(0);
+        });
+
+        fireEvent.submit(form);
+        expect(signals).toHaveLength(1);
+        expect(signals[0].aborted).toBe(false);
+
+        // User replaces file while extraction is still pending
+        fireEvent.change(input, {
+            target: { files: [new File(["image2"], "second.png", { type: "image/png" })] },
+        });
+
+        expect(signals[0].aborted).toBe(true);
+
+        // Resolve the stale first request
+        pendingFetch.resolve?.(
+            createResponse(
+                JSON.stringify({
+                    backend: "gemini",
+                    currencyCode: "EUR",
+                    modelId: "gemini-flash-latest",
+                    items: [
+                        {
+                            item: "Stale Item From First Receipt",
+                            normalizedItem: "stale item from first receipt",
+                            category: "other",
+                            quantity: 1,
+                            unitPrice: 99,
+                            lineTotal: 99,
+                        },
+                    ],
+                    rawResponse: "{}",
+                }),
+            ),
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText("second.png").length).toBeGreaterThan(0);
+        });
+        expect(screen.queryByText("Stale Item From First Receipt")).not.toBeInTheDocument();
+    });
 });

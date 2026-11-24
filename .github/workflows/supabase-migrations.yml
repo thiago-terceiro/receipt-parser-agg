@@ -14,6 +14,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   apply:
     if: github.event_name == 'push' || github.event.inputs.confirmation == 'APPLY'

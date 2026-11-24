@@ -7,6 +7,7 @@ const makeRequest = (headers: Record<string, string> = {}) => {
 const loadModule = async (options?: {
     hasRedisConfig?: boolean;
     redis?: object | null;
+    limitImpl?: () => Promise<unknown>;
 }) => {
     const slidingWindowMock = jest.fn(() => "window");
 
@@ -14,12 +15,15 @@ const loadModule = async (options?: {
         Ratelimit: class MockRatelimit {
             static slidingWindow = slidingWindowMock;
 
-            limit = jest.fn(async () => ({
-                success: true,
-                limit: 10,
-                remaining: 9,
-                reset: 60,
-            }));
+            limit = jest.fn(
+                options?.limitImpl ??
+                    (async () => ({
+                        success: true,
+                        limit: 10,
+                        remaining: 9,
+                        reset: 60,
+                    })),
+            );
         },
     }));
 
@@ -143,5 +147,28 @@ describe("extract rate limit helpers", () => {
         );
 
         expect(result).toBeNull();
+    });
+
+    test("fails open gracefully when Upstash Redis throws a runtime network error", async () => {
+        const warnSpy = jest.spyOn(console, "warn").mockImplementation();
+        const { checkReceiptExtractionRateLimit } = await loadModule({
+            hasRedisConfig: true,
+            redis: {},
+            limitImpl: async () => {
+                throw new Error("Upstash Redis connection timeout");
+            },
+        });
+
+        const result = await checkReceiptExtractionRateLimit(
+            makeRequest({ "x-vercel-forwarded-for": "203.0.113.5" }),
+            null,
+        );
+
+        expect(result).toBeNull();
+        expect(warnSpy).toHaveBeenCalledWith(
+            "[rate-limit] Receipt extraction rate limit check failed, failing open:",
+            expect.any(Error),
+        );
+        warnSpy.mockRestore();
     });
 });

@@ -82,9 +82,8 @@ export function JsonLd({ baseUrl = "https://receipt-parser-agg.vercel.app" }: Js
   const schemaGraph = getStackedJsonLd(baseUrl);
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaGraph) }}
-    />
+    <script type="application/ld+json">
+      {JSON.stringify(schemaGraph)}
+    </script>
   );
 }

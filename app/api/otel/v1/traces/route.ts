@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 
 export const MAX_PAYLOAD_BYTES = 256 * 1024; // 256 KB
 
-const defaultHoneycombEndpoint = "https://api.honeycomb.io/v1/traces";
+// Hardcoded upstream Honeycomb OTLP endpoint to prevent Server-Side Request Forgery (SSRF).
+export const HONEYCOMB_TRACES_ENDPOINT = "https://api.honeycomb.io/v1/traces";
 
 export async function POST(request: Request) {
   try {
@@ -105,8 +106,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const targetUrl =
-      process.env.HONEYCOMB_API_ENDPOINT?.trim() || defaultHoneycombEndpoint;
     const contentType =
       request.headers.get("content-type") || "application/x-protobuf";
 
@@ -125,7 +124,7 @@ export async function POST(request: Request) {
       upstreamHeaders["x-honeycomb-dataset"] = dataset;
     }
 
-    const upstreamResponse = await fetch(targetUrl, {
+    const upstreamResponse = await fetch(HONEYCOMB_TRACES_ENDPOINT, {
       method: "POST",
       headers: upstreamHeaders,
       body: Buffer.from(rawBody),

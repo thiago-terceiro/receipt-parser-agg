@@ -1,26 +1,27 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "@playwright/test";
 
-test.describe("Full Page Automated Accessibility Audits (Axe)", () => {
-  test("Home page (/en) passes axe accessibility audit", async ({ page }) => {
-    await page.goto("/en");
-    await page.waitForLoadState("domcontentloaded");
+const WCAG_TAGS = [
+  "wcag2a",
+  "wcag2aa",
+  "wcag2aaa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag21aaa",
+  "wcag22aa",
+];
 
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
+test.describe("Full Page Automated Accessibility Audits (Axe WCAG AA/AAA)", () => {
+  for (const route of ["/en", "/pt-br", "/es", "/en/groceries"]) {
+    test(`Route (${route}) passes axe accessibility audit`, async ({ page }) => {
+      await page.goto(route);
+      await page.waitForLoadState("domcontentloaded");
 
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
+      const accessibilityScanResults = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze();
 
-  test("Groceries Dashboard (/en/groceries) passes axe accessibility audit", async ({ page }) => {
-    await page.goto("/en/groceries");
-    await page.waitForLoadState("domcontentloaded");
-
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
+      expect(accessibilityScanResults.violations).toEqual([]);
+    });
+  }
 });

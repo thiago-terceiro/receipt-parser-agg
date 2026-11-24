@@ -33,6 +33,7 @@ import {
   isPdfReceiptFileName,
   isSupportedReceiptUpload,
 } from "@/lib/receipt-upload";
+import { sanitizeExtractedItemName } from "@/lib/security-sanitizer";
 
 import {
   EditorFormValues,
@@ -277,6 +278,7 @@ export const ReceiptWorkspace = ({
     null,
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const extractAbortControllerRef = useRef<AbortController | null>(null);
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
   const currentUserId = (session?.user as { id?: string } | undefined)?.id;
@@ -351,6 +353,13 @@ export const ReceiptWorkspace = ({
     ? translations.receipt.pdfPreviewPlaceholder
     : translations.receipt.previewPlaceholder;
   const hasSelectedFile = displayedFileName !== null;
+
+  useEffect(() => {
+    return () => {
+      extractAbortControllerRef.current?.abort();
+      extractAbortControllerRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -524,6 +533,11 @@ export const ReceiptWorkspace = ({
   }, [setEditedItems, setManualItems, setResult]);
 
   const clearSelectedFile = useCallback(() => {
+    if (extractAbortControllerRef.current) {
+      extractAbortControllerRef.current.abort();
+      extractAbortControllerRef.current = null;
+    }
+    setIsLoading(false);
     setPreviewUrl((currentPreviewUrl) => {
       if (currentPreviewUrl) {
         URL.revokeObjectURL(currentPreviewUrl);
@@ -548,6 +562,11 @@ export const ReceiptWorkspace = ({
         return;
       }
 
+      if (extractAbortControllerRef.current) {
+        extractAbortControllerRef.current.abort();
+        extractAbortControllerRef.current = null;
+      }
+      setIsLoading(false);
       setPreviewUrl((currentPreviewUrl) => {
         if (currentPreviewUrl) {
           URL.revokeObjectURL(currentPreviewUrl);
@@ -626,6 +645,12 @@ export const ReceiptWorkspace = ({
         return;
       }
 
+      if (extractAbortControllerRef.current) {
+        extractAbortControllerRef.current.abort();
+      }
+      const abortController = new AbortController();
+      extractAbortControllerRef.current = abortController;
+
       setIsLoading(true);
       resetWorkspaceState();
 
@@ -640,6 +665,7 @@ export const ReceiptWorkspace = ({
             const response = await fetch("/api/extract", {
               method: "POST",
               body: formData,
+              signal: abortController.signal,
             });
             const payload = await parseJsonResponse<
               ExtractionResponse | { error?: string }
@@ -668,6 +694,13 @@ export const ReceiptWorkspace = ({
           },
         );
 
+        if (
+          abortController.signal.aborted ||
+          extractAbortControllerRef.current !== abortController
+        ) {
+          return;
+        }
+
         logInfo("Receipt extraction completed in browser.", {
           [observabilityFields.event]: observabilityEvents.uiReceiptExtractSuccess,
           [observabilityAttributes.receiptItemCount]: extraction.items.length,
@@ -677,6 +710,14 @@ export const ReceiptWorkspace = ({
           extraction.purchaseDate ?? new Date().toISOString().slice(0, 10),
         );
       } catch (requestError) {
+        if (
+          abortController.signal.aborted ||
+          extractAbortControllerRef.current !== abortController ||
+          (requestError instanceof Error && requestError.name === "AbortError")
+        ) {
+          return;
+        }
+
         logWarn("Receipt extraction failed in browser.", {
           [observabilityFields.event]: observabilityEvents.uiReceiptExtractFailed,
           [observabilityFields.errorMessage]:
@@ -690,7 +731,10 @@ export const ReceiptWorkspace = ({
             : translations.receipt.errors.unexpectedRequest,
         );
       } finally {
-        setIsLoading(false);
+        if (extractAbortControllerRef.current === abortController) {
+          extractAbortControllerRef.current = null;
+          setIsLoading(false);
+        }
       }
     },
     [
@@ -891,7 +935,9 @@ export const ReceiptWorkspace = ({
       return;
     }
 
-    const itemName = (values?.itemName ?? editorState.itemName).trim();
+    const itemName = sanitizeExtractedItemName(
+      values?.itemName ?? editorState.itemName,
+    );
     if (!itemName) {
       setEditorState((current) =>
         current

@@ -10,10 +10,12 @@ import {
   observabilityFields,
 } from "@/lib/observability-schema";
 import { createRateLimitHeaders } from "@/lib/rate-limit";
+import { redactFinancialPii } from "@/lib/security-sanitizer";
 import { getSessionIdentity } from "@/lib/session";
 
 import {
   buildReceiptPrompt,
+  buildReceiptSystemInstruction,
   defaultMaxOutputTokens,
   defaultModelId,
   defaultProvider,
@@ -79,12 +81,93 @@ const getInferenceClient = (): InferenceClient | null => {
   return cachedInferenceClient;
 };
 
-const isGeminiModel = (modelId: string): boolean => modelId.includes("gemini");
+const isGeminiModel = (modelId: string): boolean =>
+  modelId.toLowerCase().includes("gemini");
+
+const isGeminiFlashModel = (modelId: string): boolean => {
+  const normalized = modelId.toLowerCase();
+  return normalized.includes("gemini") && normalized.includes("flash");
+};
+
+const safetyFinishReasons = new Set([
+  "SAFETY",
+  "RECITATION",
+  "BLOCKLIST",
+  "PROHIBITED_CONTENT",
+  "SPII",
+  "content_filter",
+]);
 
 const defaultPdfPageLimit = 5;
 const defaultPdfRenderScale = 3;
 const extractionConcurrencyCap = 2;
 const maxMultipartRequestBodyBytes = 12 * 1024 * 1024;
+export const defaultInferenceTimeoutMs = 45_000;
+
+const getInferenceTimeoutMs = (): number => {
+  const raw = process.env.EXTRACT_INFERENCE_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return defaultInferenceTimeoutMs;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, 55_000)
+    : defaultInferenceTimeoutMs;
+};
+
+const createScopedInferenceSignal = (
+  clientSignal?: AbortSignal,
+  timeoutMs = getInferenceTimeoutMs(),
+) => {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  const onClientAbort = () => {
+    controller.abort(clientSignal?.reason);
+  };
+
+  if (clientSignal?.aborted) {
+    controller.abort(clientSignal.reason);
+  } else if (clientSignal) {
+    clientSignal.addEventListener("abort", onClientAbort, { once: true });
+  }
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error("Inference request timed out."));
+  }, timeoutMs);
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer);
+      if (clientSignal) {
+        clientSignal.removeEventListener("abort", onClientAbort);
+      }
+    },
+  };
+};
+
+const isDisguisedMarkupPayload = (bytes: ArrayBuffer): boolean => {
+  const sampleLength = Math.min(bytes.byteLength, 512);
+  if (sampleLength === 0) {
+    return false;
+  }
+
+  const head = new TextDecoder("utf-8", { fatal: false })
+    .decode(new Uint8Array(bytes, 0, sampleLength))
+    .replace(/^[\uFEFF\s]+/, "")
+    .toLowerCase();
+
+  return (
+    head.startsWith("<!doctype html") ||
+    head.startsWith("<html") ||
+    head.startsWith("<svg") ||
+    head.startsWith("<script") ||
+    (head.startsWith("<?xml") && head.includes("<svg"))
+  );
+};
 
 const encodeBase64 = (bytes: ArrayBuffer | Uint8Array): string => {
   if (bytes instanceof ArrayBuffer) {
@@ -280,6 +363,13 @@ const getUploadedReceiptData = async (
     );
   }
 
+  if (isDisguisedMarkupPayload(bytes)) {
+    throw new RequestValidationError(
+      "Uploaded file contains unsupported HTML or SVG markup.",
+      400,
+    );
+  }
+
   const fileName = file.name?.trim() || null;
   const fileSizeBytes = bytes.byteLength;
   const isPdf = isPdfReceiptUpload(file);
@@ -295,6 +385,7 @@ const getUploadedReceiptData = async (
 };
 
 const extractReceiptFromBase64 = async (options: {
+  abortSignal?: AbortSignal;
   base64Data: string;
   effectiveProvider: string;
   fileName: string | null;
@@ -313,6 +404,9 @@ const extractReceiptFromBase64 = async (options: {
   parsedExtraction: ParsedReceiptExtraction;
   rawResponse: string;
 }> => {
+  if (options.abortSignal?.aborted) {
+    throw new RequestValidationError("Receipt extraction request was aborted.", 499);
+  }
   const sourceLabel = buildReceiptSourceLabel(
     options.sourceType,
     options.pageNumber,
@@ -321,163 +415,209 @@ const extractReceiptFromBase64 = async (options: {
 
   let finishReason: string | undefined;
   let rawResponse: string | undefined;
+  const scopedSignal = createScopedInferenceSignal(options.abortSignal);
 
-  if (options.useGemini && options.geminiClient) {
-    const geminiClient = options.geminiClient;
-    const response = await withSpan(
-      "receipt.extract.ai_inference",
-      async (span) => {
-        span.setAttributes({
-          [observabilityAttributes.receiptModel]: options.model,
-          [observabilityAttributes.receiptProvider]: "gemini",
-          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
-          [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
-          [observabilityAttributes.genAiSystem]: "gemini",
-          [observabilityAttributes.genAiRequestModel]: options.model,
-          ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
-          ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
-        });
+  try {
+    if (options.useGemini && options.geminiClient) {
+      const geminiClient = options.geminiClient;
+      const response = await withSpan(
+        "receipt.extract.ai_inference",
+        async (span) => {
+          span.setAttributes({
+            [observabilityAttributes.receiptModel]: options.model,
+            [observabilityAttributes.receiptProvider]: "gemini",
+            [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+            [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+            [observabilityAttributes.genAiSystem]: "gemini",
+            [observabilityAttributes.genAiRequestModel]: options.model,
+            ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
+            ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
+          });
 
-        const geminiResult = await geminiClient.models.generateContent({
-          model: options.model,
-          contents: [
-            {
-              inlineData: {
-                data: options.base64Data,
-                mimeType: options.imageMimeType,
+          const geminiResult = await geminiClient.models.generateContent({
+            model: options.model,
+            contents: [
+              {
+                inlineData: {
+                  data: options.base64Data,
+                  mimeType: options.imageMimeType,
+                },
               },
+              buildReceiptPrompt(),
+            ],
+            config: {
+              systemInstruction: buildReceiptSystemInstruction(),
+              responseMimeType: "application/json",
+              responseJsonSchema: receiptItemsJsonSchema.schema,
+              maxOutputTokens: defaultMaxOutputTokens,
+              temperature: 0,
+              abortSignal: scopedSignal.signal,
+              ...(isGeminiFlashModel(options.model)
+                ? { thinkingConfig: { thinkingBudget: 0 } }
+                : {}),
             },
-            buildReceiptPrompt(),
-          ],
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: receiptItemsJsonSchema.schema,
-            maxOutputTokens: defaultMaxOutputTokens,
-            temperature: 0,
-          },
-        });
+          });
 
-        if (geminiResult.modelVersion) {
-          span.setAttribute(observabilityAttributes.genAiResponseModel, geminiResult.modelVersion);
-        }
-
-        const candidate = geminiResult.candidates?.[0];
-        const candidateFinishReason = candidate?.finishReason;
-        if (candidateFinishReason) {
-          span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [candidateFinishReason]);
-        }
-
-        const usage = geminiResult.usageMetadata;
-        if (usage) {
-          if (typeof usage.promptTokenCount === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageInputTokens, usage.promptTokenCount);
+          if (geminiResult.modelVersion) {
+            span.setAttribute(observabilityAttributes.genAiResponseModel, geminiResult.modelVersion);
           }
-          if (typeof usage.candidatesTokenCount === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, usage.candidatesTokenCount);
+
+          const candidate = geminiResult.candidates?.[0];
+          const candidateFinishReason = candidate?.finishReason;
+          if (candidateFinishReason) {
+            span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [candidateFinishReason]);
           }
-          if (typeof usage.totalTokenCount === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, usage.totalTokenCount);
+
+          const usage = geminiResult.usageMetadata as
+            | {
+                promptTokenCount?: number;
+                candidatesTokenCount?: number;
+                thoughtsTokenCount?: number;
+                totalTokenCount?: number;
+              }
+            | undefined;
+          if (usage) {
+            if (typeof usage.promptTokenCount === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageInputTokens, usage.promptTokenCount);
+            }
+            if (typeof usage.candidatesTokenCount === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, usage.candidatesTokenCount);
+            }
+            if (typeof usage.thoughtsTokenCount === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageReasoningTokens, usage.thoughtsTokenCount);
+            }
+            if (typeof usage.totalTokenCount === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, usage.totalTokenCount);
+            }
           }
-        }
 
-        return geminiResult;
-      },
-      {
-        [observabilityAttributes.receiptOperation]: "extract",
-      },
-    );
+          return geminiResult;
+        },
+        {
+          [observabilityAttributes.receiptOperation]: "extract",
+        },
+      );
 
-    finishReason = response.candidates?.[0]?.finishReason;
-    rawResponse = response.text ?? "";
-  } else {
-    const inferenceClient = options.inferenceClient;
-    if (!inferenceClient) {
-      throw new Error("No AI provider is configured on the server.");
-    }
+      finishReason =
+        response.candidates?.[0]?.finishReason ??
+        (response as { promptFeedback?: { blockReason?: string } }).promptFeedback
+          ?.blockReason;
+      rawResponse = response.text ?? "";
+    } else {
+      const inferenceClient = options.inferenceClient;
+      if (!inferenceClient) {
+        throw new Error("No AI provider is configured on the server.");
+      }
 
-    const imageUrl = `data:${options.imageMimeType};base64,${options.base64Data}`;
+      const imageUrl = `data:${options.imageMimeType};base64,${options.base64Data}`;
 
-    const response = await withSpan(
-      "receipt.extract.ai_inference",
-      async (span) => {
-        span.setAttributes({
-          [observabilityAttributes.receiptModel]: options.model,
-          [observabilityAttributes.receiptProvider]: options.provider,
-          [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
-          [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
-          [observabilityAttributes.genAiSystem]: options.provider,
-          [observabilityAttributes.genAiRequestModel]: options.model,
-          ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
-          ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
-        });
+      const response = await withSpan(
+        "receipt.extract.ai_inference",
+        async (span) => {
+          span.setAttributes({
+            [observabilityAttributes.receiptModel]: options.model,
+            [observabilityAttributes.receiptProvider]: options.provider,
+            [observabilityAttributes.receiptMaxOutputTokens]: defaultMaxOutputTokens,
+            [observabilityAttributes.receiptSourceFilePresent]: Boolean(options.fileName),
+            [observabilityAttributes.genAiSystem]: options.provider,
+            [observabilityAttributes.genAiRequestModel]: options.model,
+            ...(options.fileSizeBytes ? { [observabilityAttributes.receiptFileSizeBytes]: options.fileSizeBytes } : {}),
+            ...(options.mimeType ? { [observabilityAttributes.receiptMimeType]: options.mimeType } : {}),
+          });
 
-        const completion = await inferenceClient.chatCompletion({
-          provider: options.provider as never,
-          model: options.model,
-          messages: [
+          const completion = await inferenceClient.chatCompletion(
             {
-              role: "user",
-              content: [
+              provider: options.provider as never,
+              model: options.model,
+              messages: [
                 {
-                  type: "image_url",
-                  image_url: { url: imageUrl },
+                  role: "system",
+                  content: buildReceiptSystemInstruction(),
                 },
                 {
-                  type: "text",
-                  text: buildReceiptPrompt(),
+                  role: "user",
+                  content: [
+                    {
+                      type: "image_url",
+                      image_url: { url: imageUrl },
+                    },
+                    {
+                      type: "text",
+                      text: buildReceiptPrompt(),
+                    },
+                  ] satisfies ChatMessageContent,
                 },
-              ] satisfies ChatMessageContent,
+              ],
+              response_format: {
+                type: "json_object",
+                json_schema: receiptItemsJsonSchema,
+              },
+              max_tokens: defaultMaxOutputTokens,
+              temperature: 0,
             },
-          ],
-          response_format: {
-            type: "json_object",
-            json_schema: receiptItemsJsonSchema,
-          },
-          max_tokens: defaultMaxOutputTokens,
-          temperature: 0,
-        });
+            {
+              signal: scopedSignal.signal,
+            },
+          );
 
-        const completionWithUsage = completion as {
-          choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
-          model?: string;
-          usage?: {
-            completion_tokens?: number;
-            prompt_tokens?: number;
-            total_tokens?: number;
+          const completionWithUsage = completion as {
+            choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+            model?: string;
+            usage?: {
+              completion_tokens?: number;
+              prompt_tokens?: number;
+              total_tokens?: number;
+            };
           };
-        };
 
-        if (completionWithUsage.model) {
-          span.setAttribute(observabilityAttributes.genAiResponseModel, completionWithUsage.model);
-        }
-
-        const choiceFinishReason = completionWithUsage.choices?.[0]?.finish_reason;
-        if (choiceFinishReason) {
-          span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [choiceFinishReason]);
-        }
-
-        if (completionWithUsage.usage) {
-          const { prompt_tokens, completion_tokens, total_tokens } = completionWithUsage.usage;
-          if (typeof prompt_tokens === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageInputTokens, prompt_tokens);
+          if (completionWithUsage.model) {
+            span.setAttribute(observabilityAttributes.genAiResponseModel, completionWithUsage.model);
           }
-          if (typeof completion_tokens === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, completion_tokens);
-          }
-          if (typeof total_tokens === "number") {
-            span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, total_tokens);
-          }
-        }
 
-        return completion;
-      },
-      {
-        [observabilityAttributes.receiptOperation]: "extract",
-      },
-    );
+          const choiceFinishReason = completionWithUsage.choices?.[0]?.finish_reason;
+          if (choiceFinishReason) {
+            span.setAttribute(observabilityAttributes.genAiResponseFinishReasons, [choiceFinishReason]);
+          }
 
-    finishReason = response.choices?.[0]?.finish_reason;
-    rawResponse = response.choices?.[0]?.message?.content;
+          if (completionWithUsage.usage) {
+            const { prompt_tokens, completion_tokens, total_tokens } = completionWithUsage.usage;
+            if (typeof prompt_tokens === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageInputTokens, prompt_tokens);
+            }
+            if (typeof completion_tokens === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageOutputTokens, completion_tokens);
+            }
+            if (typeof total_tokens === "number") {
+              span.setAttribute(observabilityAttributes.genAiUsageTotalTokens, total_tokens);
+            }
+          }
+
+          return completion;
+        },
+        {
+          [observabilityAttributes.receiptOperation]: "extract",
+        },
+      );
+
+      finishReason = response.choices?.[0]?.finish_reason;
+      rawResponse = response.choices?.[0]?.message?.content;
+    }
+  } catch (error) {
+    if (options.abortSignal?.aborted) {
+      throw new RequestValidationError(
+        "Receipt extraction request was aborted.",
+        499,
+      );
+    }
+    if (scopedSignal.didTimeout()) {
+      throw new RequestValidationError(
+        "AI inference timed out while extracting the receipt. Please try again.",
+        504,
+      );
+    }
+    throw error;
+  } finally {
+    scopedSignal.cleanup();
   }
 
   logExtractionDiagnostics({
@@ -495,18 +635,26 @@ const extractReceiptFromBase64 = async (options: {
     );
   }
 
+  if (finishReason && safetyFinishReasons.has(finishReason)) {
+    throw new Error(
+      `${sourceLabel} extraction was blocked by model safety filters (${finishReason}).`,
+    );
+  }
+
   if (typeof rawResponse !== "string" || !rawResponse.trim()) {
     throw new Error(`${sourceLabel} returned an empty response.`);
   }
 
+  const sanitizedRawResponse = redactFinancialPii(rawResponse);
+
   const parsedExtraction = await withSpan(
     "receipt.extract.parse_items",
     async (span) => {
-      const parsed = parseReceiptExtraction(rawResponse);
+      const parsed = parseReceiptExtraction(sanitizedRawResponse);
 
       span.setAttributes({
         [observabilityAttributes.receiptItemCount]: parsed.items.length,
-        [observabilityAttributes.receiptRawResponseLength]: rawResponse.length,
+        [observabilityAttributes.receiptRawResponseLength]: sanitizedRawResponse.length,
       });
 
       return parsed;
@@ -518,11 +666,12 @@ const extractReceiptFromBase64 = async (options: {
 
   return {
     parsedExtraction,
-    rawResponse,
+    rawResponse: sanitizedRawResponse,
   };
 };
 
 const extractPdfPages = async (options: {
+  abortSignal?: AbortSignal;
   bytes: ArrayBuffer;
   effectiveProvider: string;
   fileName: string | null;
@@ -578,6 +727,13 @@ const extractPdfPages = async (options: {
       if (firstError !== null) {
         break;
       }
+      if (options.abortSignal?.aborted) {
+        firstError = new RequestValidationError(
+          "Receipt extraction request was aborted.",
+          499,
+        );
+        break;
+      }
 
       let pageBuffer: Buffer;
       try {
@@ -598,6 +754,7 @@ const extractPdfPages = async (options: {
       const pageIndex = pageNumber - 1;
 
       const task = extractReceiptFromBase64({
+        abortSignal: options.abortSignal,
         base64Data: pageBase64,
         effectiveProvider: options.effectiveProvider,
         fileName: options.fileName,
@@ -750,6 +907,7 @@ export const POST = async (request: Request) => {
 
     if (upload.sourceType === "pdf") {
       ({ pageExtractions, rawResponses } = await extractPdfPages({
+        abortSignal: request.signal,
         bytes: upload.bytes,
         effectiveProvider,
         fileName: upload.fileName,
@@ -766,6 +924,7 @@ export const POST = async (request: Request) => {
         ? upload.mimeType
         : "image/jpeg";
       const result = await extractReceiptFromBase64({
+        abortSignal: request.signal,
         base64Data: encodeBase64(upload.bytes),
         effectiveProvider,
         fileName: upload.fileName,

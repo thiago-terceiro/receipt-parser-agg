@@ -9,6 +9,14 @@
 const INVISIBLE_UNICODE_REGEX =
   /[\u200B\u200C\u200D\u200E\u200F\uFEFF\u2060\u2061\u2062\u2063\u2064\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
 
+// Credit card Primary Account Number (PAN) candidates (13-19 digits with optional spaces or hyphens)
+const PAN_CANDIDATE_REGEX = /\b\d(?:[ -]?\d){12,18}\b/g;
+
+// Explicit CVV / CVC / CID security code labels followed by 3-4 digits
+const CVV_LABEL_REGEX = /\b(?:cvv2?|cvc2?|cid)\s*[:#=-]?\s*\d{3,4}\b/gi;
+
+export const MAX_EXTRACTED_ITEM_NAME_LENGTH = 200;
+
 // Common signatures and instruction-override delimiters for indirect prompt injections
 const PROMPT_INJECTION_SIGNATURES: RegExp[] = [
   /ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|prompts|rules|directives)/i,
@@ -40,6 +48,24 @@ export const containsPromptInjectionSignatures = (text: string): boolean => {
 };
 
 /**
+ * Deterministically redacts credit card Primary Account Numbers (PANs, 13-19 digits)
+ * and explicit CVV/CVC security codes from model output strings.
+ */
+export const redactFinancialPii = (text: string): string => {
+  if (!text) return "";
+
+  const withoutCvv = text.replace(CVV_LABEL_REGEX, "[REDACTED-CVV]");
+
+  return withoutCvv.replace(PAN_CANDIDATE_REGEX, (match) => {
+    const digitsOnly = match.replace(/\D/g, "");
+    if (digitsOnly.length >= 13 && digitsOnly.length <= 19) {
+      return "[REDACTED-PAN]";
+    }
+    return match;
+  });
+};
+
+/**
  * Neutralizes prompt injection strings by disarming markdown code fences,
  * system instruction tokens, and control characters.
  */
@@ -62,6 +88,28 @@ export const sanitizeUntrustedTextForLlm = (text: string): string => {
     .replace(/\[\/SYS\]/gi, "(/SYS)");
 
   return sanitized.trim();
+};
+
+/**
+ * Post-inference sanitizer for extracted receipt item names.
+ * Strips invisible characters, disarms injection markers, redacts financial PII,
+ * normalizes whitespace, and enforces a strict maximum character length.
+ */
+export const sanitizeExtractedItemName = (
+  text: string,
+  maxLength = MAX_EXTRACTED_ITEM_NAME_LENGTH,
+): string => {
+  if (!text) return "";
+
+  const disarmed = sanitizeUntrustedTextForLlm(text);
+  const redacted = redactFinancialPii(disarmed);
+  const collapsed = redacted.replace(/\s+/g, " ").trim();
+
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+
+  return collapsed.slice(0, maxLength).trim();
 };
 
 /**

@@ -195,6 +195,42 @@ describe("OTel Traces Proxy Route (/api/otel/v1/traces)", () => {
     const json = await response.json();
     expect(json.error).toBe("Too many telemetry requests. Please slow down.");
   });
+
+  it("enforces hardcoded Honeycomb endpoint and blocks SSRF override attempts via env, query params, or headers", async () => {
+    process.env.HONEYCOMB_API_KEY = "test-api-key";
+    process.env.HONEYCOMB_API_ENDPOINT = "http://169.254.169.254/latest/meta-data/";
+
+    const mockUpstreamResponse = new Response(JSON.stringify({ status: "ok" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    const fetchSpy = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(mockUpstreamResponse);
+
+    const request = new Request(
+      "http://localhost:3000/api/otel/v1/traces?endpoint=http://attacker.example.com&target=http://127.0.0.1:8080",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-protobuf",
+          "x-forwarded-host": "attacker.example.com",
+          "x-target-url": "http://169.254.169.254",
+        },
+        body: new Uint8Array([1, 2, 3]),
+      },
+    );
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.honeycomb.io/v1/traces",
+      expect.any(Object),
+    );
+
+    fetchSpy.mockRestore();
+  });
 });
 
 

@@ -151,6 +151,61 @@ describe("lib/rate-limit", () => {
     });
   });
 
+  describe("checkMcpRateLimit", () => {
+    it("returns null when redis is not configured", async () => {
+      const { checkMcpRateLimit } = await loadRateLimitModule({
+        hasRedisConfig: false,
+      });
+
+      const result = await checkMcpRateLimit(createRateLimitRequest());
+      expect(result).toBeNull();
+    });
+
+    it("evaluates mcp rate limit with client IP when configured", async () => {
+      const limitMock = jest.fn(async () => ({
+        success: false,
+        limit: 30,
+        remaining: 0,
+        reset: 60,
+      }));
+
+      const { checkMcpRateLimit } = await loadRateLimitModule({
+        hasRedisConfig: true,
+        redis: {},
+        limitMock,
+      });
+
+      const request = createRateLimitRequest({
+        "x-forwarded-for": "203.0.113.42",
+      });
+
+      const result = await checkMcpRateLimit(request);
+      expect(limitMock).toHaveBeenCalledWith("ip:203.0.113.42");
+      expect(result).toEqual({
+        success: false,
+        limit: 30,
+        remaining: 0,
+        reset: 60,
+      });
+    });
+
+    it("fails open when mcp rate limiter throws an error", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      const limitMock = jest.fn().mockRejectedValue(new Error("Redis unavailable"));
+
+      const { checkMcpRateLimit } = await loadRateLimitModule({
+        hasRedisConfig: true,
+        redis: {},
+        limitMock,
+      });
+
+      const result = await checkMcpRateLimit(createRateLimitRequest());
+      expect(result).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+  });
+
   describe("createRateLimitHeaders", () => {
     it("formats standard rate limit headers correctly", async () => {
       const { createRateLimitHeaders } = await loadRateLimitModule();
