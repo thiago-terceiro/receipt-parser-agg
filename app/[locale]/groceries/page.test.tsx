@@ -32,6 +32,10 @@ jest.mock("@/lib/i18n/config", () => ({
     getLocaleFromSegment: jest.fn((locale: string) => locale),
 }));
 
+import { Suspense } from "react";
+
+import { GroceriesDashboardContent } from "@/app/[locale]/groceries/GroceriesDashboardContent";
+import { GroceriesSignInCard } from "@/app/[locale]/groceries/GroceriesSignInCard";
 import GroceriesPage from "@/app/[locale]/groceries/page";
 import { redirect } from "@/i18n/navigation";
 import { BoardRouteError, requireBoardIdentity } from "@/lib/boards-server";
@@ -43,18 +47,40 @@ describe("GroceriesPage", () => {
         jest.clearAllMocks();
     });
 
+    it("renders GroceriesSignInCard immediately when unauthenticated", async () => {
+        (getSessionIdentity as jest.Mock).mockResolvedValue(null);
+
+        const element = await GroceriesPage({
+            params: Promise.resolve({ locale: "en" }),
+        });
+
+        expect(element.type).toBe(GroceriesSignInCard);
+        expect(loadGroceriesDashboardData).not.toHaveBeenCalled();
+    });
+
+    it("returns a streaming Suspense boundary without blocking on loadGroceriesDashboardData", async () => {
+        (getSessionIdentity as jest.Mock).mockResolvedValue({
+            email: "person@example.com",
+            image: null,
+            name: "Person",
+            userId: "user-123",
+        });
+
+        const element = await GroceriesPage({
+            params: Promise.resolve({ locale: "en" }),
+            searchParams: Promise.resolve({ month: "2026-03" }),
+        });
+
+        expect(element.type).toBe(Suspense);
+        expect(loadGroceriesDashboardData).not.toHaveBeenCalled();
+    });
+
     it("redirects to the fallback groceries route when the requested board is stale", async () => {
         const redirectSignal = new Error("redirect");
         const redirectMock = redirect as unknown as jest.Mock;
 
         redirectMock.mockImplementation(() => {
             throw redirectSignal;
-        });
-        (getSessionIdentity as jest.Mock).mockResolvedValue({
-            email: "person@example.com",
-            image: null,
-            name: "Person",
-            userId: "user-123",
         });
         (requireBoardIdentity as jest.Mock).mockResolvedValue({
             email: "person@example.com",
@@ -67,12 +93,11 @@ describe("GroceriesPage", () => {
         );
 
         await expect(
-            GroceriesPage({
-                params: Promise.resolve({ locale: "en" }),
-                searchParams: Promise.resolve({
-                    board: "4f6939ce-d5f2-4c08-aecc-a0f0569bb10d",
-                    month: "2026-03",
-                }),
+            GroceriesDashboardContent({
+                currentMonth: "2026-11",
+                locale: "en",
+                month: "2026-03",
+                requestedBoardId: "4f6939ce-d5f2-4c08-aecc-a0f0569bb10d",
             }),
         ).rejects.toBe(redirectSignal);
 

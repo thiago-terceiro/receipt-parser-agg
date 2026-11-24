@@ -76,13 +76,30 @@ type ScopedCacheEntry = {
 const JWT_TTL_SECONDS = 3600;
 const JWT_REFRESH_BUFFER_MS = 60_000;
 const MAX_SCOPED_CLIENT_CACHE_SIZE = 500;
+const PLACEHOLDER_JWT_SECRET_PATTERN =
+    /^(\[.*\]|<.*>|changeme|replace[_-]?me|your[_-].*|placeholder|todo)$/i;
 
 let cachedSupabaseServerClient: SupabaseClient | null = null;
 const scopedClientCache = new Map<string, ScopedCacheEntry>();
+let hasWarnedInvalidJwtSecret = false;
+
+export const isUsableJwtSecret = (value: string | null): value is string => {
+    if (!value) {
+        return false;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length < 16) {
+        return false;
+    }
+
+    return !PLACEHOLDER_JWT_SECRET_PATTERN.test(trimmed);
+};
 
 export const resetSupabaseServerClientForTesting = () => {
     cachedSupabaseServerClient = null;
     scopedClientCache.clear();
+    hasWarnedInvalidJwtSecret = false;
 };
 
 const pruneScopedClientCache = (now: number) => {
@@ -142,7 +159,14 @@ export const getSupabaseServerClient = (userContext?: UserContext): SupabaseClie
         return cachedEntry.client;
     }
 
-    const jwtSecret = resolveEnvValue(["SUPABASE_JWT_SECRET"]);
+    const rawJwtSecret = resolveEnvValue(["SUPABASE_JWT_SECRET"]);
+    const jwtSecret = isUsableJwtSecret(rawJwtSecret) ? rawJwtSecret : null;
+    if (rawJwtSecret && !jwtSecret && !hasWarnedInvalidJwtSecret) {
+        hasWarnedInvalidJwtSecret = true;
+        console.warn(
+            "Ignoring unusable SUPABASE_JWT_SECRET placeholder; falling back to service role scoped headers.",
+        );
+    }
     let currentJwt = jwtSecret
         ? createSignedUserJwt(userId, jwtSecret, JWT_TTL_SECONDS)
         : null;

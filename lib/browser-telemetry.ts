@@ -97,9 +97,11 @@ export const initializeBrowserTelemetry = () => {
             ignoreNetworkEvents: true,
             propagateTraceHeaderCorsUrls: resolveTraceHeaderCorsUrls(),
           },
+          "@opentelemetry/instrumentation-user-interaction": {
+            enabled: false,
+          },
           "@opentelemetry/instrumentation-xml-http-request": {
-            ignoreNetworkEvents: true,
-            propagateTraceHeaderCorsUrls: resolveTraceHeaderCorsUrls(),
+            enabled: false,
           },
         }),
         new WebVitalsInstrumentation(),

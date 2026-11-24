@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "build": "next build",
+    "bench": "tsx ./scripts/run-benchmarks.ts",
     "security:check": "tsx ./scripts/security-check.ts",
     "security:audit": "pnpm audit --audit-level=high",
     "ci:verify": "next typegen && tsc --noEmit && eslint . && tsx ./scripts/security-check.ts && jest --runInBand",

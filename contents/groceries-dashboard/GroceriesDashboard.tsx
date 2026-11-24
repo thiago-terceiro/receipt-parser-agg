@@ -182,17 +182,33 @@ export const GroceriesDashboard = ({
   }, []);
 
   useEffect(() => {
-    const prev = shiftMonthKey(activePayload.month, -1);
-    const next = shiftMonthKey(activePayload.month, 1);
-    void prefetchMonth(displayedActiveBoard.id, prev);
-    if (next <= currentMonth) {
-      void prefetchMonth(displayedActiveBoard.id, next);
-    }
-  }, [currentMonth, displayedActiveBoard.id, activePayload.month, prefetchMonth]);
+    const runIdleTasks = () => {
+      writeGroceriesDashboardSnapshot(locale, serverSnapshot);
+      const prev = shiftMonthKey(activePayload.month, -1);
+      const next = shiftMonthKey(activePayload.month, 1);
+      void prefetchMonth(displayedActiveBoard.id, prev);
+      if (next <= currentMonth) {
+        void prefetchMonth(displayedActiveBoard.id, next);
+      }
+    };
 
-  useEffect(() => {
-    writeGroceriesDashboardSnapshot(locale, serverSnapshot);
-  }, [locale, serverSnapshot]);
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(runIdleTasks);
+      return () => {
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    runIdleTasks();
+    return undefined;
+  }, [
+    activePayload.month,
+    currentMonth,
+    displayedActiveBoard.id,
+    locale,
+    prefetchMonth,
+    serverSnapshot,
+  ]);
 
   const currencyFormatter = useMemo(
     () => createCurrencyFormatter(locale, displayedPayload.currencyCode),

@@ -232,4 +232,39 @@ describe("lib/supabase-server", () => {
         getScopedSupabaseServerClient({ userId: "bounded-user-0" });
         expect(mockCreateClient).toHaveBeenCalledTimes(callsBefore + 1);
     });
+
+    it("ignores placeholder SUPABASE_JWT_SECRET values and warns once", async () => {
+        const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            process.env.SUPABASE_URL = "https://example.supabase.co";
+            process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-service-role-key";
+            process.env.SUPABASE_JWT_SECRET = "[SENSITIVE]";
+
+            const {
+                getScopedSupabaseServerClient,
+                isUsableJwtSecret,
+                resetSupabaseServerClientForTesting,
+            } = await import("./supabase-server");
+
+            resetSupabaseServerClientForTesting();
+            expect(isUsableJwtSecret("[SENSITIVE]")).toBe(false);
+            expect(isUsableJwtSecret("<your-secret>")).toBe(false);
+            expect(isUsableJwtSecret("short")).toBe(false);
+            expect(isUsableJwtSecret("super-secret-jwt-key")).toBe(true);
+
+            getScopedSupabaseServerClient({ userId: "user-placeholder-1" });
+            getScopedSupabaseServerClient({ userId: "user-placeholder-2" });
+
+            expect(warnSpy).toHaveBeenCalledTimes(1);
+            const firstCallHeaders = (
+                mockCreateClient.mock.calls[0]?.[2] as {
+                    global?: { headers?: Record<string, string> };
+                }
+            )?.global?.headers;
+            expect(firstCallHeaders?.["X-App-User-Id"]).toBe("user-placeholder-1");
+            expect(firstCallHeaders?.Authorization).toBeUndefined();
+        } finally {
+            warnSpy.mockRestore();
+        }
+    });
 });

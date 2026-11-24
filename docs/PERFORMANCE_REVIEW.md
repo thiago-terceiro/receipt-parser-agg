@@ -7,6 +7,8 @@
 
 This document serves as the chronological, per-date record of performance audits, optimizations, root-cause rationales, measured before/after impacts, and reproduction steps for `receipt-parser-agg`.
 
+> **Benchmark Journal**: See [BENCHMARK_JOURNAL.md](./BENCHMARK_JOURNAL.md) for chronological Lighthouse, Core Web Vitals, TTFB, security header, and live AI OCR benchmark runs.
+
 ---
 
 ## Timeline Index
