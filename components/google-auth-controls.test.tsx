@@ -76,7 +76,7 @@ describe("GoogleAuthControls", () => {
 
         await user.click(menuButton);
 
-        expect(screen.getByRole("heading", { name: "auth.sectionLabel" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "auth.sectionLabel" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "auth.continueWithGoogle" })).toBeInTheDocument();
         expect(screen.getAllByRole("button", { name: "auth.continueWithGoogle", hidden: true })).toHaveLength(2);
         expect(screen.getAllByText("Theme toggle")).toHaveLength(2);

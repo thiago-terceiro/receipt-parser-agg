@@ -10,7 +10,6 @@ import type { BoardMemberSummary, BoardSummary } from "@/lib/boards";
 import { createCurrencyFormatter } from "@/lib/currency";
 import {
   buildMonthOptions,
-  shiftMonthKey,
   type GroceriesMonthPayload,
   type GroceryCategorySummary,
   type MonthOption,
@@ -96,6 +95,8 @@ export const GroceriesDashboard = ({
   currentMonth,
   members,
   monthOptions: _monthOptions,
+  showBackToHome = true,
+  showHeroIntro = true,
 }: {
   activeBoard: BoardSummary;
   boards: BoardSummary[];
@@ -103,6 +104,8 @@ export const GroceriesDashboard = ({
   currentMonth: string;
   members: BoardMemberSummary[];
   monthOptions: MonthOption[];
+  showBackToHome?: boolean;
+  showHeroIntro?: boolean;
 }) => {
   const locale = useLocale();
   const translations = useTranslations();
@@ -184,12 +187,6 @@ export const GroceriesDashboard = ({
   useEffect(() => {
     const runIdleTasks = () => {
       writeGroceriesDashboardSnapshot(locale, serverSnapshot);
-      const prev = shiftMonthKey(activePayload.month, -1);
-      const next = shiftMonthKey(activePayload.month, 1);
-      void prefetchMonth(displayedActiveBoard.id, prev);
-      if (next <= currentMonth) {
-        void prefetchMonth(displayedActiveBoard.id, next);
-      }
     };
 
     if (typeof window !== "undefined" && "requestIdleCallback" in window) {
@@ -201,14 +198,7 @@ export const GroceriesDashboard = ({
 
     runIdleTasks();
     return undefined;
-  }, [
-    activePayload.month,
-    currentMonth,
-    displayedActiveBoard.id,
-    locale,
-    prefetchMonth,
-    serverSnapshot,
-  ]);
+  }, [locale, serverSnapshot]);
 
   const currencyFormatter = useMemo(
     () => createCurrencyFormatter(locale, displayedPayload.currencyCode),
@@ -415,21 +405,32 @@ export const GroceriesDashboard = ({
     [activePayload.month, currentMonth, displayedActiveBoard.id, router],
   );
 
+  const handlePrefetchMonth = useCallback(
+    (targetMonth: string) => {
+      if (targetMonth <= currentMonth) {
+        void prefetchMonth(displayedActiveBoard.id, targetMonth);
+      }
+    },
+    [currentMonth, displayedActiveBoard.id, prefetchMonth],
+  );
+
   return (
     <div className="grid gap-6">
-      <div>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.78rem] font-semibold text-muted-foreground hover:bg-[var(--surface-plain-soft)]"
-        >
-          <Link href="/" locale={locale}>
-            <Undo2 className="size-4" />
-            <span>{translations.groceries.backToHome}</span>
-          </Link>
-        </Button>
-      </div>
+      {showBackToHome ? (
+        <div>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface-plain)] px-3 text-[0.78rem] font-semibold text-muted-foreground hover:bg-[var(--surface-plain-soft)]"
+          >
+            <Link href="/" locale={locale}>
+              <Undo2 className="size-4" />
+              <span>{translations.groceries.backToHome}</span>
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <GroceriesDashboardBoardsPanel
         activeBoard={displayedActiveBoard}
@@ -448,7 +449,9 @@ export const GroceriesDashboard = ({
         locale={locale}
         statCards={statCards}
         translations={translations}
+        showHeroIntro={showHeroIntro}
         onMonthChange={handleMonthChange}
+        onPrefetchMonth={handlePrefetchMonth}
       />
 
       <GroceriesDashboardRecentReceiptsSection

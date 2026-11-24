@@ -35,7 +35,9 @@ type GroceriesDashboardSummarySectionProps = {
   locale: AppLocale;
   statCards: DashboardStat[];
   translations: Messages;
+  showHeroIntro?: boolean;
   onMonthChange: (month: string) => void;
+  onPrefetchMonth?: (month: string) => void;
 };
 
 const buildDashboardHref = (
@@ -115,7 +117,9 @@ export const GroceriesDashboardSummarySection = memo(({
   locale,
   statCards,
   translations,
+  showHeroIntro = true,
   onMonthChange,
+  onPrefetchMonth,
 }: GroceriesDashboardSummarySectionProps) => {
   const progress = useMemo(() => getMonthProgress(payload.month), [payload.month]);
   const isCurrentMonth = payload.month === currentMonth;
@@ -136,7 +140,7 @@ export const GroceriesDashboardSummarySection = memo(({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2 text-[0.76rem] font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
-            <span>{translations.groceries.eyebrow}</span>
+            {showHeroIntro ? <span>{translations.groceries.eyebrow}</span> : null}
             <span className="text-muted-foreground font-medium">
               {isCurrentMonth
                 ? translations.groceries.currentMonthView
@@ -147,9 +151,11 @@ export const GroceriesDashboardSummarySection = memo(({
             <h1 className="m-0 text-[clamp(2.6rem,6vw,4.8rem)] font-extrabold leading-[0.92] tracking-[-0.05em] text-balance text-foreground">
               {formatMonthLabel(payload.month, locale)}
             </h1>
-            <p className="m-0 mt-3 max-w-[62ch] text-[1.02rem] leading-7 text-muted-foreground">
-              {translations.groceries.heroDescription}
-            </p>
+            {showHeroIntro ? (
+              <p className="m-0 mt-3 max-w-[62ch] text-[1.02rem] leading-7 text-muted-foreground">
+                {translations.groceries.heroDescription}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -162,6 +168,9 @@ export const GroceriesDashboardSummarySection = memo(({
             <Link
               href={previousMonthHref}
               locale={locale}
+              prefetch={false}
+              onMouseEnter={() => onPrefetchMonth?.(previousMonth)}
+              onFocus={() => onPrefetchMonth?.(previousMonth)}
               onClick={(event) => {
                 event.preventDefault();
                 onMonthChange(previousMonth);
@@ -202,6 +211,9 @@ export const GroceriesDashboardSummarySection = memo(({
               <Link
                 href={nextMonthHref}
                 locale={locale}
+                prefetch={false}
+                onMouseEnter={() => onPrefetchMonth?.(nextMonth)}
+                onFocus={() => onPrefetchMonth?.(nextMonth)}
                 onClick={(event) => {
                   event.preventDefault();
                   onMonthChange(nextMonth);

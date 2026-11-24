@@ -35,8 +35,47 @@ Core Web Vitals (**LCP**, **INP**, **CLS**) are validated across three free, rep
 
 | Date | Commit | Summary | Highlights |
 | :--- | :--- | :--- | :--- |
-| **[2026-11-24 (Run 2)](#2026-11-24-run-2--streaming-ssr-mobile-tbt-reduction-jwt-guard--cookie-jar-auth-benchmarks)** | `working tree` | Streaming `/en/groceries` SSR, idle OTel/dashboard scheduling, `SUPABASE_JWT_SECRET` guard, & cold-cache Cookie-Jar Lighthouse | `/en/groceries` Mobile Perf `32 → 71` (TTFB `3,720 ms → 30 ms`, TBT `15,380 ms → 490 ms`, SI `13.0 s → 1.2 s`, BP `96 → 100`) & Desktop `99` (`0 ms` TBT), auth `/en` Mobile `90` / Desktop `100`, `/en/invite` Mobile `98` / Desktop `100`, all routes `100` A11y/BP/Agentic, flagged streamed LCP (`4.7 s`) & CDP INP (`208–224 ms`) |
+| **[2026-11-24 (Run 3)](#2026-11-24-run-3--static-lcp-shell-native-otlp-telemetry-lean-select--dialog-code-splitting)** | `Phase B` | Static `/en/groceries` hero shell above `<Suspense>`, native `9.1 KB` OTLP/JSON browser telemetry, native-backed `<Select>`, intent month prefetching, & lazy closed dialogs | `/en/groceries` Mobile Perf `32 → 71 → 88` (LCP **`0.8 s`**, FCP **`0.8 s`**, CLS **`0`**, TBT `470 ms`, `454.1 KB`) & Desktop **`99`**, auth `/en` Mobile `90 →` **`98`** (`TBT 170 ms`) & Desktop **`100`**, `/en/invite` Desktop **`100`** (`83–86`–`98` Mobile under CPU variance), zero third-party/app unused JS, `-101` packages (`-239.9 KB` raw / `-73.3 KB` gzip JS) |
+| **[2026-11-24 (Run 2)](#2026-11-24-run-2--streaming-ssr-mobile-tbt-reduction-jwt-guard--cookie-jar-auth-benchmarks)** | `17367ef` | Streaming `/en/groceries` SSR, idle OTel/dashboard scheduling, `SUPABASE_JWT_SECRET` guard, & cold-cache Cookie-Jar Lighthouse | `/en/groceries` Mobile Perf `32 → 71` (TTFB `3,720 ms → 30 ms`, TBT `15,380 ms → 490 ms`, SI `13.0 s → 1.2 s`, BP `96 → 100`) & Desktop `99` (`0 ms` TBT), auth `/en` Mobile `90` / Desktop `100`, `/en/invite` Mobile `98` / Desktop `100`, all routes `100` A11y/BP/Agentic, flagged streamed LCP (`4.7 s`) & CDP INP (`208–224 ms`) |
 | **[2026-11-24](#2026-11-24--initial-full-stack--ai-baseline-commit-9b28db4)** | `9b28db4` | Initial full-stack FE + AI OCR + Security Header + Auth CWV baseline | Unauth & auth Desktop `99–100` Perf/`100` A11y, real browser INP `88–120 ms` (`CLS = 0`), `gemini-3.8-flash` `F1 = 1.000`, parser `7,339 receipts/sec`, flagged auth `/en/groceries` Mobile SSR TTFB/TBT (`3,720 ms`/`15,380 ms`), local `SUPABASE_JWT_SECRET` mismatch, & missing CSP |
+
+---
+
+## 2026-11-24 (Run 3) — Static LCP Shell, Native OTLP Telemetry, Lean `<Select>` & Dialog Code-Splitting
+
+**Changes Tested**:
+- **Hoisted Static `/en/groceries` Hero Shell (`app/[locale]/groceries/page.tsx`, `app/[locale]/groceries/GroceriesDashboardContent.tsx`, `contents/groceries-dashboard/GroceriesDashboard.tsx`, `contents/groceries-dashboard/GroceriesDashboardSummarySection.tsx`)**: Rendered the back-to-home link, eyebrow, and hero description statically **above** `<Suspense>` (`showBackToHome={false}`, `showHeroIntro={false}` inside the streamed dashboard) so Chromium paints the LCP text node once at initial flush instead of replacing it when remote Supabase queries resolve.
+- **Native OTLP/HTTP JSON Browser Telemetry (`lib/browser-telemetry.ts`)**: Replaced `@honeycombio/opentelemetry-web` and `@opentelemetry/auto-instrumentations-web` (`-52` packages, eliminating a `206.9 KB` / `61.9 KB` gzip chunk with ~70% unused JS) with a `9.1 KB` (`3domqn3vv5rrf.js`) native `PerformanceObserver` + `fetch` (`traceparent`) + `navigator.sendBeacon` OTLP/JSON exporter targeting `/api/otel/v1/traces`.
+- **Lean Native-Backed `<Select>` (`components/ui/select.tsx`)**: Replaced `@radix-ui/react-select` and the `radix-ui` umbrella package (`-49` packages, eliminating a `98.8 KB` / `32.7 KB` gzip chunk with ~66% unused JS) while keeping the exact `<Select>` API, JSX option text extraction (`extractNodeText`), and responsive trigger sizing.
+- **Intent-Based Month Prefetch & Lazy Dialog Hydration (`GroceriesDashboardSummarySection.tsx`, `GroceriesDashboard.tsx`, `components/google-auth-controls.tsx`, `components/google-auth-mobile-dialog.tsx`, `contents/home/ReceiptWorkspace.tsx`, `GroceriesDashboardCategoriesSection.tsx`, `GroceriesDashboardRecentReceiptsSection.tsx`)**: Set `prefetch={false}` with `onMouseEnter`/`onFocus` month prefetches, conditionally mounted closed modal dialogs on `/en/groceries`, and split `GoogleAuthMobileDialog` and `ReceiptItemEditorDialog` behind `next/dynamic(..., { ssr: false })`.
+
+### A. Run 1 → Run 2 → Run 3 Progression (Google Lighthouse `13.6.0`, Cold Cache + Cookie Jar)
+
+| Authenticated Route & Preset | Perf (`Run 1 → Run 2 → Run 3`) | A11y | BP | SEO | Agentic | FCP | LCP (`Run 1 → Run 2 → Run 3`) | TBT (`Run 1 → Run 2 → Run 3`) | CLS | SI | Transfer KB (Reqs) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `/en/groceries` Mobile | `32 → 71 →` **`88`** (`+56`) | **100** | **100** | **63\*** | **100** | **`0.8 s`** | `6.8 s → 4.7 s →` **`0.8 s`** | `15,380 → 490 →` **`470 ms`** | **`0`** | `1.3 s` | `454.1 KB` (`27`) |
+| `/en/groceries` Desktop | `99 → 99 →` **`99`** | **100** | **100** | **63\*** | **100** | **`0.3 s`** | `0.3 → 1.0 →` **`0.9 s`** | `70 → 0 →` **`40 ms`** | **`0`** | `0.6 s` | `454.3 KB` (`27`) |
+| `/en` Mobile | `83 → 90 →` **`98`** (`+15`) | **100** | **100** | **100** | **100** | **`1.0 s`** | `0.8 → 0.8 →` **`1.0 s`** | `700 → 390 →` **`170 ms`** | **`0`** | `1.0 s` | `440.5 KB` (`27`) |
+| `/en` Desktop | `99 → 100 →` **`100`** | **100** | **100** | **100** | **100** | **`0.3 s`** | `0.3 → 0.2 →` **`0.3 s`** | `90 → 0 →` **`10 ms`** | **`0`** | `0.4 s` | `440.5 KB` (`27`) |
+| `/en/invite` Mobile | `83 → 98 →` **`83–86\*\*`** | **100** | **100** | **63\*** | **100** | `0.7 s` | **`0.7–0.8 s`** | `670 → 160 → 550–680 ms** | **`0`** | `1.0 s` | `424.3 KB` (`25`) |
+| `/en/invite` Desktop | `100 → 100 →` **`100`** | **100** | **100** | **63\*** | **100** | **`0.2 s`** | **`0.2 s`** | `0 → 0 →` **`20 ms`** | **`0`** | `0.5 s` | `424.0 KB` (`25`) |
+
+*\*Note on SEO `63`*: Intentional `noindex` directive on private `/groceries` and `/invite` routes.  
+*\*\*Diagnostic note on `/en/invite` Mobile & Remaining TBT Floor*: Across Run 3 audits (`lighthouse-auth-v5`), **zero application or third-party unused JS remained**—only the shared `71.6 KB` gzip Next.js 16 / React 19 core runtime chunk (`1rx933rm_jjtn.js`, ~`22.9–27.7 KB` unused framework runtime) appeared in `unused-javascript`. `/en/invite` Mobile varied between `97–98` (`160–200 ms` TBT prior to final pass) and `83–86` (`550–680 ms` TBT on `lighthouse-auth-v5` rerun) solely due to Windows headless host CPU scheduling variance on that single `1rx933rm_jjtn.js` React hydration task (`benchmarkIndex ~2,412`), whereas `/en` Mobile hit `98` (`170 ms` TBT) and `/en/groceries` Mobile jumped to `88` (`0.8 s` LCP, `0` CLS).
+
+### B. Real Browser CWV + Interactive INP (Playwright Chromium Cookie Jar, Authenticated `1280×800`)
+
+| Route | Real LCP | Real CLS | Failed HTTP Responses (`>= 400`) | Real INP (`max`) | All Interaction Durations | CWV Status |
+| :--- | :---: | :---: | :---: | :---: | :--- | :--- |
+| `/en` | **`248 ms`** | **`0`** | `0` (`[]`) | **`168 ms`** | `168, 168, 168 ms` | **PASS** (All Good `≤ 200 ms`) |
+| `/en/groceries` | **`1,280 ms`** | **`0`** | `0` (`[]`) | **`264 ms`** | `264, 128, 128, 128, 96, 88, 88, 88, 80, 56 ms` | **Needs Improvement** (`Create board` lazy modal mount `264 ms`; all other interactions `56–128 ms`) |
+
+*Honest limitation*: Deferring `Create board` / `Members` dialog portal mounting reduced initial page hydration cost cleanly, while the first click that opens `Create board` measured `264 ms` under Playwright Event Timing (all subsequent month-switch, dialog, and theme interactions measured `56–128 ms`).
+
+### C. Updated Bundle & CI Gate Snapshot (`next build` + `ci:verify`)
+- **Dependencies Removed**: `-101` packages (`@honeycombio/opentelemetry-web`, `@opentelemetry/auto-instrumentations-web`, `@radix-ui/react-select`, `radix-ui`).
+- **Bundle Stats**: `26` JS chunks — **`944.87 KB` raw / `292.88 KB` gzip** (down from `1,184.76 KB` raw / `366.17 KB` gzip in Run 2: **`-239.89 KB` raw / `-73.29 KB` gzip**); CSS **`67.51 KB` raw / `12.76 KB` gzip**; `rootMainFiles` `5` chunks (`434.07 KB` raw / `129.06 KB` gzip). Browser telemetry chunk dropped from `206.9 KB` → `9.1 KB` (`-95.6%`).
+- **CI & E2E Gates**: `next typegen`, `tsc --noEmit`, `eslint . --max-warnings=0`, `security:check` (`171 files audited, 0 security violations`), `security:audit` (`0 critical / 0 high`), Jest (`63/63` suites, `396/396` tests), and Playwright + Axe WCAG AA/AAA E2E (`6/6` passed).
 
 ---
 

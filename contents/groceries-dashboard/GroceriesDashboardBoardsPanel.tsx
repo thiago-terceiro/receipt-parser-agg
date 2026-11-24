@@ -601,26 +601,32 @@ const GroceriesDashboardBoardsPanelContent = ({
         </Alert>
       ) : null}
 
-      <CreateBoardDialog
-        open={isCreatingBoard}
-        translations={translations}
-        onOpenChange={setIsCreatingBoard}
-        onBoardCreated={handleBoardCreated}
-      />
+      {isCreatingBoard ? (
+        <CreateBoardDialog
+          open={isCreatingBoard}
+          translations={translations}
+          onOpenChange={setIsCreatingBoard}
+          onBoardCreated={handleBoardCreated}
+        />
+      ) : null}
 
-      <InviteBoardDialog
-        activeBoardId={activeBoard.id}
-        open={isInviteOpen}
-        translations={translations}
-        onOpenChange={setIsInviteOpen}
-      />
+      {isInviteOpen ? (
+        <InviteBoardDialog
+          activeBoardId={activeBoard.id}
+          open={isInviteOpen}
+          translations={translations}
+          onOpenChange={setIsInviteOpen}
+        />
+      ) : null}
 
-      <MembersBoardDialog
-        members={members}
-        open={isMembersOpen}
-        translations={translations}
-        onOpenChange={setIsMembersOpen}
-      />
+      {isMembersOpen ? (
+        <MembersBoardDialog
+          members={members}
+          open={isMembersOpen}
+          translations={translations}
+          onOpenChange={setIsMembersOpen}
+        />
+      ) : null}
     </section>
   );
 };

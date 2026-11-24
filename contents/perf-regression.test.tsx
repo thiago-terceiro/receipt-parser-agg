@@ -199,7 +199,7 @@ describe("UI render & INP performance measurements", () => {
         formatCallCount = 0;
         categoryLabelCallCount = 0;
         await user.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
-        await user.click(screen.getByRole("button", { name: "common.cancel" }));
+        await user.click(await screen.findByRole("button", { name: "common.cancel" }));
         const dialogToggleResultsRenders = resultsSectionRenderCount;
         const dialogToggleFormatCalls = formatCallCount;
         const dialogToggleRowRenders = categoryLabelCallCount;

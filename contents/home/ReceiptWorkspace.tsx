@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import {
   startTransition,
@@ -35,11 +36,6 @@ import {
 } from "@/lib/receipt-upload";
 import { sanitizeExtractedItemName } from "@/lib/security-sanitizer";
 
-import {
-  EditorFormValues,
-  EditorState,
-  ReceiptItemEditorDialog,
-} from "./ReceiptItemEditorDialog";
 import { ReceiptWorkspaceResultsSection } from "./ReceiptWorkspaceResultsSection";
 import { ReceiptWorkspaceUploadSection } from "./ReceiptWorkspaceUploadSection";
 import {
@@ -49,6 +45,19 @@ import {
   type AvailableModel,
   type ReceiptItem,
 } from "../../lib/receipt";
+
+import type {
+  EditorFormValues,
+  EditorState,
+} from "./ReceiptItemEditorDialog";
+
+const ReceiptItemEditorDialog = dynamic(
+  () =>
+    import("./ReceiptItemEditorDialog").then(
+      (mod) => mod.ReceiptItemEditorDialog,
+    ),
+  { ssr: false },
+);
 
 type ReceiptWorkspaceProps = {
   availableModels: AvailableModel[];
@@ -1185,16 +1194,18 @@ export const ReceiptWorkspace = ({
         onSaveGroceries={handleSaveGroceries}
       />
 
-      <ReceiptItemEditorDialog
-        currencyFormatter={currencyFormatter}
-        editorState={editorState}
-        hasCorrection={hasEditorCorrection}
-        item={editingItem}
-        translations={translations}
-        onApply={applyCorrection}
-        onClose={closeEditor}
-        onReset={resetCorrection}
-      />
+      {editorState ? (
+        <ReceiptItemEditorDialog
+          currencyFormatter={currencyFormatter}
+          editorState={editorState}
+          hasCorrection={hasEditorCorrection}
+          item={editingItem}
+          translations={translations}
+          onApply={applyCorrection}
+          onClose={closeEditor}
+          onReset={resetCorrection}
+        />
+      ) : null}
     </>
   );
 };

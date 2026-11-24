@@ -230,7 +230,7 @@ describe("ReceiptWorkspace", () => {
         );
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.addManualItem" }));
-        await userEvent.type(screen.getByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
+        await userEvent.type(await screen.findByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
         await userEvent.clear(screen.getByRole("spinbutton", { name: "receipt.editor.quantity" }));
         await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.quantity" }), "3");
         await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
@@ -319,7 +319,7 @@ describe("ReceiptWorkspace", () => {
         expect((await screen.findAllByText("Milk"))[0]).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "receipt.addManualItem" }));
-        await userEvent.type(screen.getByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
+        await userEvent.type(await screen.findByRole("textbox", { name: "receipt.editor.item" }), "Bananas");
         await userEvent.type(screen.getByRole("spinbutton", { name: "receipt.editor.unitPrice" }), "1.5");
         await userEvent.click(screen.getByRole("button", { name: "receipt.editor.addManual" }));
         expect((await screen.findAllByText("Bananas"))[0]).toBeInTheDocument();
@@ -383,7 +383,7 @@ describe("ReceiptWorkspace", () => {
         await screen.findAllByText("Milk");
         await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
 
-        const quantityInput = screen.getByRole("spinbutton", {
+        const quantityInput = await screen.findByRole("spinbutton", {
             name: "receipt.editor.quantity",
         });
         await userEvent.clear(quantityInput);
@@ -398,7 +398,7 @@ describe("ReceiptWorkspace", () => {
         expect((await screen.findAllByText("receipt.alerts.corrected"))[0]).toBeInTheDocument();
 
         await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
-        await userEvent.click(screen.getByRole("button", { name: "receipt.editor.reset" }));
+        await userEvent.click(await screen.findByRole("button", { name: "receipt.editor.reset" }));
 
         await waitFor(() => {
             expect(screen.queryByText("receipt.alerts.corrected")).not.toBeInTheDocument();
@@ -581,7 +581,7 @@ describe("ReceiptWorkspace", () => {
 
         await userEvent.click(screen.getAllByRole("button", { name: "receipt.alerts.adjust" })[0]);
 
-        const itemInput = screen.getByRole("textbox", { name: "receipt.editor.item" });
+        const itemInput = await screen.findByRole("textbox", { name: "receipt.editor.item" });
         await userEvent.clear(itemInput);
         await userEvent.type(itemInput, "Oat Milk");
 

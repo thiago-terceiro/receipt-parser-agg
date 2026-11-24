@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyRound, Menu, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useCallback, useState } from "react";
@@ -9,14 +10,15 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { useLocale, useTranslations } from "@/components/locale-utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { getPathname, Link } from "@/i18n/navigation";
+
+const GoogleAuthMobileDialog = dynamic(
+  () =>
+    import("./google-auth-mobile-dialog").then(
+      (mod) => mod.GoogleAuthMobileDialog,
+    ),
+  { ssr: false },
+);
 
 
 const GoogleMark = () => (
@@ -564,38 +566,30 @@ export const GoogleAuthControls = ({
           ) : null}
         </Link>
 
-        <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <DialogTrigger asChild>
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              className="size-10 rounded-full border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)]"
-              aria-label={translations.auth.sectionLabel}
-            >
-              <Menu className="size-5 text-foreground" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent
-            className="mobile-controls-dialog fixed left-3 right-3 top-3 w-auto max-w-none rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-2xl backdrop-blur-[24px]"
-            aria-describedby={undefined}
-          >
-            <DialogHeader className="pr-10">
-              <DialogTitle className="text-xl font-bold">{translations.auth.sectionLabel}</DialogTitle>
-            </DialogHeader>
-            <div className="mt-4 flex flex-col gap-4">
-              <div className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-2xs">
-                {renderAuthBlock(
-                  "h-11 w-full border-[var(--border)] bg-[var(--surface-plain)] font-medium text-sm",
-                  "mobile",
-                )}
-              </div>
-              <div className="flex flex-col gap-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft-muted)] p-4 shadow-2xs">
-                {renderPreferencesBlock("flex flex-col gap-4")}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="size-10 rounded-full border-[var(--border)] bg-[var(--surface-plain)] shadow-2xs hover:bg-[var(--surface-plain-soft)]"
+          aria-label={translations.auth.sectionLabel}
+          aria-expanded={isMobileMenuOpen}
+          onClick={() => setIsMobileMenuOpen(true)}
+        >
+          <Menu className="size-5 text-foreground" />
+        </Button>
+
+        {isMobileMenuOpen ? (
+          <GoogleAuthMobileDialog
+            open={isMobileMenuOpen}
+            title={translations.auth.sectionLabel}
+            onOpenChange={setIsMobileMenuOpen}
+            authBlock={renderAuthBlock(
+              "h-11 w-full border-[var(--border)] bg-[var(--surface-plain)] font-medium text-sm",
+              "mobile",
+            )}
+            preferencesBlock={renderPreferencesBlock("flex flex-col gap-4")}
+          />
+        ) : null}
       </section>
 
       {/* Desktop Controls (>=981px) */}

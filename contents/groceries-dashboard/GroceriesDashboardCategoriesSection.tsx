@@ -77,30 +77,32 @@ export const GroceriesDashboardCategoriesSection = memo(({
         </div>
       </section>
 
-      <Dialog open={isMobileDetailOpen} onOpenChange={onMobileDialogOpenChange}>
-        <DialogContent className="lg:hidden">
-          {active ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>
-                  {formatCategoryLabel(active.category, translations.categories)}
-                </DialogTitle>
-                <DialogDescription>
-                  {translations.groceries.mobileDescription}
-                </DialogDescription>
-              </DialogHeader>
-              <MemoizedCategoryDetails
-                category={active}
-                categoryLabel={activeCategoryLabel ?? ""}
-                translations={translations}
-                currencyFormatter={currencyFormatter}
-                percentFormatter={percentFormatter}
-                className="mt-4"
-              />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      {isMobileDetailOpen ? (
+        <Dialog open={isMobileDetailOpen} onOpenChange={onMobileDialogOpenChange}>
+          <DialogContent className="lg:hidden">
+            {active ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {formatCategoryLabel(active.category, translations.categories)}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {translations.groceries.mobileDescription}
+                  </DialogDescription>
+                </DialogHeader>
+                <MemoizedCategoryDetails
+                  category={active}
+                  categoryLabel={activeCategoryLabel ?? ""}
+                  translations={translations}
+                  currencyFormatter={currencyFormatter}
+                  percentFormatter={percentFormatter}
+                  className="mt-4"
+                />
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   );
 });

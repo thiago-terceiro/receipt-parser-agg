@@ -192,44 +192,46 @@ export const GroceriesDashboardRecentReceiptsSection = memo(({
         ))}
       </div>
 
-      <Dialog
-        open={receiptPendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open && !isDeleting) {
-            setReceiptPendingDelete(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:w-[min(520px,calc(100vw-32px))] sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>{translations.groceries.deleteReceiptTitle}</DialogTitle>
-            <DialogDescription>
-              {translations.groceries.deleteReceiptDescription(receiptName)}
-            </DialogDescription>
-          </DialogHeader>
+      {receiptPendingDelete ? (
+        <Dialog
+          open={receiptPendingDelete !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDeleting) {
+              setReceiptPendingDelete(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:w-[min(520px,calc(100vw-32px))] sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>{translations.groceries.deleteReceiptTitle}</DialogTitle>
+              <DialogDescription>
+                {translations.groceries.deleteReceiptDescription(receiptName)}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setReceiptPendingDelete(null)}
-              disabled={isDeleting}
-            >
-              {translations.common.cancel}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteReceipt}
-              disabled={isDeleting}
-            >
-              {isDeleting
-                ? translations.groceries.deletingReceipt
-                : translations.groceries.deleteReceiptConfirm}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setReceiptPendingDelete(null)}
+                disabled={isDeleting}
+              >
+                {translations.common.cancel}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteReceipt}
+                disabled={isDeleting}
+              >
+                {isDeleting
+                  ? translations.groceries.deletingReceipt
+                  : translations.groceries.deleteReceiptConfirm}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </section>
   );
 });

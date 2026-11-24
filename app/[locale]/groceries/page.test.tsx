@@ -1,5 +1,5 @@
 jest.mock("next-intl/server", () => ({
-    getTranslations: jest.fn().mockResolvedValue(jest.fn()),
+    getTranslations: jest.fn().mockResolvedValue(jest.fn((key: string) => `groceries.${key}`)),
     setRequestLocale: jest.fn(),
 }));
 
@@ -32,7 +32,7 @@ jest.mock("@/lib/i18n/config", () => ({
     getLocaleFromSegment: jest.fn((locale: string) => locale),
 }));
 
-import { Suspense } from "react";
+import { Children, isValidElement, Suspense, type ReactNode } from "react";
 
 import { GroceriesDashboardContent } from "@/app/[locale]/groceries/GroceriesDashboardContent";
 import { GroceriesSignInCard } from "@/app/[locale]/groceries/GroceriesSignInCard";
@@ -41,6 +41,21 @@ import { redirect } from "@/i18n/navigation";
 import { BoardRouteError, requireBoardIdentity } from "@/lib/boards-server";
 import { loadGroceriesDashboardData } from "@/lib/groceries-server";
 import { getSessionIdentity } from "@/lib/session";
+
+const findSuspenseElement = (node: ReactNode): boolean => {
+    for (const child of Children.toArray(node)) {
+        if (!isValidElement<{ children?: ReactNode }>(child)) {
+            continue;
+        }
+        if (child.type === Suspense) {
+            return true;
+        }
+        if (child.props.children && findSuspenseElement(child.props.children)) {
+            return true;
+        }
+    }
+    return false;
+};
 
 describe("GroceriesPage", () => {
     beforeEach(() => {
@@ -58,7 +73,7 @@ describe("GroceriesPage", () => {
         expect(loadGroceriesDashboardData).not.toHaveBeenCalled();
     });
 
-    it("returns a streaming Suspense boundary without blocking on loadGroceriesDashboardData", async () => {
+    it("renders static shell above a streaming Suspense boundary without blocking on loadGroceriesDashboardData", async () => {
         (getSessionIdentity as jest.Mock).mockResolvedValue({
             email: "person@example.com",
             image: null,
@@ -71,7 +86,7 @@ describe("GroceriesPage", () => {
             searchParams: Promise.resolve({ month: "2026-03" }),
         });
 
-        expect(element.type).toBe(Suspense);
+        expect(findSuspenseElement(element)).toBe(true);
         expect(loadGroceriesDashboardData).not.toHaveBeenCalled();
     });
 
